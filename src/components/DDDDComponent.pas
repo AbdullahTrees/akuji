@@ -74,8 +74,6 @@ type
 
     { 0 = clear, FADE_FULL = black. What a real fader would draw. }
     property FadeLevel: Integer read FFadeLevel;
-    procedure DrawSprite(Src: TBitmap; X, Y: Integer; const SrcRect: TRect;
-                         Transparent: Boolean = True);
 
     { Everything the game draws goes here. Backed by a TBitmap for now, which
       is why LCL-first works: the game already draws through TCanvas. }
@@ -235,16 +233,6 @@ begin
   if (Owner is TCustomForm) and TCustomForm(Owner).HandleAllocated then
     TCustomForm(Owner).Canvas.StretchDraw(
       TCustomForm(Owner).ClientRect, FSurface);
-end;
-
-procedure TDDDD.DrawSprite(Src: TBitmap; X, Y: Integer; const SrcRect: TRect;
-  Transparent: Boolean);
-begin
-  Src.Transparent := Transparent;
-  FSurface.Canvas.CopyRect(
-    Rect(X, Y, X + (SrcRect.Right - SrcRect.Left),
-               Y + (SrcRect.Bottom - SrcRect.Top)),
-    Src.Canvas, SrcRect);
 end;
 
 initialization
