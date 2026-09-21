@@ -21,41 +21,27 @@
   a font we carry is what makes it stop depending on the host at all, and the
   same change is what lets the game draw text on a platform that has no GDI.
 
-  WHY 14 AND NOT 10
+  WHICH STRIKE
 
-  SDL_ttf sizes in pixels per em, not points, and the number that matters is
-  the one the game's own layout implies rather than any conversion. At 14 ppem
-  SDL_ttf measures 'Yes       ' at exactly 52 pixels, which is what puts "No"
-  where the hand expects it. The font's hdmx table - the per-ppem integer
-  advances GDI uses - agrees at 52 for the same size.
+  A bitmap font has fixed strikes rather than a scalable outline, so the size
+  is a FACE INDEX. TTF_OpenFont ignores its ptsize for such a face and always
+  hands back face 0; TTF_OpenFontIndex picks. The file holds six, and the game
+  renders with the first, so that is the one used here - the text looks exactly
+  as it does today rather than merely similar.
 
-  WHY THE GLYPHS ARE ANTIALIASED
-
-  TTF_RenderUTF8_Blended. Solid was tried first, on the reasoning that the
-  raster font this replaces had hard edges - and it looks wrong beside what the
-  game actually draws, which is visibly smooth. The reasoning was sound and the
-  premise was not: GDI antialiases its substituted TrueType face, so smooth
-  edges are what the game has been showing, and they are what it should keep.
-
-  Blended costs a real alpha channel rather than a colour key, so the sheet is
-  composited onto the destination instead of blitted through a key.
+  The save prompt's overlap travels with that choice, which is why the render
+  test reports the prompt width rather than asserting it.
 
   HOW THE OUTLINE IS MADE
 
-  Not by drawing the string four times at one-pixel offsets, which is what the
-  game does and what GDI makes look good. It looks good there because GDI
-  renders at 11 pixels per em, where a one-pixel ring is proportionally thick;
-  at the 14 the layout requires, the same four copies leave a thin, broken
-  outline and the text reads as weaker than the game's.
+  Four stamps at one-pixel offsets, then the fill - exactly what the game does.
+  FreeType's stroker needs outlines and a bitmap face has none, so the
+  technique the game already uses is both the only one available and the
+  faithful one.
 
-  FreeType can stroke the glyph outline properly, so it does: one font handle
-  with TTF_SetFontOutline for the ring, a second plain handle for the fill
-  inside it. That gives an even, rounded ring at any size instead of the union
-  of four offsets, which is what carries the look across from the smaller GDI
-  rendering.
-
-  The two handles are not an indulgence - the stroke is a property of the face,
-  so one handle cannot produce both the ring and the fill.
+  Rendered Solid, because a bitmap strike has nothing to antialias. Blended
+  would wrap the same hard pixels in an alpha channel and change nothing but
+  the cost.
 
   WHY IT IS CACHED
 
@@ -89,10 +75,10 @@ function TextRenderReady: Boolean;
   narration rather than failing to start. The bitmap belongs to the cache and
   must not be freed. }
 function OutlinedText(const S: string; Outline, Fill: TColor;
-                      Ppem: Integer): TBitmap;
+                      Face: Integer): TBitmap;
 
 { How wide the string is, in pixels, at this size. Zero if there is no font. }
-function OutlinedTextWidth(const S: string; Ppem: Integer): Integer;
+function OutlinedTextWidth(const S: string; Face: Integer): Integer;
 
 procedure ShutdownTextRender;
 
@@ -107,16 +93,10 @@ type
     Bmp: TBitmap;
   end;
 
-const
-  { How far the ring is stroked, in pixels. One matches the single-pixel offset
-    the game asks for; two is visibly heavy at this size. }
-  OUTLINE_WEIGHT = 1;
-
 var
   FontDir: string = '';
   Font: PTTF_Font = nil;
-  FontRing: PTTF_Font = nil;
-  FontPpem: Integer = 0;
+  FontFace: Integer = -1;
   Started: Boolean = False;
   Cache: array of TCacheEntry;
 
@@ -128,11 +108,11 @@ end;
 { Opens the font at this size, reusing the handle while the size is unchanged.
   Only one size is ever asked for, but the check costs nothing and a second
   caller with a different size would otherwise silently get the first one's. }
-function EnsureFont(Ppem: Integer): Boolean;
+function EnsureFont(Face: Integer): Boolean;
 var
   Path: string;
 begin
-  if (Font <> nil) and (FontPpem = Ppem) then
+  if (Font <> nil) and (FontFace = Face) then
     Exit(True);
   if FontDir = '' then
     Exit(False);
@@ -149,27 +129,15 @@ begin
     TTF_CloseFont(Font);
     Font := nil;
   end;
-  if FontRing <> nil then
-  begin
-    TTF_CloseFont(FontRing);
-    FontRing := nil;
-  end;
-
   Path := FontDir + OUTLINED_FONT_FILE;
   if not FileExists(Path) then
     Exit(False);
-  Font := TTF_OpenFont(PAnsiChar(AnsiString(Path)), Ppem);
+  { The ptsize argument is ignored for a bitmap face; the index is what picks
+    the strike. The 12 is a placeholder and means nothing. }
+  Font := TTF_OpenFontIndex(PAnsiChar(AnsiString(Path)), 12, Face);
   if Font = nil then
     Exit(False);
-  FontRing := TTF_OpenFont(PAnsiChar(AnsiString(Path)), Ppem);
-  if FontRing = nil then
-  begin
-    TTF_CloseFont(Font);
-    Font := nil;
-    Exit(False);
-  end;
-  TTF_SetFontOutline(FontRing, OUTLINE_WEIGHT);
-  FontPpem := Ppem;
+  FontFace := Face;
   Result := True;
 end;
 
@@ -178,12 +146,12 @@ begin
   Result := Font <> nil;
 end;
 
-function OutlinedTextWidth(const S: string; Ppem: Integer): Integer;
+function OutlinedTextWidth(const S: string; Face: Integer): Integer;
 var
   W, H: cint;
 begin
   Result := 0;
-  if not EnsureFont(Ppem) then
+  if not EnsureFont(Face) then
     Exit;
   if TTF_SizeUTF8(Font, PAnsiChar(AnsiString(S)), @W, @H) = 0 then
     Result := W;
@@ -200,8 +168,12 @@ end;
 
 { Builds the five-pass surface, then copies it into an LCL bitmap once. }
 function Compose(const S: string; Outline, Fill: TColor;
-                 Ppem: Integer): TBitmap;
+                 Face: Integer): TBitmap;
+const
+  DX: array[0..3] of Integer = (-1, 1, 0, 0);
+  DY: array[0..3] of Integer = ( 0, 0,-1, 1);
 var
+  I: Integer;
   Text: PSDL_Surface;
   Sheet: PSDL_Surface;
   Img: TLazIntfImage;
@@ -214,7 +186,7 @@ var
   TW, TH: cint;
 begin
   Result := nil;
-  if not EnsureFont(Ppem) then
+  if not EnsureFont(Face) then
     Exit;
   { Measured on the UNSTROKED face. The ring makes the rendered glyphs wider,
     but the advance the layout depends on is the plain one. }
@@ -223,8 +195,9 @@ begin
   if (TW <= 0) or (TH <= 0) then
     Exit;
 
-  W := TW + 2 * OUTLINE_WEIGHT;
-  H := TH + 2 * OUTLINE_WEIGHT;
+  { One pixel of outline on every side. }
+  W := TW + 2;
+  H := TH + 2;
 
   { With an ALPHA mask - the last argument. Without it the surface has no
     alpha channel to blend into and every glyph arrives opaque. }
@@ -237,25 +210,31 @@ begin
     SDL_FillRect(Sheet, nil, SDL_MapRGBA(Sheet^.format, 0, 0, 0, 0));
     SDL_SetSurfaceBlendMode(Sheet, SDL_BLENDMODE_BLEND);
 
-    { The ring first, at the origin: stroked glyphs already extend outwards. }
-    Text := TTF_RenderUTF8_Blended(FontRing, PAnsiChar(AnsiString(S)),
-                                   ToSDLColor(Outline));
-    if Text <> nil then
+    { The game's own five passes: four one-pixel offsets in the outline
+      colour, then the fill over them. }
+    for I := 0 to 4 do
     begin
+      if I < 4 then
+        Text := TTF_RenderUTF8_Solid(Font, PAnsiChar(AnsiString(S)),
+                                     ToSDLColor(Outline))
+      else
+        Text := TTF_RenderUTF8_Solid(Font, PAnsiChar(AnsiString(S)),
+                                     ToSDLColor(Fill));
+      if Text = nil then
+        Continue;
       SDL_SetSurfaceBlendMode(Text, SDL_BLENDMODE_BLEND);
-      Dst.x := 0; Dst.y := 0; Dst.w := Text^.w; Dst.h := Text^.h;
-      SDL_BlitSurface(Text, nil, Sheet, @Dst);
-      SDL_FreeSurface(Text);
-    end;
-
-    { Then the fill, inset by the stroke so it sits inside the ring. }
-    Text := TTF_RenderUTF8_Blended(Font, PAnsiChar(AnsiString(S)),
-                                   ToSDLColor(Fill));
-    if Text <> nil then
-    begin
-      SDL_SetSurfaceBlendMode(Text, SDL_BLENDMODE_BLEND);
-      Dst.x := OUTLINE_WEIGHT; Dst.y := OUTLINE_WEIGHT;
-      Dst.w := Text^.w; Dst.h := Text^.h;
+      if I < 4 then
+      begin
+        Dst.x := 1 + DX[I];
+        Dst.y := 1 + DY[I];
+      end
+      else
+      begin
+        Dst.x := 1;
+        Dst.y := 1;
+      end;
+      Dst.w := Text^.w;
+      Dst.h := Text^.h;
       SDL_BlitSurface(Text, nil, Sheet, @Dst);
       SDL_FreeSurface(Text);
     end;
@@ -291,17 +270,17 @@ begin
 end;
 
 function OutlinedText(const S: string; Outline, Fill: TColor;
-                      Ppem: Integer): TBitmap;
+                      Face: Integer): TBitmap;
 var
   Key: string;
   I: Integer;
 begin
-  Key := Format('%d|%.8x|%.8x|%s', [Ppem, Outline, Fill, S]);
+  Key := Format('%d|%.8x|%.8x|%s', [Face, Outline, Fill, S]);
   for I := 0 to High(Cache) do
     if Cache[I].Key = Key then
       Exit(Cache[I].Bmp);
 
-  Result := Compose(S, Outline, Fill, Ppem);
+  Result := Compose(S, Outline, Fill, Face);
   if Result = nil then
     Exit;
   SetLength(Cache, Length(Cache) + 1);
@@ -320,11 +299,6 @@ begin
   begin
     TTF_CloseFont(Font);
     Font := nil;
-  end;
-  if FontRing <> nil then
-  begin
-    TTF_CloseFont(FontRing);
-    FontRing := nil;
   end;
   if Started then
   begin

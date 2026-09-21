@@ -50,29 +50,33 @@ const
   { The same font as a file, under the game's data directory, so a port does
     not depend on the host having it installed.
 
-    Windows substitutes Microsoft Sans Serif - micross.ttf, TrueType - for the
-    name above; the raster sserife.fon is not what gets used. So the file is
-    that substitute rather than a lookalike, and a renderer that opens it is
-    asking for the same glyphs the game has always drawn.
+    It is the RASTER font, not a TrueType lookalike. Raw GDI - which is what
+    the game draws through - reports TrueType=False for "MS Sans Serif" and
+    selects sserife.fon, a hand-tuned bitmap face. GDI+ substitutes the
+    TrueType Microsoft Sans Serif for the same name and that is what misled an
+    earlier version of this comment; the letterforms differ visibly, most
+    obviously in 'a' and 'j'.
 
-    THE SIZE IS NOT THE SAME NUMBER, and it is not the one arithmetic suggests
-    either. OUTLINED_FONT_SIZE is 10 POINTS; 10pt at 96 DPI is a 13.33 pixel em,
-    so TTF_OpenFontDPI(file, 10, 96, 96) looks like the right call. It is not -
-    it renders the opening line 168 pixels wide where the game draws it 142.
+    FreeType reads Windows FNT, so SDL_ttf opens this file directly.
 
-    What GDI currently gives is an 11 pixel em, and that is the DEFECT rather
-    than the target - it is the substituted font being narrower than the raster
-    one the game was written against. The size to render at comes from the
-    game's own layout instead.
+    THE SIZE IS A FACE INDEX, NOT A POINT SIZE. A bitmap font carries fixed
+    strikes rather than a scalable outline, and TTF_OpenFont ignores its ptsize
+    argument for one - it always returns face 0. TTF_OpenFontIndex picks the
+    strike. This file holds six:
 
-    The save prompt draws 'Yes       No  ' as one string at x=112 and puts the
-    hand cursor at a fixed x=148, 16 pixels wide. For "No" to clear the hand,
-    'Yes       ' must be 52 pixels. SDL_ttf measures exactly 52 at 14 ppem, and
-    the font's hdmx table - the per-ppem integer advances GDI uses - agrees.
-    Every other size is wrong: 13 gives 44, 15 gives 54. }
-  OUTLINED_FONT_FILE   = 'fonts' + PathDelim + 'micross.ttf';
-  { Pixels per em, which is what SDL_ttf's ptsize argument means. }
-  OUTLINED_FONT_PPEM   = 14;
+        face 0   13px cell    'Yes       ' = 39px    <- what the game shows
+        face 1   16px cell    'Yes       ' = 45px
+        face 2   20px cell    'Yes       ' = 56px
+        face 3   24px cell    'Yes       ' = 67px
+        face 4   29px cell    'Yes       ' = 84px
+        face 5   37px cell    'Yes       ' = 118px
+
+    Face 0 is chosen deliberately: it is the strike the game renders with
+    today, so the text looks exactly as it does now rather than merely
+    similar. The save prompt's overlap comes with it - see
+    notes/transparent-blit-fix.md's sibling note on the prompt. }
+  OUTLINED_FONT_FILE   = 'fonts' + PathDelim + 'sserife.fon';
+  OUTLINED_FONT_FACE   = 0;
 
 type
   { Something that can be blitted from: a sheet, a glyph, a full-screen
@@ -263,9 +267,9 @@ begin
     Exit;
 
   { SDL_ttf from the font the game carries, not GDI from whatever the host
-    calls "MS Sans Serif". Size is ignored: it is 10 POINTS, and what the
-    layout needs is OUTLINED_FONT_PPEM pixels per em - see the note there. }
-  Sheet := OutlinedText(S, Outline, Fill, OUTLINED_FONT_PPEM);
+    calls "MS Sans Serif". Size is ignored: it is 10 POINTS, and a bitmap face
+    is selected by strike rather than sized - see OUTLINED_FONT_FACE. }
+  Sheet := OutlinedText(S, Outline, Fill, OUTLINED_FONT_FACE);
   if Sheet <> nil then
   begin
     { The composed sheet carries its outline, so its top-left is one pixel up

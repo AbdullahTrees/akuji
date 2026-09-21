@@ -113,7 +113,7 @@ const
     dialogue box. Pinned separately because it is drawn by the platform
     rather than blitted from a sheet, so it is the one scene an SDL target
     reproduces with a different rasteriser entirely. }
-  BASELINE_OUTLINED = $BBEAF0C1;
+  BASELINE_OUTLINED = $6589E9BD;
 
 function SelfTestRender(Log: TStrings): Integer;
 var
@@ -128,7 +128,7 @@ var
   Scenes: array[0..4] of TScene;
   Expected: array[0..4] of LongWord;
   Prev, Cur: TPixels;
-  I, Tileset, MapId, TargetDiff, PromptW: Integer;
+  I, Tileset, MapId, TargetDiff, PromptW, PromptNeed: Integer;
   DirectBmp, TargetBmp, Glyph: TBitmap;
   Target, MapTarget: TLCLRenderTarget;
   SheetImage, GlyphImage: TRenderImage;
@@ -230,25 +230,31 @@ begin
       Inc(Result);
     end;
 
-    { THE SAVE PROMPT HAS TO LINE UP.
+    { THE SAVE PROMPT DOES NOT LINE UP, AND THAT IS ON PURPOSE.
 
       The prompt is one string, 'Yes       No  ', drawn at x=112, with the hand
-      cursor at a FIXED x=148 and 16 pixels wide. So "No" begins at
-      112 + width('Yes       ') and must clear 164, which makes that width
-      exactly 52. It was 39 with the font Windows substitutes, which is why the
-      hand sat on the N and the player read "lo".
+      cursor at a FIXED x=148 and 16 pixels wide. For "No" to clear the hand,
+      'Yes       ' would have to be 52 pixels.
 
-      This is the check that the narration font is the right SIZE, and it is
-      stated as the layout's own requirement rather than as a measurement of
-      whatever the renderer currently does. }
-    PromptW := OutlinedTextWidth('Yes       ', OUTLINED_FONT_PPEM);
-    Log.Add(Format('save prompt: "Yes       " is %d px, the layout needs %d',
-      [PromptW, (MB_HAND_ICON_X + MB_HAND_ICON_STEP + MB_ICON_SIZE)
-                - MB_PROMPT_TEXT_X]));
-    if PromptW <> (MB_HAND_ICON_X + MB_HAND_ICON_STEP + MB_ICON_SIZE)
-                  - MB_PROMPT_TEXT_X then
+      The font is the raster MS Sans Serif at face 0, the strike the game has
+      always rendered with, and that gives 39. So the hand sits over the N and
+      the player reads "lo" - which is what the original binary does on a
+      modern Windows too. Face 0 was chosen knowing this: the alternative
+      strikes are 45 and 56, neither of which is 52 either, and 56 changes how
+      every line in the game looks in order to fix one word.
+
+      Reported rather than asserted, because a failing check here would be
+      reporting a decision as a defect. The number is printed so that a change
+      of font or strike shows up in the log immediately. }
+    PromptW := OutlinedTextWidth('Yes       ', OUTLINED_FONT_FACE);
+    PromptNeed := (MB_HAND_ICON_X + MB_HAND_ICON_STEP + MB_ICON_SIZE)
+                  - MB_PROMPT_TEXT_X;
+    Log.Add(Format('save prompt: "Yes       " is %d px, clearing the hand '
+      + 'needs %d - the word No overlaps by %d',
+      [PromptW, PromptNeed, PromptNeed - PromptW]));
+    if PromptW = 0 then
     begin
-      Log.Add('FAILED: the hand cursor and the word No overlap');
+      Log.Add('FAILED: the narration font measured nothing at all');
       Inc(Result);
     end;
 

@@ -25,3 +25,4 @@
 *.bmp binary
 *.dll binary
 *.ttf binary
+*.fon binary
