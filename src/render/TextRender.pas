@@ -29,13 +29,18 @@
   where the hand expects it. The font's hdmx table - the per-ppem integer
   advances GDI uses - agrees at 52 for the same size.
 
-  WHY THE GLYPHS ARE NOT ANTIALIASED
+  WHY THE GLYPHS ARE ANTIALIASED
 
-  TTF_RenderUTF8_Solid, deliberately. The font this replaces was a raster font
-  and raster fonts are not antialiased, so hard edges are closer to what the
-  game looked like than blended glyphs would be. It also means the rendered
-  surface holds exactly two colours, which is what lets it be handed to the LCL
-  with a colour key and no fringing.
+  TTF_RenderUTF8_Blended. Solid was tried first, on the reasoning that the
+  raster font this replaces had hard edges - and it looks wrong beside what the
+  game actually draws, which is visibly smooth. The reasoning was sound and the
+  premise was not: GDI antialiases its substituted TrueType face, so smooth
+  edges are what the game has been showing, and they are what it should keep.
+
+  Blended costs a real alpha channel rather than a colour key, so the sheet is
+  composited onto the destination instead of blitted through a key. The five
+  passes are blended together in SDL first, the same way five TextOut calls
+  accumulate in GDI.
 
   WHY IT IS CACHED
 
@@ -79,11 +84,7 @@ procedure ShutdownTextRender;
 implementation
 
 uses
-  ctypes, SDL2, SDL2_ttf, RenderTarget;
-
-const
-  { Nothing in the narration palette is this, so it can mean "not text". }
-  KEY_COLOR: TColor = $00FF00FF;
+  ctypes, SDL2, SDL2_ttf, RenderTarget, IntfGraphics, FPImage, GraphType;
 
 type
   TCacheEntry = record
@@ -172,6 +173,8 @@ const
 var
   Text: PSDL_Surface;
   Sheet: PSDL_Surface;
+  Img: TLazIntfImage;
+  Col: TFPColor;
   Dst: TSDL_Rect;
   I, X, Y, W, H: Integer;
   Pixels: PUInt32;
@@ -191,22 +194,25 @@ begin
   W := TW + 2;
   H := TH + 2;
 
+  { With an ALPHA mask - the last argument. Without it the surface has no
+    alpha channel to blend into and every glyph arrives opaque. }
   Sheet := SDL_CreateRGBSurface(0, W, H, 32,
-                                $00FF0000, $0000FF00, $000000FF, 0);
+                                $00FF0000, $0000FF00, $000000FF, $FF000000);
   if Sheet = nil then
     Exit;
   try
-    SDL_FillRect(Sheet, nil,
-                 SDL_MapRGB(Sheet^.format, $FF, $00, $FF));   { the key }
+    { Fully transparent, so only what the glyphs cover ends up composited. }
+    SDL_FillRect(Sheet, nil, SDL_MapRGBA(Sheet^.format, 0, 0, 0, 0));
+    SDL_SetSurfaceBlendMode(Sheet, SDL_BLENDMODE_BLEND);
 
     for I := 0 to 4 do
     begin
       if I < 4 then
-        Text := TTF_RenderUTF8_Solid(Font, PAnsiChar(AnsiString(S)),
-                                     ToSDLColor(Outline))
+        Text := TTF_RenderUTF8_Blended(Font, PAnsiChar(AnsiString(S)),
+                                       ToSDLColor(Outline))
       else
-        Text := TTF_RenderUTF8_Solid(Font, PAnsiChar(AnsiString(S)),
-                                     ToSDLColor(Fill));
+        Text := TTF_RenderUTF8_Blended(Font, PAnsiChar(AnsiString(S)),
+                                       ToSDLColor(Fill));
       if Text = nil then
         Continue;
       if I < 4 then
@@ -221,32 +227,36 @@ begin
       end;
       Dst.w := Text^.w;
       Dst.h := Text^.h;
+      SDL_SetSurfaceBlendMode(Text, SDL_BLENDMODE_BLEND);
       SDL_BlitSurface(Text, nil, Sheet, @Dst);
       SDL_FreeSurface(Text);
     end;
 
-    Result := TBitmap.Create;
-    Result.PixelFormat := pf24bit;
-    Result.SetSize(W, H);
-    { Copied a pixel at a time, which is affordable because it happens once per
-      distinct string rather than once per frame. }
-    for Y := 0 to H - 1 do
-    begin
-      Row := PByte(Sheet^.pixels) + Y * Sheet^.pitch;
-      Pixels := PUInt32(Row);
-      for X := 0 to W - 1 do
+    { Built through TLazIntfImage because a TBitmap's Canvas has no way to
+      write an alpha channel, and the alpha is the whole point. }
+    Img := TLazIntfImage.Create(W, H, [riqfRGB, riqfAlpha]);
+    try
+      for Y := 0 to H - 1 do
       begin
-        Pixel := Pixels^;
-        Inc(Pixels);
-        { ARGB in memory -> TColor's $00BBGGRR. }
-        Result.Canvas.Pixels[X, Y] :=
-          TColor(((Pixel and $FF) shl 16)
-                 or (((Pixel shr 8) and $FF) shl 8)
-                 or ((Pixel shr 16) and $FF));
+        Row := PByte(Sheet^.pixels) + Y * Sheet^.pitch;
+        Pixels := PUInt32(Row);
+        for X := 0 to W - 1 do
+        begin
+          Pixel := Pixels^;
+          Inc(Pixels);
+          Col.red   := ((Pixel shr 16) and $FF) * 257;
+          Col.green := ((Pixel shr 8)  and $FF) * 257;
+          Col.blue  := ( Pixel         and $FF) * 257;
+          Col.alpha := ((Pixel shr 24) and $FF) * 257;
+          Img.Colors[X, Y] := Col;
+        end;
       end;
+      Result := TBitmap.Create;
+      Result.PixelFormat := pf32bit;
+      Result.LoadFromIntfImage(Img);
+    finally
+      Img.Free;
     end;
-    Result.TransparentColor := KEY_COLOR;
-    Result.Transparent := True;
   finally
     SDL_FreeSurface(Sheet);
   end;

@@ -113,7 +113,7 @@ const
     dialogue box. Pinned separately because it is drawn by the platform
     rather than blitted from a sheet, so it is the one scene an SDL target
     reproduces with a different rasteriser entirely. }
-  BASELINE_OUTLINED = $2913654C;
+  BASELINE_OUTLINED = $A85C1C74;
 
 function SelfTestRender(Log: TStrings): Integer;
 var
