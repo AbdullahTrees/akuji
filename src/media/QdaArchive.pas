@@ -24,7 +24,7 @@ unit QdaArchive;
 interface
 
 uses
-  Classes, SysUtils, Graphics;
+  Classes, SysUtils, Graphics, RenderTarget;
 
 const
   QDA_MAGIC      = 'QDA0';
@@ -58,6 +58,10 @@ type
     { Caller owns the returned bitmap. }
     function LoadBitmap(Index: Integer): TBitmap;
     function LoadBitmapByName(const AName: string): TBitmap;
+    { The same picture as the renderer sees it. The image OWNS the bitmap,
+      so callers that swap pictures - opening slides, ending stills - free
+      one object rather than two. }
+    function LoadImageByName(const AName: string): TRenderImage;
 
     { Raw bytes, for anything that is not a bitmap. }
     procedure LoadRaw(Index: Integer; Dest: TStream);
@@ -164,6 +168,16 @@ begin
   finally
     Buffer.Free;
   end;
+end;
+
+function TQdaArchive.LoadImageByName(const AName: string): TRenderImage;
+var
+  Bmp: TBitmap;
+begin
+  Bmp := LoadBitmapByName(AName);
+  if Bmp = nil then
+    Exit(nil);
+  Result := TRenderImage.Create(Bmp, True);
 end;
 
 function TQdaArchive.LoadBitmapByName(const AName: string): TBitmap;

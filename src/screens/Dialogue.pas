@@ -20,7 +20,7 @@ interface
 uses
   Classes, SysUtils, Graphics, GameFont, PlayerState, EventRunner, EventScripts,
   TileMaps,
-  GameState, Entities, SoundTable;
+  GameState, Entities, SoundTable, RenderTarget;
 
 const
 
@@ -203,15 +203,15 @@ type
     FOnFadeMusic: TOverlayMusic;
     FMap: TTileMap;
     FSaveFileName: string;
-    FFrameSheet: TBitmap;
+    FFrameSheet: TRenderImage;
     FOnSoulGetDone: TOverlaySoulGetDone;
     FOnMusicBusy: TOverlayMusicBusy;
     procedure TakePage(const Text: string);
     procedure PlaceAt(PlayerTileX, PlayerTileY, CamTileX, CamTileY: Integer);
     function EventSlot(EventId: Integer): Integer;
     function MusicBusy: Boolean;
-    procedure DrawFrame(Dest: TCanvas; X, Y, Rows, Cols: Integer);
-    procedure DrawIcon(Dest: TCanvas; X, Y, SrcX, SrcY: Integer);
+    procedure DrawFrame(Dest: TRenderTarget; X, Y, Rows, Cols: Integer);
+    procedure DrawIcon(Dest: TRenderTarget; X, Y, SrcX, SrcY: Integer);
   public
     { Where the script and the state it answers into live. Set once. }
     { GameState_Reset's share of this object - see the body. }
@@ -272,7 +272,7 @@ type
     function Update(Confirm: Boolean; const Inp: TInputState;
                     var AGameState: Integer): Boolean;
 
-    procedure Draw(Dest: TCanvas; Font: TGameFont; PlayerScreenY: Integer);
+    procedure Draw(Dest: TRenderTarget; Font: TGameFont; PlayerScreenY: Integer);
 
     property Active: Boolean read FActive;
     { Read-only state exposed for tests and rendering. }
@@ -296,7 +296,7 @@ type
     { Resolved save path used by sub-op 13. }
     property SaveFileName: string read FSaveFileName write FSaveFileName;
     { p_Surfaces[1], the sheet the box frame is tiled from. }
-    property FrameSheet: TBitmap read FFrameSheet write FFrameSheet;
+    property FrameSheet: TRenderImage read FFrameSheet write FFrameSheet;
     { What phase 2 needs and this unit cannot reach: GameState_Reset, the
       title asset load and the font definition all live on the form. }
     property OnSoulGetDone: TOverlaySoulGetDone read FOnSoulGetDone
@@ -537,30 +537,27 @@ begin
 end;
 
 { Draws one opaque 16x16 cell from the frame sheet's icon strip. }
-procedure TDialogueBox.DrawIcon(Dest: TCanvas; X, Y, SrcX, SrcY: Integer);
+procedure TDialogueBox.DrawIcon(Dest: TRenderTarget; X, Y, SrcX, SrcY: Integer);
 begin
   if FFrameSheet = nil then
     Exit;
-  FFrameSheet.Transparent := False;
-  Dest.CopyRect(
-    Rect(X, Y, X + MB_ICON_SIZE, Y + MB_ICON_SIZE),
-    FFrameSheet.Canvas,
+  { The sheet's Transparent flag used to be cleared here. CopyRect never read
+    it and nothing draws this sheet whole, so it was doing nothing; BlitRect is
+    opaque by definition and says so. }
+  Dest.BlitRect(FFrameSheet,
     Rect(MB_ICON_SRC_X + SrcX, SrcY,
-         MB_ICON_SRC_X + SrcX + MB_ICON_SIZE, SrcY + MB_ICON_SIZE));
+         MB_ICON_SRC_X + SrcX + MB_ICON_SIZE, SrcY + MB_ICON_SIZE), X, Y);
 end;
 
-procedure TDialogueBox.DrawFrame(Dest: TCanvas; X, Y, Rows, Cols: Integer);
+procedure TDialogueBox.DrawFrame(Dest: TRenderTarget; X, Y, Rows, Cols: Integer);
 var
   Col, Row, SrcCol, SrcRow: Integer;
 
   procedure Tile(DX, DY, SC, SR: Integer);
   begin
-    FFrameSheet.Transparent := False;
-    Dest.CopyRect(
-      Rect(DX, DY, DX + BOX_TILE, DY + BOX_TILE),
-      FFrameSheet.Canvas,
+    Dest.BlitRect(FFrameSheet,
       Rect(SC * BOX_TILE, SR * BOX_TILE,
-           SC * BOX_TILE + BOX_TILE, SR * BOX_TILE + BOX_TILE));
+           SC * BOX_TILE + BOX_TILE, SR * BOX_TILE + BOX_TILE), DX, DY);
   end;
 
 begin
@@ -863,7 +860,7 @@ begin
   BuildLines;
 end;
 
-procedure TDialogueBox.Draw(Dest: TCanvas; Font: TGameFont;
+procedure TDialogueBox.Draw(Dest: TRenderTarget; Font: TGameFont;
                             PlayerScreenY: Integer);
 var
   BoxY, I: Integer;

@@ -40,6 +40,13 @@ interface
 uses
   Classes, SysUtils, Graphics, Types;
 
+const
+  { The system font the opening narration is drawn in. It lives here rather
+    than with the bitmap font because the target is what has to satisfy it,
+    and GameFont re-exports it so the check that pins it against the
+    original binary keeps working. }
+  OUTLINED_FONT_NAME = 'MS Sans Serif';
+
 type
   { Something that can be blitted from: a sheet, a glyph, a full-screen
     picture. }
@@ -79,6 +86,25 @@ type
     { A whole image, honouring any transparency it carries. }
     procedure DrawImage(Src: TRenderImage; X, Y: Integer); virtual; abstract;
 
+    { A whole image scaled into a rectangle. The ending slides are the only
+      thing the game scales, and they are the reason this exists rather than
+      being folded into DrawImage: the scaling filter is a visible choice, and
+      an SDL target picks it explicitly. }
+    procedure StretchImage(Src: TRenderImage;
+                           const DestRect: TRect); virtual; abstract;
+
+    { Text in a SYSTEM font, outlined by drawing it five times.
+
+      The odd one out, and deliberately part of the seam rather than left to
+      callers. Everything else the game draws is pixels it already owns; the
+      opening narration is the one place that asks the platform for glyphs,
+      because the bitmap font only covers $20..$5F and the narration has
+      lowercase in it. An SDL target has to answer this with SDL_ttf or with a
+      prerendered sheet - it is the one primitive with no direct equivalent. }
+    procedure DrawOutlinedText(X, Y: Integer; const S: string;
+                               Outline, Fill: TColor;
+                               Size: Integer); virtual; abstract;
+
     property Width: Integer read GetWidth;
     property Height: Integer read GetHeight;
   end;
@@ -101,6 +127,9 @@ type
     procedure BlitRect(Src: TRenderImage; const SrcRect: TRect;
                        X, Y: Integer); override;
     procedure DrawImage(Src: TRenderImage; X, Y: Integer); override;
+    procedure StretchImage(Src: TRenderImage; const DestRect: TRect); override;
+    procedure DrawOutlinedText(X, Y: Integer; const S: string;
+                               Outline, Fill: TColor; Size: Integer); override;
 
     property Canvas: TCanvas read FCanvas;
   end;
@@ -183,6 +212,32 @@ begin
   if (Src = nil) or (Src.Bitmap = nil) then
     Exit;
   FCanvas.Draw(X, Y, Src.Bitmap);
+end;
+
+procedure TLCLRenderTarget.StretchImage(Src: TRenderImage;
+  const DestRect: TRect);
+begin
+  if (Src = nil) or (Src.Bitmap = nil) then
+    Exit;
+  FCanvas.StretchDraw(DestRect, Src.Bitmap);
+end;
+
+procedure TLCLRenderTarget.DrawOutlinedText(X, Y: Integer; const S: string;
+  Outline, Fill: TColor; Size: Integer);
+begin
+  if S = '' then
+    Exit;
+  FCanvas.Font.Name := OUTLINED_FONT_NAME;
+  FCanvas.Font.Size := Size;
+  FCanvas.Font.Color := Outline;
+  FCanvas.Brush.Style := bsClear;
+  { Four offset copies make the outline, then the fill over them. }
+  FCanvas.TextOut(X - 1, Y, S);
+  FCanvas.TextOut(X + 1, Y, S);
+  FCanvas.TextOut(X, Y - 1, S);
+  FCanvas.TextOut(X, Y + 1, S);
+  FCanvas.Font.Color := Fill;
+  FCanvas.TextOut(X, Y, S);
 end;
 
 end.

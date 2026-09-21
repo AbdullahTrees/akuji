@@ -11,7 +11,7 @@ uses
   Classes, SysUtils, Forms, Controls, Graphics, LCLType,
   DDDDComponent, DDIDComponent, DDSDComponent, KbgmPlayer, GameState,
   IniFiles, QdaArchive, Title, Ending, Opening, GameFont, Surfaces, Sprites, Stages, TileMaps, PlayerState,
-  Entities, GameSession, SpritePool, Dialogue;
+  Entities, GameSession, SpritePool, Dialogue, RenderTarget;
 
 type
   TFrm_main = class;
@@ -66,7 +66,7 @@ type
     { bmp\power.bmp, the panel's backdrop. Loaded once - PowerUp_Show builds
       the surface every time and frees it when the panel closes, which is a
       lifetime detail, not a behaviour. }
-    FPowerBmp: TBitmap;
+    FPowerBmp: TRenderImage;
     FGameOver: TGameOverScreen;
     FPause: TPauseMenu;
     FOpening: TOpeningScreen;
@@ -77,8 +77,8 @@ type
     FDebugFrames: Integer;
     FDebugFps: Integer;
     FUseArchive: Boolean;
-    FEndingBmp: TBitmap;
-    FOpeningBmp: TBitmap;     { bmp\op%.3d.bmp, one slide at a time }
+    FEndingBmp: TRenderImage;
+    FOpeningBmp: TRenderImage;     { bmp\op%.3d.bmp, one slide at a time }
     FConfirmLatch: Boolean;
     { Owns the active player, entity pool, camera, and event state. }
     FSession: TGameSession;
@@ -264,7 +264,7 @@ begin
       opening sequence and playlist operations to the form-owned components. }
     FStartHost := TFormStartHost.Create(Self);
     FDialogue := TDialogueBox.Create;
-    FPowerBmp := FArchive.LoadBitmapByName('power.bmp');
+    FPowerBmp := FArchive.LoadImageByName('power.bmp');
     FSession.EventHost := FDialogue;
 
     Sheet := FSurfaces[0];
@@ -496,14 +496,14 @@ begin
   if FDialogue.Active and (FDialogue.Mode = omPanel) then
   begin
     if FPowerBmp <> nil then
-      DDDD1.Canvas.Draw(0, 0, FPowerBmp);
-    FDialogue.Draw(DDDD1.Canvas, FFont, 0);
+      DDDD1.Target.DrawImage(FPowerBmp, 0, 0);
+    FDialogue.Draw(DDDD1.Target, FFont, 0);
     Exit;
   end;
 
   FSession.Sprites.DrawAll(DDDD1.Target, FSurfaces);
   DrawHud;
-  FDialogue.Draw(DDDD1.Canvas, FFont,
+  FDialogue.Draw(DDDD1.Target, FFont,
                  PixelOf(FSession.Pool.Field(0, EF_POS_Y)));
   { Bucket 8 is reserved for sprites drawn above the HUD and dialogue. }
   FSession.Sprites.DrawTop(DDDD1.Target, FSurfaces);
@@ -565,9 +565,9 @@ begin
   Inc(FDebugFrames);
 
   if FFont = nil then Exit;
-  FFont.TextOut(DDDD1.Canvas, 0, 0,  'FPS:' + IntToStr(FDebugFps));
-  FFont.TextOut(DDDD1.Canvas, 0, 8,  'OBJ:' + IntToStr(EntitiesLive));
-  FFont.TextOut(DDDD1.Canvas, 0, 16, 'S P:' + IntToStr(EntitiesDrawn));
+  FFont.TextOut(DDDD1.Target, 0, 0,  'FPS:' + IntToStr(FDebugFps));
+  FFont.TextOut(DDDD1.Target, 0, 8,  'OBJ:' + IntToStr(EntitiesLive));
+  FFont.TextOut(DDDD1.Target, 0, 16, 'S P:' + IntToStr(EntitiesDrawn));
 end;
 
 { Applies fullscreen or restores the fixed-size centered window. Archive mode
@@ -604,14 +604,14 @@ begin
     through on the same frame and cuts straight to stage 1. }
   Result := FOpening.Update(ConfirmPressed(FSession.Input),
                             KbgmPlayer1.IsPlaying, DDDD1.FadeBusy);
-  FOpening.Draw(DDDD1.Canvas, FFont, FOpeningBmp);
+  FOpening.Draw(DDDD1.Target, FFont, FOpeningBmp);
 end;
 
 procedure TFrm_main.OpeningPicture(Id: Integer);
 begin
   FreeAndNil(FOpeningBmp);
   if FArchive <> nil then
-    FOpeningBmp := FArchive.LoadBitmapByName(Format(OPENING_PICTURE_FMT, [Id]));
+    FOpeningBmp := FArchive.LoadImageByName(Format(OPENING_PICTURE_FMT, [Id]));
 end;
 
 procedure TFrm_main.PlayMusicTrack(Track: Integer; Loop: Boolean;
@@ -727,7 +727,7 @@ procedure TFrm_main.EndingPicture(Index: Integer);
 begin
   FreeAndNil(FEndingBmp);
   if (Index >= 0) and (FArchive <> nil) then
-    FEndingBmp := FArchive.LoadBitmapByName(Format(ENDING_PICTURE_FMT, [Index]));
+    FEndingBmp := FArchive.LoadImageByName(Format(ENDING_PICTURE_FMT, [Index]));
 end;
 
 { Replaces the ending image with a named full-screen asset. }
@@ -735,7 +735,7 @@ procedure TFrm_main.EndingPictureNamed(const Name: string);
 begin
   FreeAndNil(FEndingBmp);
   if FArchive <> nil then
-    FEndingBmp := FArchive.LoadBitmapByName(Name);
+    FEndingBmp := FArchive.LoadImageByName(Name);
 end;
 
 { Phase 2, the staff roll: seventeen crops of one sheet, scrolling. Ending.pas
@@ -744,25 +744,19 @@ procedure TFrm_main.DrawEndingCredits;
 var
   CreditIndex: Integer;
 begin
-  DDDD1.Canvas.Brush.Color := clBlack;
-  DDDD1.Canvas.FillRect(Rect(0, 0, SCREEN_W, SCREEN_H));
+  DDDD1.Target.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
   if FEndingBmp = nil then
     Exit;
   for CreditIndex := 0 to CREDITS_ENTRIES - 1 do
     if FEnding.CreditOnScreen(CreditIndex) then
-      DDDD1.Canvas.CopyRect(
-        Rect(FEnding.CreditX(CreditIndex), FEnding.CreditY[CreditIndex],
-             FEnding.CreditX(CreditIndex)
-               + CREDITS_LAYOUT[CreditIndex][CREDITS_W],
-             FEnding.CreditY[CreditIndex]
-               + CREDITS_LAYOUT[CreditIndex][CREDITS_H]),
-        FEndingBmp.Canvas,
+      DDDD1.Target.BlitRect(FEndingBmp,
         Rect(CREDITS_LAYOUT[CreditIndex][CREDITS_SX],
              CREDITS_LAYOUT[CreditIndex][CREDITS_SY],
              CREDITS_LAYOUT[CreditIndex][CREDITS_SX]
                + CREDITS_LAYOUT[CreditIndex][CREDITS_W],
              CREDITS_LAYOUT[CreditIndex][CREDITS_SY]
-               + CREDITS_LAYOUT[CreditIndex][CREDITS_H]));
+               + CREDITS_LAYOUT[CreditIndex][CREDITS_H]),
+        FEnding.CreditX(CreditIndex), FEnding.CreditY[CreditIndex]);
 end;
 
 { Phases 3 and 4: one crop of the phase-2 sheet, its right edge growing, drawn
@@ -771,17 +765,13 @@ procedure TFrm_main.DrawEndingStill;
 var
   SourceRight: Integer;
 begin
-  DDDD1.Canvas.Brush.Color := clBlack;
-  DDDD1.Canvas.FillRect(Rect(0, 0, SCREEN_W, SCREEN_H));
+  DDDD1.Target.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
   SourceRight := FEnding.StillRight;
   if (FEndingBmp = nil) or (SourceRight < 0) then
     Exit;
-  DDDD1.Canvas.CopyRect(
-    Rect(STILL_X, STILL_Y,
-         STILL_X + (SourceRight - STILL_SRC_LEFT),
-         STILL_Y + (STILL_SRC_BOTTOM - STILL_SRC_TOP)),
-    FEndingBmp.Canvas,
-    Rect(STILL_SRC_LEFT, STILL_SRC_TOP, SourceRight, STILL_SRC_BOTTOM));
+  DDDD1.Target.BlitRect(FEndingBmp,
+    Rect(STILL_SRC_LEFT, STILL_SRC_TOP, SourceRight, STILL_SRC_BOTTOM),
+    STILL_X, STILL_Y);
 end;
 
 { Phase 5: Option.bmp, then a line a second over it. }
@@ -791,11 +781,10 @@ var
   PlayerState: TPlayerState;
 begin
   if FEndingBmp <> nil then
-    DDDD1.Canvas.Draw(0, 0, FEndingBmp)
+    DDDD1.Target.DrawImage(FEndingBmp, 0, 0)
   else
   begin
-    DDDD1.Canvas.Brush.Color := clBlack;
-    DDDD1.Canvas.FillRect(Rect(0, 0, SCREEN_W, SCREEN_H));
+    DDDD1.Target.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
   end;
   if FFont = nil then
     Exit;
@@ -805,23 +794,23 @@ begin
 
   if RevealedLines > 1 then
   begin
-    FFont.TextOut(DDDD1.Canvas, RESULT_TITLE_X, RESULT_TITLE_Y,
+    FFont.TextOut(DDDD1.Target, RESULT_TITLE_X, RESULT_TITLE_Y,
                   RESULT_TITLE, RESULT_LABEL_VARIANT);
-    FFont.TextOut(DDDD1.Canvas, RESULT_TITLE_X, RESULT_RULE_Y,
+    FFont.TextOut(DDDD1.Target, RESULT_TITLE_X, RESULT_RULE_Y,
                   RESULT_RULE, RESULT_LABEL_VARIANT);
   end;
   if RevealedLines > 2 then
   begin
-    FFont.TextOut(DDDD1.Canvas, RESULT_LABEL_X, RESULT_TIME_Y,
+    FFont.TextOut(DDDD1.Target, RESULT_LABEL_X, RESULT_TIME_Y,
                   RESULT_TIME_LABEL, RESULT_LABEL_VARIANT);
-    FFont.TextOut(DDDD1.Canvas, RESULT_VALUE_X, RESULT_TIME_Y,
+    FFont.TextOut(DDDD1.Target, RESULT_VALUE_X, RESULT_TIME_Y,
                   EndingTimeText(PlayerState.ElapsedSec), RESULT_VALUE_VARIANT);
   end;
   if RevealedLines > 3 then
   begin
-    FFont.TextOut(DDDD1.Canvas, RESULT_LABEL_X, RESULT_MANA_Y,
+    FFont.TextOut(DDDD1.Target, RESULT_LABEL_X, RESULT_MANA_Y,
                   RESULT_MANA_LABEL, RESULT_LABEL_VARIANT);
-    FFont.TextOut(DDDD1.Canvas, RESULT_VALUE_X, RESULT_MANA_Y,
+    FFont.TextOut(DDDD1.Target, RESULT_VALUE_X, RESULT_MANA_Y,
                   EndingPercentText(PlayerState.Counter), RESULT_VALUE_VARIANT);
   end;
   if (RevealedLines > 4) and (FSurfaces[GALLERY_SURFACE] <> nil) then
@@ -842,7 +831,7 @@ begin
     end;
   if RevealedLines > 5 then
     { The rank flickers - its variant is the frame timer mod 3. }
-    FFont.TextOut(DDDD1.Canvas, RANK_X, RANK_Y,
+    FFont.TextOut(DDDD1.Target, RANK_X, RANK_Y,
                   FEnding.RankName(PlayerState.Counter, PlayerState.ElapsedSec),
                   FEnding.Timer mod RANK_VARIANTS);
 end;
@@ -875,19 +864,17 @@ end;
   is the host's. }
 procedure TFrm_main.DrawEndingSlide;
 begin
-  DDDD1.Canvas.Brush.Color := clBlack;
-  DDDD1.Canvas.FillRect(Rect(0, 0, SCREEN_W, SCREEN_H));
+  DDDD1.Target.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
   if (FEndingBmp <> nil) and (FEnding.SlideImage >= 0) then
-    DDDD1.Canvas.StretchDraw(
+    DDDD1.Target.StretchImage(FEndingBmp,
       Rect(ENDING_PIC_X, ENDING_PIC_Y,
-           ENDING_PIC_X + ENDING_PIC_W, ENDING_PIC_Y + ENDING_PIC_H),
-      FEndingBmp);
+           ENDING_PIC_X + ENDING_PIC_W, ENDING_PIC_Y + ENDING_PIC_H));
   Game_DrawTextOutlined(ENDING_LINE_X, ENDING_LINE1_Y, FEnding.SlideLine(0),
                         ENDING_TEXT_OUTLINE, ENDING_TEXT_FILL, 10,
-                        DDDD1.Canvas);
+                        DDDD1.Target);
   Game_DrawTextOutlined(ENDING_LINE_X, ENDING_LINE2_Y, FEnding.SlideLine(1),
                         ENDING_TEXT_OUTLINE, ENDING_TEXT_FILL, 10,
-                        DDDD1.Canvas);
+                        DDDD1.Target);
 end;
 
 procedure TFrm_main.EndingMusic(Track: Integer; Loop: Boolean);
@@ -968,7 +955,7 @@ procedure TFrm_main.TitleGallery(Slot: Integer);
 begin
   FreeAndNil(FEndingBmp);
   if FArchive <> nil then
-    FEndingBmp := FArchive.LoadBitmapByName(Format('omake%.2d.bmp', [Slot]));
+    FEndingBmp := FArchive.LoadImageByName(Format('omake%.2d.bmp', [Slot]));
 end;
 
 { Form adapters used by the game-over screen. }
@@ -1006,7 +993,7 @@ end;
 procedure TFrm_main.DrawGameOver;
 begin
   if FSurfaces[GAMEOVER_SURFACE] <> nil then
-    DDDD1.Canvas.Draw(0, 0, FSurfaces[GAMEOVER_SURFACE]);
+    DDDD1.Target.DrawImage(FSurfaces.Images[GAMEOVER_SURFACE], 0, 0);
 end;
 
 { HUD counter, elapsed time, and animated life icons. }
@@ -1042,13 +1029,13 @@ begin
     Target := COUNTER_TARGETS[FSession.Player.TargetIndex];
   { The padded format aligns both values; Trim removes its outer padding before
     the '@ ' prefix is added. }
-  FFont.TextOut(DDDD1.Canvas, 8, $20,
+  FFont.TextOut(DDDD1.Target, 8, $20,
     '@ ' + Trim(Format('%3d/%-3d', [FSession.Player.Counter, Target])), 0);
 
   { Labels and digits use separate font variants. }
-  FFont.TextOut(DDDD1.Canvas, $D0, $E0, 'TIME', 2);
+  FFont.TextOut(DDDD1.Target, $D0, $E0, 'TIME', 2);
   Secs := FSession.Player.ElapsedSec;
-  FFont.TextOut(DDDD1.Canvas, $F8, $E0,
+  FFont.TextOut(DDDD1.Target, $F8, $E0,
     Format('%.2d:%.2d:%.2d', [Secs div 3600, (Secs div 60) mod 60, Secs mod 60]), 0);
 
   { Life-icon animation advances only while the HUD is drawn. }
@@ -1108,7 +1095,7 @@ begin
         { Stage_Begin hands the box drawer p_Surfaces[1] with its origin
           at (0,0) - FUN_0044DE18. }
         if FSurfaces <> nil then
-          FDialogue.FrameSheet := FSurfaces[BOX_SHEET_SLOT];
+          FDialogue.FrameSheet := FSurfaces.Images[BOX_SHEET_SLOT];
         FDialogue.SaveFileName := FDataDir + 'data' + PathDelim + 'save.dat';
       end;
     GS_PLAY,
@@ -1143,7 +1130,7 @@ begin
 
           It also makes the cursor lag by design - the highlight drawn is the
           position BEFORE this frame's input. }
-        FTitleScreen.Draw(DDDD1.Canvas, FFont, FSurfaces[1], FSurfaces[2],
+        FTitleScreen.Draw(DDDD1.Target, FFont, FSurfaces.Images[1], FSurfaces.Images[2],
                           FEndingBmp);
         FTitleScreen.Update(FMoveY, FMoveX, FConfirm);
       end;
@@ -1191,7 +1178,7 @@ begin
       begin
         { Draw the pause menu over a cleared screen, not the frozen scene. }
         FPause.Update(FSession.Input, GameStateValue);
-        FPause.Draw(DDDD1.Canvas, FFont, SCREEN_W, SCREEN_H);
+        FPause.Draw(DDDD1.Target, FFont, SCREEN_W, SCREEN_H);
       end;
     GS_ENDING:
       begin

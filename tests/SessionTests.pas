@@ -14,7 +14,7 @@ uses
   Stages, Camera, TileMaps, Player, EntityHandlers, EntityMonsters, EntityEffects, EntityProjectiles, EntityTerrain, EntityPickups, EventRunner, GameSession,
   SpritePool, Sprites, Dialogue, BgAnime, UnitInit, Title, Ending, Opening,
   GameFont, DDDDComponent, Surfaces,
-  Graphics;
+  Graphics, RenderTarget;
 
 function SelfTestSession(Log: TStrings): Integer;
 
@@ -815,6 +815,8 @@ var
   Bad, I: Integer;
   Pool: TSpritePool;
   Dest, Pic: TBitmap;
+  DestTarget: TLCLRenderTarget;
+  PicImage: TRenderImage;
   Title: TTitleScreen;
   Sign, Door, Player, Dead, Hidden, Other: Integer;
   Order: TSpriteOrder;
@@ -911,9 +913,11 @@ begin
       Pic.SetSize(64, 64);
       Pic.Canvas.Brush.Color := clRed;
       Pic.Canvas.FillRect(0, 0, 64, 64);
+      DestTarget := TLCLRenderTarget.Create(Dest.Canvas, 64, 64);
+      PicImage := TRenderImage.Create(Pic);
 
       TitleSubMode := TSM_OMAKE;
-      Title.Draw(Dest.Canvas, nil, nil, nil, Pic);
+      Title.Draw(DestTarget, nil, nil, nil, PicImage);
       Want(Dest.Canvas.Pixels[8, 8] = clRed,
            'the gallery sub-mode drew nothing - Draw has no TSM_OMAKE arm, so '
            + 'the picture is loaded and never blitted');
@@ -922,12 +926,14 @@ begin
       Dest.Canvas.Brush.Color := clBlack;
       Dest.Canvas.FillRect(0, 0, 64, 64);
       TitleSubMode := TSM_MENU;
-      Title.Draw(Dest.Canvas, nil, nil, nil, Pic);
+      Title.Draw(DestTarget, nil, nil, nil, PicImage);
       Want(Dest.Canvas.Pixels[8, 8] <> clRed,
            'the gallery picture was drawn while in the ordinary menu');
       TitleSubMode := TSM_MENU;
     finally
       Title.Free;
+      PicImage.Free;
+      DestTarget.Free;
       Pic.Free;
       Dest.Free;
     end;

@@ -205,8 +205,8 @@ begin
     if Surf[0] <> nil then
     begin
       Font := TGameFont.Create(Surf[0]);
-      Font.TextOut(Bmp.Canvas, 8, 8, 'AKUJI 0123');
-      Font.TextOutCentered(Bmp.Canvas, 200, 'THE DEMON');
+      Font.TextOut(MapTarget, 8, 8, 'AKUJI 0123');
+      Font.TextOutCentered(MapTarget, 200, 'THE DEMON');
     end
     else
       Log.Add('note: surface 0 is nil, so the text scene is only the sprites');

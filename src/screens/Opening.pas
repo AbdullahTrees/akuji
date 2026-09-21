@@ -19,7 +19,7 @@ unit Opening;
 interface
 
 uses
-  SysUtils, Graphics, GameState, GameFont;
+  SysUtils, Graphics, GameState, GameFont, RenderTarget;
 
 const
   OPENING_SLIDES = 10;
@@ -109,7 +109,7 @@ type
       MusicPlaying is checked because the final slide waits for its track. }
     function Update(Confirm, MusicPlaying, FadeBusy: Boolean): Boolean;
 
-    procedure Draw(C: TCanvas; F: TGameFont; Picture: TBitmap);
+    procedure Draw(C: TRenderTarget; F: TGameFont; Picture: TRenderImage);
 
     property OnPicture: TOpeningPicture read FOnPicture write FOnPicture;
     property OnMusic: TOpeningMusic read FOnMusic write FOnMusic;
@@ -204,7 +204,7 @@ begin
   end;
 end;
 
-procedure TOpeningScreen.Draw(C: TCanvas; F: TGameFont; Picture: TBitmap);
+procedure TOpeningScreen.Draw(C: TRenderTarget; F: TGameFont; Picture: TRenderImage);
 var
   TextIndex: Integer;
 begin
@@ -212,7 +212,7 @@ begin
     Exit;
 
   if (OpeningPictureFor(Slide) <> -1) and (Picture <> nil) then
-    C.Draw(OPENING_PIC_X, OPENING_PIC_Y, Picture);
+    C.DrawImage(Picture, OPENING_PIC_X, OPENING_PIC_Y);
 
   TextIndex := OPENING_TEXT_INDEX[Slide - 1];
   { Narrative text uses the outlined system font so lowercase remains visible;

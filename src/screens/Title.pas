@@ -7,7 +7,7 @@ unit Title;
 interface
 
 uses
-  Classes, SysUtils, Graphics, GameState, GameFont, SoundTable;
+  Classes, SysUtils, Graphics, GameState, GameFont, SoundTable, RenderTarget;
 
 const
   { Title-screen sub-modes. }
@@ -108,15 +108,15 @@ type
     procedure PlaySound(Index: Integer);
     procedure MenuConfirm;
     procedure OptionsConfirm;
-    procedure DrawValues(C: TCanvas; F: TGameFont);
+    procedure DrawValues(C: TRenderTarget; F: TGameFont);
     procedure AdjustValue(Delta: Integer);
   public
     constructor Create;
     procedure Reset;
     { Returns True when the caller should leave the title screen. }
     function Update(MoveY, MoveX: Integer; Confirm: Boolean): Boolean;
-    procedure Draw(C: TCanvas; F: TGameFont;
-                   BgMenu, BgOptions, Gallery: TBitmap);
+    procedure Draw(C: TRenderTarget; F: TGameFont;
+                   BgMenu, BgOptions, Gallery: TRenderImage);
 
     function GetIndex: Integer;
     function GetSubMode: Integer;
@@ -188,7 +188,7 @@ type
   public
     { Returns True while the pause menu remains active. }
     function Update(var Inp: TInputState; var AGameState: Integer): Boolean;
-    procedure Draw(C: TCanvas; F: TGameFont; ScreenW, ScreenH: Integer);
+    procedure Draw(C: TRenderTarget; F: TGameFont; ScreenW, ScreenH: Integer);
   end;
 
 { Where the pause menu's cursor sound goes. GmMain hooks it up. }
@@ -262,13 +262,12 @@ begin
   end;
 end;
 
-procedure TPauseMenu.Draw(C: TCanvas; F: TGameFont; ScreenW, ScreenH: Integer);
+procedure TPauseMenu.Draw(C: TRenderTarget; F: TGameFont; ScreenW, ScreenH: Integer);
 var
   SelectedIndex, CursorY: Integer;
 begin
   { Colour 0 over the whole screen - the paused game is NOT visible. }
-  C.Brush.Color := clBlack;
-  C.FillRect(0, 0, ScreenW, ScreenH);
+  C.Fill(Rect(0, 0, ScreenW, ScreenH), clBlack);
   if F = nil then Exit;
 
   F.TextOutCentered(C, PAUSE_ROW_Y[0], 'CONTINUE', ScreenW, 2);
@@ -421,7 +420,7 @@ begin
   end;
 end;
 
-procedure TTitleScreen.DrawValues(C: TCanvas; F: TGameFont);
+procedure TTitleScreen.DrawValues(C: TRenderTarget; F: TGameFont);
 
   procedure Val(Row: Integer; const S: string; Variant_: Integer = 0);
   begin
@@ -570,8 +569,8 @@ begin
   end;
 end;
 
-procedure TTitleScreen.Draw(C: TCanvas; F: TGameFont;
-                            BgMenu, BgOptions, Gallery: TBitmap);
+procedure TTitleScreen.Draw(C: TRenderTarget; F: TGameFont;
+                            BgMenu, BgOptions, Gallery: TRenderImage);
 var
   ItemIndex: Integer;
 begin
@@ -579,7 +578,7 @@ begin
   if TitleSubMode = TSM_OMAKE then
   begin
     if Gallery <> nil then
-      C.Draw(0, 0, Gallery);
+      C.DrawImage(Gallery, 0, 0);
     Exit;
   end;
 
@@ -589,7 +588,7 @@ begin
     TSM_MENU:
       begin
         if BgMenu <> nil then
-          C.Draw(0, 0, BgMenu);
+          C.DrawImage(BgMenu, 0, 0);
         for ItemIndex := Low(MENU_ITEMS) to High(MENU_ITEMS) do
           F.TextOut(C, MENU_X, (ItemIndex * 2 + $11) * 8,
                     MENU_ITEMS[ItemIndex], 2);
@@ -600,7 +599,7 @@ begin
     TSM_OPTIONS:
       begin
         if BgOptions <> nil then
-          C.Draw(0, 0, BgOptions);
+          C.DrawImage(BgOptions, 0, 0);
         { The heading is centered like the credit line. }
         F.TextOutCentered(C, OPT_TITLE_Y, OPT_TITLE, TITLE_SCREEN_W, 2);
         for ItemIndex := Low(OPT_LABELS) to High(OPT_LABELS) do

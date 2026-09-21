@@ -19,11 +19,12 @@ unit GameFont;
 interface
 
 uses
-  Classes, SysUtils, Graphics;
+  Classes, SysUtils, Graphics, RenderTarget;
 
 const
   { Font used for outlined narrative text. }
-  OUTLINED_FONT_NAME = 'MS Sans Serif';
+  { Re-exported from RenderTarget, which is where the drawing happens. }
+  OUTLINED_FONT_NAME = RenderTarget.OUTLINED_FONT_NAME;
   OUTLINED_FONT_SIZE = 10;
 
   FONT_FIRST_CHAR = $20;   { space }
@@ -41,17 +42,19 @@ type
     { Glyphs are pre-cut because LCL will not do a transparent blit from a
       sub-rectangle - Draw() honours TBitmap.Transparent, CopyRect does not.
       64 glyphs x 3 variants of 9x9 is trivial to hold. }
-    FGlyphs: array of TBitmap;
+    { Each glyph is cut once into its own image, which is what lets it carry
+      a colour key at all - see the note on the two blits in RenderTarget. }
+    FGlyphs: array of TRenderImage;
     FVariants: Integer;
     function GlyphIndex(Ch: Char; AVariant: Integer): Integer;
   public
     constructor Create(Sheet: TBitmap);
     destructor Destroy; override;
 
-    procedure TextOut(Dest: TCanvas; X, Y: Integer; const S: string;
+    procedure TextOut(Dest: TRenderTarget; X, Y: Integer; const S: string;
                       AVariant: Integer = 0);
     { Centred within ScreenW. }
-    procedure TextOutCentered(Dest: TCanvas; Y: Integer; const S: string;
+    procedure TextOutCentered(Dest: TRenderTarget; Y: Integer; const S: string;
                               ScreenW: Integer = 320; AVariant: Integer = 0);
     function TextWidth(const S: string): Integer;
 
@@ -62,7 +65,7 @@ type
   outline pixels are omitted. }
 procedure Game_DrawTextOutlined(X, Y: Integer; const S: string;
                                 Outline, Fill: TColor; Size: Integer;
-                                Dest: TCanvas);
+                                Dest: TRenderTarget);
 
 implementation
 
@@ -94,7 +97,7 @@ begin
       Glyph.Transparent := True;
 
       FGlyphs[VariantIndex * (FONT_LAST_CHAR - FONT_FIRST_CHAR + 1)
-              + CharacterIndex] := Glyph;
+              + CharacterIndex] := TRenderImage.Create(Glyph, True);
     end;
 end;
 
@@ -123,7 +126,7 @@ begin
             + (CharacterCode - FONT_FIRST_CHAR);
 end;
 
-procedure TGameFont.TextOut(Dest: TCanvas; X, Y: Integer; const S: string;
+procedure TGameFont.TextOut(Dest: TRenderTarget; X, Y: Integer; const S: string;
   AVariant: Integer);
 var
   CharacterIndex, Glyph: Integer;
@@ -132,7 +135,7 @@ begin
   begin
     Glyph := GlyphIndex(S[CharacterIndex], AVariant);
     if Glyph >= 0 then
-      Dest.Draw(X + (CharacterIndex - 1) * FONT_ADVANCE, Y, FGlyphs[Glyph]);
+      Dest.DrawImage(FGlyphs[Glyph], X + (CharacterIndex - 1) * FONT_ADVANCE, Y);
   end;
 end;
 
@@ -141,7 +144,7 @@ begin
   Result := Length(S) * FONT_ADVANCE;
 end;
 
-procedure TGameFont.TextOutCentered(Dest: TCanvas; Y: Integer; const S: string;
+procedure TGameFont.TextOutCentered(Dest: TRenderTarget; Y: Integer; const S: string;
   ScreenW: Integer; AVariant: Integer);
 begin
   TextOut(Dest, (ScreenW - TextWidth(S)) div 2, Y, S, AVariant);
@@ -149,20 +152,11 @@ end;
 
 procedure Game_DrawTextOutlined(X, Y: Integer; const S: string;
                                 Outline, Fill: TColor; Size: Integer;
-                                Dest: TCanvas);
+                                Dest: TRenderTarget);
 begin
-  if (Dest = nil) or (S = '') then
+  if Dest = nil then
     Exit;
-  Dest.Font.Name := OUTLINED_FONT_NAME;
-  Dest.Font.Size := Size;
-  Dest.Font.Color := Outline;
-  Dest.Brush.Style := bsClear;
-  Dest.TextOut(X - 1, Y, S);
-  Dest.TextOut(X + 1, Y, S);
-  Dest.TextOut(X, Y - 1, S);
-  Dest.TextOut(X, Y + 1, S);
-  Dest.Font.Color := Fill;
-  Dest.TextOut(X, Y, S);
+  Dest.DrawOutlinedText(X, Y, S, Outline, Fill, Size);
 end;
 
 end.
