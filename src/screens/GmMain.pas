@@ -163,10 +163,14 @@ implementation
 { Finds game data beside the executable or in the packaged data directory. }
 function TFrm_main.FindGameData: string;
 const
-  Candidates: array[0..2] of string = (
+  { Searched in order, relative to the executable. The first covers a packaged
+    build with the data beside the binary; the rest cover running out of the
+    source tree, where the binary is in bin/ and the data is in assets/. }
+  Candidates: array[0..3] of string = (
     '',
-    '..' + PathDelim + 'English Translated Version 1.1 (D)' + PathDelim,
-    '..' + PathDelim + '..' + PathDelim + 'English Translated Version 1.1 (D)' + PathDelim);
+    'assets' + PathDelim,
+    '..' + PathDelim + 'assets' + PathDelim,
+    '..' + PathDelim + '..' + PathDelim + 'assets' + PathDelim);
 var
   BaseDirectory, CandidatePath: string;
   CandidateIndex: Integer;
