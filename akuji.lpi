@@ -193,7 +193,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="src;src/components;src/events;src/gameplay;src/media;src/render;src/screens;tests"/>
+      <OtherUnitFiles Value="src;src/components;src/events;src/gameplay;src/media;src/render;src/screens;tests;third_party/sdl2-for-pascal"/>
       <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

@@ -47,4 +47,15 @@ if grep -qiE "^\S+\([0-9]+,[0-9]+\) Warning" "$log"; then
     grep -iE "^\S+\([0-9]+,[0-9]+\) Warning" "$log" | head -10
 fi
 
+# SDL is loaded by name at run time, so the runtimes have to sit beside the
+# binary. Only Windows binaries are vendored; elsewhere the system provides
+# them and there is nothing to copy.
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        for dll in "$REPO"/third_party/sdl2/win64/*.dll; do
+            [ -e "$dll" ] && cp -u "$dll" "$REPO/bin/"
+        done
+        ;;
+esac
+
 echo "built: $REPO/bin/akuji.exe"
