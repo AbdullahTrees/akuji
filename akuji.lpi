@@ -201,6 +201,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="tests/RenderTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="tests/SelfTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

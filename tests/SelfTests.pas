@@ -23,10 +23,10 @@ implementation
 uses
   MediaTests, DataTests, StageTests, PlayerTests, TraceTests,
   LayoutTests, EntityTests, RunnerTests, SessionTests,
-  EmuDiffTests;
+  EmuDiffTests, RenderTests;
 
 const
-  SELFTEST_MODES: array[0..17] of string = (
+  SELFTEST_MODES: array[0..18] of string = (
     '--selftest',
     '--selftest-audio',
     '--selftest-midi',
@@ -34,6 +34,7 @@ const
     '--mixdump',
     '--selftest-dir',
     '--selftest-mapprobe',
+    '--selftest-render',
     '--selftest-events',
     '--selftest-settings',
     '--selftest-script',
@@ -76,6 +77,8 @@ begin
         Result := SelfTestDirections(Log)
       else if ParamStr(1) = '--selftest-mapprobe' then
         Result := SelfTestMapProbe(Log)
+      else if ParamStr(1) = '--selftest-render' then
+        Result := SelfTestRender(Log)
       else if ParamStr(1) = '--selftest-events' then
         Result := SelfTestEvents(Log)
       else if ParamStr(1) = '--selftest-settings' then
