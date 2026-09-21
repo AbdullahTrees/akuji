@@ -117,10 +117,6 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src/media/MidiOut.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
         <Filename Value="src/gameplay/Entities.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

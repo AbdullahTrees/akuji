@@ -1,6 +1,6 @@
 { Standard MIDI File reader. Tracks are parsed separately, merged by absolute
   tick, and assigned absolute microsecond timestamps from the tempo map. Sound
-  output is handled by MidiOut. }
+  output is handled by the music player. }
 
 unit MidiFile;
 
