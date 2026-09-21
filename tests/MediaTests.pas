@@ -165,6 +165,7 @@ var
   GameDir, Path: string;
   TrackIndex, EventIndex, FailedCount: Integer;
   Midi: TMidiFile;
+  Player: TKbgmPlayer;
   MidiEvent: TMidiEvent;
   Checksum: LongWord;
 begin
@@ -210,9 +211,43 @@ begin
   Log.Add(Format('parsed %d of %d',
     [Length(PLAYLIST) - FailedCount, Length(PLAYLIST)]));
   if FailedCount > 0 then
-    Result := 1
-  else
+    Result := 1;
+
+  { The playlist the PLAYER resolves, not the one this test builds.
+
+    Everything above composes its own path, so it passes while the component
+    looks somewhere else entirely - which is what happened: the player gained a
+    second `midi/` in its game directory, every PlayName silently found
+    nothing, and the game shipped with no music while this test stayed green.
+    Going through TrackPath is what makes the two agree. }
+  Player := TKbgmPlayer.Create(nil);
+  try
+    for TrackIndex := 0 to High(PLAYLIST) do
+      Player.AutoLoadMidis.Add('midi\' + PLAYLIST[TrackIndex]);
+    { Open assigns the game directory before it touches a device, so the paths
+      resolve whether or not this machine has one. }
+    Player.Open(ParamStr(2));
+    for TrackIndex := 0 to High(PLAYLIST) do
+    begin
+      Path := Player.TrackPath(TrackIndex);
+      if (Path = '') or not FileExists(Path) then
+      begin
+        Log.Add(Format('FAILED: the player resolves %s to "%s", which is not a file',
+          [Player.TrackName(TrackIndex), Path]));
+        Inc(Result);
+      end;
+    end;
+    Player.Close;
+  finally
+    Player.Free;
+  end;
+
+  if Result = 0 then
+  begin
+    Log.Add(Format('the player resolves all %d playlist entries to real files',
+      [Length(PLAYLIST)]));
     Log.Add('OK');
+  end;
 end;
 
 { --playtest <gamedir> [seconds] opens both audio devices, plays representative
@@ -279,11 +314,34 @@ begin
       Log.Add('midi device: open');
       Music.Volume := KBGM_VOLUME_MAX;
       Music.Play(0, True);
-      Log.Add(Format('  playing midi\main01 for %d seconds', [Secs]));
-      Sleep(Secs * 1000);
-      Music.FadeOut(1500);
-      Sleep(2000);
-      Log.Add('  faded out');
+      { ASSERT, do not announce. This block used to log that it was playing and
+        then sleep, which reports success whether or not a note is ever sounded
+        - and it did exactly that through a release where the playlist path was
+        wrong and the game was silent. }
+      if not Music.IsPlaying then
+      begin
+        Log.Add('FAILED: Play(0) did not start midi\main01 - nothing is playing');
+        Inc(Result);
+      end
+      else
+      begin
+        Log.Add(Format('  playing midi\main01 for %d seconds', [Secs]));
+        Sleep(Secs * 1000);
+        if not Music.IsPlaying then
+        begin
+          Log.Add('FAILED: the track stopped early despite looping');
+          Inc(Result);
+        end;
+        Music.FadeOut(1500);
+        Sleep(2000);
+        if Music.IsPlaying then
+        begin
+          Log.Add('FAILED: still playing 2 s after a 1.5 s fade');
+          Inc(Result);
+        end
+        else
+          Log.Add('  faded out');
+      end;
     end;
   finally
     Music.Free;

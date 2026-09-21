@@ -76,6 +76,11 @@ type
 
     function IsPlaying: Boolean;
     function TrackName(Index: Integer): string;
+    { The file a playlist entry resolves to, whether or not it exists. Public
+      so a test can check the playlist points at real files without opening a
+      device: a wrong directory here makes PlayName fail silently, which is
+      exactly the shape of defect that is otherwise only audible. }
+    function TrackPath(Index: Integer): string;
 
     property Current: Integer read FCurrent;
     property Opened: Boolean read FOpened;
@@ -121,13 +126,22 @@ begin
 end;
 
 function TKbgmPlayer.ResolvePath(const Name: string): string;
+var
+  RelativePath: string;
 begin
   Result := '';
   if Name = '' then
     Exit;
-  Result := FGameDir + Name + '.mid';
-  if not FileExists(Result) then
-    Result := '';
+  { Playlist entries carry their own directory and a Windows separator -
+    `midi\main01` - so the game directory is all that is prepended. }
+  RelativePath := Name;
+{$IFNDEF WINDOWS}
+  RelativePath := StringReplace(RelativePath, '\', PathDelim, [rfReplaceAll]);
+{$ENDIF}
+  { Playlist entries are extensionless. }
+  if ExtractFileExt(RelativePath) = '' then
+    RelativePath := RelativePath + '.mid';
+  Result := IncludeTrailingPathDelimiter(FGameDir) + RelativePath;
 end;
 
 function TKbgmPlayer.IndexOfName(const Name: string): Integer;
@@ -148,14 +162,18 @@ begin
     Result := '';
 end;
 
+function TKbgmPlayer.TrackPath(Index: Integer): string;
+begin
+  Result := ResolvePath(TrackName(Index));
+end;
+
 function TKbgmPlayer.Open(const AGameDir: string): Boolean;
 begin
   Result := FOpened;
   if Result then
     Exit;
 
-  FGameDir := IncludeTrailingPathDelimiter(AGameDir)
-              + 'midi' + PathDelim;
+  FGameDir := AGameDir;
 
   if SDL_InitSubSystem(SDL_INIT_AUDIO) <> 0 then
     Exit(False);
