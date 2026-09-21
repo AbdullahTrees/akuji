@@ -1,0 +1,23 @@
+# Build output
+bin/
+lib/
+*.exe
+*.o
+*.ppu
+*.compiled
+*.res
+*.or
+
+# Lazarus session state, which is per-developer and not part of the project
+*.lps
+backup/
+
+# Test output
+selftest.log
+
+# Editor and OS noise
+*.bak
+*.tmp
+*.orig
+.DS_Store
+Thumbs.db

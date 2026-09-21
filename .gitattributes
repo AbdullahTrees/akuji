@@ -1,0 +1,25 @@
+# Let git normalise text in the repository, but pin the cases where the working
+# copy's line endings actually matter.
+* text=auto
+
+# Shell scripts must be LF in the working tree. A CRLF shebang line makes the
+# kernel look for an interpreter called "bash\r", which fails with a message
+# that names neither the line endings nor the script.
+*.sh text eol=lf
+
+# Pascal sources and project files are edited in the Lazarus IDE on Windows.
+*.pas text eol=crlf
+*.lpr text eol=crlf
+*.inc text eol=crlf
+*.lfm text eol=crlf
+*.lpi text eol=crlf
+*.lpk text eol=crlf
+
+# Game data is binary. Left to itself git would corrupt every one of these by
+# "fixing" line endings inside them.
+*.qda binary
+*.dat binary
+*.map binary
+*.mid binary
+*.wav binary
+*.bmp binary
