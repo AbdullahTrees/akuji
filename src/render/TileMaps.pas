@@ -17,7 +17,7 @@ unit TileMaps;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Types, Surfaces;
+  Classes, SysUtils, Graphics, Types, Surfaces, RenderTarget;
 
 const
   MAP_HEADER_SIZE = 24;
@@ -46,7 +46,7 @@ type
 
     { Draws the map into Dest using ASurfaces[SurfaceIndex] as the tileset.
       OffsetX/Y scroll the view; only visible tiles are touched. }
-    procedure Draw(Dest: TCanvas; ASurfaces: TSurfaceSet; SurfaceIndex: Integer;
+    procedure Draw(Dest: TRenderTarget; ASurfaces: TSurfaceSet; SurfaceIndex: Integer;
                    OffsetX, OffsetY, ViewW, ViewH: Integer);
 
     property MapWidth: Integer read FMapW;
@@ -210,10 +210,10 @@ end;
 
 { Draw the map as a torus: reduce scrolling by the map's pixel dimensions and
   wrap tile coordinates at both edges. }
-procedure TTileMap.Draw(Dest: TCanvas; ASurfaces: TSurfaceSet;
+procedure TTileMap.Draw(Dest: TRenderTarget; ASurfaces: TSurfaceSet;
   SurfaceIndex, OffsetX, OffsetY, ViewW, ViewH: Integer);
 var
-  TileSheet: TBitmap;
+  TileSheet: TRenderImage;
   MapPixelWidth, MapPixelHeight, ScrollX, ScrollY: Integer;
   StartPixelX, StartPixelY, YRemainder: Integer;
   FirstColumn, FirstRow, ColumnCount, RowCount: Integer;
@@ -221,7 +221,7 @@ var
 begin
   if (ASurfaces = nil) or (Length(FTiles) = 0) then
     Exit;
-  TileSheet := ASurfaces[SurfaceIndex];
+  TileSheet := ASurfaces.Images[SurfaceIndex];
   if TileSheet = nil then
     Exit;
 
@@ -255,9 +255,7 @@ begin
       { $FFFF is the empty-tile marker and fails the definition range test. }
       TileId := GetTile(Column, Row);
       if (TileId >= 0) and (TileId < Length(FTileDefs)) then
-        Dest.CopyRect(Rect(PixelX, PixelY,
-                           PixelX + FTileW, PixelY + FTileH),
-                      TileSheet.Canvas, FTileDefs[TileId]);
+        Dest.BlitRect(TileSheet, FTileDefs[TileId], PixelX, PixelY);
       Inc(PixelX, FTileW);
       Inc(Column);
       if Column >= FMapW then

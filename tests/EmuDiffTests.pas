@@ -14,7 +14,7 @@ uses
   Stages, Camera, TileMaps, Player, EntityHandlers, EntityMonsters, EntityEffects, EntityProjectiles, EntityTerrain, EntityPickups, EventRunner, GameSession,
   SpritePool, Sprites, Dialogue, BgAnime, UnitInit, Title, Ending, Opening,
   GameFont, DDDDComponent, Surfaces,
-  Graphics;
+  Graphics, RenderTarget;
 
 function EmuDiff(Log: TStringList): Integer;
 function SelfTestMapProbe(Log: TStringList): Integer;
@@ -563,6 +563,7 @@ var
   Arch: TQdaArchive;
   Surf: TSurfaceSet;
   Bmp: TBitmap;
+  MapTarget: TLCLRenderTarget;
   L: TLayerInfo;
   MapId, Tileset, Terrain, Stage, Painted, PX, PY: Integer;
 begin
@@ -621,9 +622,10 @@ begin
          BoolToStr(Surf[Tileset] <> nil, 'present', 'NIL')]));
 
       Bmp.SetSize(SCREEN_W, SCREEN_H);
+      MapTarget := TLCLRenderTarget.Create(Bmp.Canvas, SCREEN_W, SCREEN_H);
       Bmp.Canvas.Brush.Color := clBlack;
       Bmp.Canvas.FillRect(0, 0, SCREEN_W, SCREEN_H);
-      Map.Draw(Bmp.Canvas, Surf, Tileset, 0, 0, SCREEN_W, SCREEN_H);
+      Map.Draw(MapTarget, Surf, Tileset, 0, 0, SCREEN_W, SCREEN_H);
 
       Painted := 0;
       for PY := 0 to SCREEN_H - 1 do
@@ -646,7 +648,7 @@ begin
         the origin straight from PlayerState.ScrollX/ScrollY and nothing
         clamps it, so this is the view the player really gets. }
       Bmp.Canvas.FillRect(0, 0, SCREEN_W, SCREEN_H);
-      Map.Draw(Bmp.Canvas, Surf, Tileset, 0, DEFAULT_SCROLL_Y,
+      Map.Draw(MapTarget, Surf, Tileset, 0, DEFAULT_SCROLL_Y,
                SCREEN_W, SCREEN_H);
       Painted := 0;
       for PY := 0 to SCREEN_H - 1 do
@@ -662,7 +664,7 @@ begin
       end;
 
       Bmp.Canvas.FillRect(0, 0, SCREEN_W, SCREEN_H);
-      Map.Draw(Bmp.Canvas, Surf, Tileset,
+      Map.Draw(MapTarget, Surf, Tileset,
                Camera.MaxScrollX(L), Camera.MaxScrollY(L), SCREEN_W, SCREEN_H);
       Painted := 0;
       for PY := 0 to SCREEN_H - 1 do
@@ -676,7 +678,7 @@ begin
         the top of the map again, not blackness. This is the regression test
         for the clamp-versus-wrap bug. }
       Bmp.Canvas.FillRect(0, 0, SCREEN_W, SCREEN_H);
-      Map.Draw(Bmp.Canvas, Surf, Tileset,
+      Map.Draw(MapTarget, Surf, Tileset,
                0, Map.MapHeight * Map.TileHeight, SCREEN_W, SCREEN_H);
       Painted := 0;
       for PY := 0 to SCREEN_H - 1 do
@@ -696,6 +698,7 @@ begin
         Exit(1);
       end;
     finally
+      MapTarget.Free;
       Bmp.Free;
       Surf.Free;
       Arch.Free;

@@ -8,7 +8,7 @@ unit DDDDComponent;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Controls, Forms;
+  Classes, SysUtils, Graphics, Controls, Forms, RenderTarget;
 
 const
   { 0x78 and the step every caller writes to self+0x10 before starting one.
@@ -40,6 +40,7 @@ type
     FVsyncAtWindowed: Boolean;
     FOnInit: TNotifyEvent;
     FSurface: TBitmap;
+    FTarget: TLCLRenderTarget;
     { Fade state offsets retained for layout verification. }
     FFadeLevel: Integer;      { +0x08 }
     FFadeStep: Integer;       { +0x10, written by the caller before a fade }
@@ -47,6 +48,7 @@ type
     FFadeOut: Boolean;        { +0x0C }
     FFadeBusy: Boolean;       { +0x0D }
     function GetSurfaceCanvas: TCanvas;
+    function GetTarget: TRenderTarget;
   protected
     { Streaming calls this after the .lfm properties have been applied. }
     procedure Loaded; override;
@@ -78,6 +80,10 @@ type
     { Everything the game draws goes here. Backed by a TBitmap for now, which
       is why LCL-first works: the game already draws through TCanvas. }
     property Surface: TBitmap read FSurface;
+    { The same back buffer, as the renderer sees it. Units move onto this and
+      off Canvas one at a time; when the last one has, Canvas can go and this
+      can be something other than the LCL. }
+    property Target: TRenderTarget read GetTarget;
     property Canvas: TCanvas read GetSurfaceCanvas;
   published
     property DebugOption: TDDDDDebugOption read FDebugOption write FDebugOption;
@@ -106,6 +112,7 @@ end;
 
 destructor TDDDD.Destroy;
 begin
+  FTarget.Free;
   FSurface.Free;
   inherited Destroy;
 end;
@@ -114,6 +121,20 @@ procedure TDDDD.Loaded;
 begin
   inherited Loaded;
   Initialize;
+end;
+
+{ Built on demand and rebuilt when the surface is resized, because the target
+  carries the dimensions the game draws against. }
+function TDDDD.GetTarget: TRenderTarget;
+begin
+  if (FTarget = nil)
+  or (FTarget.Width <> FSurface.Width) or (FTarget.Height <> FSurface.Height) then
+  begin
+    FTarget.Free;
+    FTarget := TLCLRenderTarget.Create(FSurface.Canvas,
+                                       FSurface.Width, FSurface.Height);
+  end;
+  Result := FTarget;
 end;
 
 function TDDDD.GetSurfaceCanvas: TCanvas;

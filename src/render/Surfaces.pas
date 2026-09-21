@@ -9,7 +9,7 @@ unit Surfaces;
 interface
 
 uses
-  Classes, SysUtils, Graphics, QdaArchive;
+  Classes, SysUtils, Graphics, QdaArchive, RenderTarget;
 
 const
   MAX_SURFACES = 32;
@@ -20,6 +20,10 @@ type
     Width: Integer;
     Height: Integer;
     Bitmap: TBitmap;
+    { The same sheet, as the renderer sees it. Built once when the set loads
+      rather than wrapped per blit, because the frame loop draws from these
+      hundreds of times a frame. }
+    Image: TRenderImage;
   end;
 
   TSurfaceSet = class
@@ -28,6 +32,7 @@ type
     FCount: Integer;
     FArchive: TQdaArchive;
     function GetBitmap(Index: Integer): TBitmap;
+    function GetImage(Index: Integer): TRenderImage;
     function GetSlot(Index: Integer): TSurfaceSlot;
     procedure Clear;
   public
@@ -41,6 +46,7 @@ type
 
     property Count: Integer read FCount;
     property Bitmaps[Index: Integer]: TBitmap read GetBitmap; default;
+    property Images[Index: Integer]: TRenderImage read GetImage;
     property Slots[Index: Integer]: TSurfaceSlot read GetSlot;
   end;
 
@@ -64,6 +70,8 @@ var
 begin
   for Slot := 0 to MAX_SURFACES - 1 do
   begin
+    { The image borrows the bitmap, so it goes first. }
+    FreeAndNil(FSlots[Slot].Image);
     FreeAndNil(FSlots[Slot].Bitmap);
     FSlots[Slot].Name := '';
     FSlots[Slot].Width := 0;
@@ -79,6 +87,13 @@ begin
   Result := FSlots[Index].Bitmap;
 end;
 
+function TSurfaceSet.GetImage(Index: Integer): TRenderImage;
+begin
+  if (Index < 0) or (Index >= MAX_SURFACES) then
+    Exit(nil);
+  Result := FSlots[Index].Image;
+end;
+
 function TSurfaceSet.GetSlot(Index: Integer): TSurfaceSlot;
 begin
   if (Index < 0) or (Index >= MAX_SURFACES) then
@@ -87,6 +102,7 @@ begin
     Result.Width := 0;
     Result.Height := 0;
     Result.Bitmap := nil;
+    Result.Image := nil;
     Exit;
   end;
   Result := FSlots[Index];
@@ -126,6 +142,8 @@ begin
 
       if (FArchive <> nil) and (FArchive.IndexOf(FSlots[Slot].Name) >= 0) then
         FSlots[Slot].Bitmap := FArchive.LoadBitmapByName(FSlots[Slot].Name);
+      if FSlots[Slot].Bitmap <> nil then
+        FSlots[Slot].Image := TRenderImage.Create(FSlots[Slot].Bitmap);
 
       Inc(FCount);
     end;

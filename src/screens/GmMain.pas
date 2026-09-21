@@ -485,7 +485,7 @@ procedure TFrm_main.DrawScene;
 begin
   { Draw with the layer's tileset slot, not the stage's surface-set id. }
   if (FMap <> nil) and (FStages <> nil) then
-    FMap.Draw(DDDD1.Canvas, FSurfaces,
+    FMap.Draw(DDDD1.Target, FSurfaces,
               FStages.Tileset[Settings.CurrentStage, 0],
               PixelOf(FSession.Layer.OriginX),
               PixelOf(FSession.Layer.OriginY) + FShakeOffset,

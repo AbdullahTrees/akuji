@@ -125,7 +125,7 @@ var
   Prev, Cur: TPixels;
   I, Tileset, MapId, TargetDiff: Integer;
   DirectBmp, TargetBmp, Glyph: TBitmap;
-  Target: TLCLRenderTarget;
+  Target, MapTarget: TLCLRenderTarget;
   SheetImage, GlyphImage: TRenderImage;
 
   procedure Snap(Index: Integer; const AName: string);
@@ -158,6 +158,7 @@ begin
   Stages := TStageTable.Create;
   Bmp := TBitmap.Create;
   Font := nil;
+  MapTarget := nil;
   try
     if Stages.Load(GameDir) <= 0 then
     begin
@@ -186,7 +187,8 @@ begin
     Snap(0, 'clear');
 
     { 2. tiles, at a fixed origin so the source rectangles are pinned too }
-    Map.Draw(Bmp.Canvas, Surf, Tileset, 0, 0, SCREEN_W, SCREEN_H);
+    MapTarget := TLCLRenderTarget.Create(Bmp.Canvas, SCREEN_W, SCREEN_H);
+    Map.Draw(MapTarget, Surf, Tileset, 0, 0, SCREEN_W, SCREEN_H);
     Snap(1, 'tiles');
 
     { 3. sprites over the tiles: the blit has to be transparent, so a sprite
@@ -327,6 +329,7 @@ begin
     if Result = 0 then
       Log.Add('OK');
   finally
+    MapTarget.Free;
     Font.Free;
     Bmp.Free;
     Stages.Free;
