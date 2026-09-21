@@ -11,7 +11,7 @@ uses
   Classes, SysUtils, Forms, Controls, Graphics, LCLType,
   DDDDComponent, DDIDComponent, DDSDComponent, KbgmPlayer, GameState,
   IniFiles, QdaArchive, Title, Ending, Opening, GameFont, Surfaces, Sprites, Stages, TileMaps, PlayerState,
-  Entities, GameSession, SpritePool, Dialogue, RenderTarget;
+  Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender;
 
 type
   TFrm_main = class;
@@ -207,6 +207,9 @@ begin
   if DataDir <> '' then
   begin
     FDataDir := DataDir;
+    { The narration font is loaded from the data directory, so the text
+      renderer cannot be used until that directory is known. }
+    SetFontDirectory(DataDir);
 
     { Missing or short settings data leaves the initialized defaults intact. }
     LoadSettings(DataDir);

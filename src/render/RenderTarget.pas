@@ -60,19 +60,19 @@ const
     so TTF_OpenFontDPI(file, 10, 96, 96) looks like the right call. It is not -
     it renders the opening line 168 pixels wide where the game draws it 142.
 
-    What the game actually gets is an 11 pixel em. Measured rather than
-    reasoned: the line is 142 pixels wide including the one-pixel outline on
-    each side, so the advance is 140, and the font's own hdmx table - the
-    per-ppem integer advances that GDI uses in place of scaled ones - gives 140
-    for this string at 11 ppem and 158 at 12. TTF_OpenFont(file, 11) reproduces
-    it to 144 pixels and the same 13 pixel glyph height.
+    What GDI currently gives is an 11 pixel em, and that is the DEFECT rather
+    than the target - it is the substituted font being narrower than the raster
+    one the game was written against. The size to render at comes from the
+    game's own layout instead.
 
-    The two pixels that remain are FreeType scaling hmtx where GDI reads hdmx.
-    Closing them means advancing glyph by glyph using hdmx rather than letting
-    the renderer lay out the string. }
+    The save prompt draws 'Yes       No  ' as one string at x=112 and puts the
+    hand cursor at a fixed x=148, 16 pixels wide. For "No" to clear the hand,
+    'Yes       ' must be 52 pixels. SDL_ttf measures exactly 52 at 14 ppem, and
+    the font's hdmx table - the per-ppem integer advances GDI uses - agrees.
+    Every other size is wrong: 13 gives 44, 15 gives 54. }
   OUTLINED_FONT_FILE   = 'fonts' + PathDelim + 'micross.ttf';
   { Pixels per em, which is what SDL_ttf's ptsize argument means. }
-  OUTLINED_FONT_PPEM   = 11;
+  OUTLINED_FONT_PPEM   = 14;
 
 type
   { Something that can be blitted from: a sheet, a glyph, a full-screen
@@ -163,6 +163,11 @@ type
 
 implementation
 
+uses
+  { In the implementation, because TextRender names this unit's font
+    constants in turn. Pascal permits the cycle only from here. }
+  TextRender;
+
 { TRenderImage }
 
 constructor TRenderImage.Create(ABitmap: TBitmap; AOwns: Boolean);
@@ -251,14 +256,30 @@ end;
 
 procedure TLCLRenderTarget.DrawOutlinedText(X, Y: Integer; const S: string;
   Outline, Fill: TColor; Size: Integer);
+var
+  Sheet: TBitmap;
 begin
   if S = '' then
     Exit;
+
+  { SDL_ttf from the font the game carries, not GDI from whatever the host
+    calls "MS Sans Serif". Size is ignored: it is 10 POINTS, and what the
+    layout needs is OUTLINED_FONT_PPEM pixels per em - see the note there. }
+  Sheet := OutlinedText(S, Outline, Fill, OUTLINED_FONT_PPEM);
+  if Sheet <> nil then
+  begin
+    { The composed sheet carries its outline, so its top-left is one pixel up
+      and left of where the text itself begins. }
+    FCanvas.Draw(X - 1, Y - 1, Sheet);
+    Exit;
+  end;
+
+  { No font to render with - fall back to asking the platform, which is what
+    the game did before and is better than silence. }
   FCanvas.Font.Name := OUTLINED_FONT_NAME;
   FCanvas.Font.Size := Size;
   FCanvas.Font.Color := Outline;
   FCanvas.Brush.Style := bsClear;
-  { Four offset copies make the outline, then the fill over them. }
   FCanvas.TextOut(X - 1, Y, S);
   FCanvas.TextOut(X + 1, Y, S);
   FCanvas.TextOut(X, Y - 1, S);

@@ -41,7 +41,7 @@ interface
 uses
   Classes, SysUtils, Graphics,
   QdaArchive, Surfaces, Sprites, TileMaps, GameFont, Stages, Entities,
-  RenderTarget;
+  RenderTarget, TextRender, Dialogue;
 
 function SelfTestRender(Log: TStrings): Integer;
 
@@ -113,7 +113,7 @@ const
     dialogue box. Pinned separately because it is drawn by the platform
     rather than blitted from a sheet, so it is the one scene an SDL target
     reproduces with a different rasteriser entirely. }
-  BASELINE_OUTLINED = $6589E9BD;
+  BASELINE_OUTLINED = $2913654C;
 
 function SelfTestRender(Log: TStrings): Integer;
 var
@@ -128,7 +128,7 @@ var
   Scenes: array[0..4] of TScene;
   Expected: array[0..4] of LongWord;
   Prev, Cur: TPixels;
-  I, Tileset, MapId, TargetDiff: Integer;
+  I, Tileset, MapId, TargetDiff, PromptW: Integer;
   DirectBmp, TargetBmp, Glyph: TBitmap;
   Target, MapTarget: TLCLRenderTarget;
   SheetImage, GlyphImage: TRenderImage;
@@ -148,6 +148,7 @@ var
 begin
   Result := 0;
   GameDir := IncludeTrailingPathDelimiter(ParamStr(2));
+  SetFontDirectory(GameDir);
   Log.Add(Format('game dir: %s', [GameDir]));
   Log.Add('');
 
@@ -226,6 +227,28 @@ begin
     begin
       Log.Add('FAILED: no ' + OUTLINED_FONT_FILE + ' under the game data - '
         + 'see the font section of NOTICE.md');
+      Inc(Result);
+    end;
+
+    { THE SAVE PROMPT HAS TO LINE UP.
+
+      The prompt is one string, 'Yes       No  ', drawn at x=112, with the hand
+      cursor at a FIXED x=148 and 16 pixels wide. So "No" begins at
+      112 + width('Yes       ') and must clear 164, which makes that width
+      exactly 52. It was 39 with the font Windows substitutes, which is why the
+      hand sat on the N and the player read "lo".
+
+      This is the check that the narration font is the right SIZE, and it is
+      stated as the layout's own requirement rather than as a measurement of
+      whatever the renderer currently does. }
+    PromptW := OutlinedTextWidth('Yes       ', OUTLINED_FONT_PPEM);
+    Log.Add(Format('save prompt: "Yes       " is %d px, the layout needs %d',
+      [PromptW, (MB_HAND_ICON_X + MB_HAND_ICON_STEP + MB_ICON_SIZE)
+                - MB_PROMPT_TEXT_X]));
+    if PromptW <> (MB_HAND_ICON_X + MB_HAND_ICON_STEP + MB_ICON_SIZE)
+                  - MB_PROMPT_TEXT_X then
+    begin
+      Log.Add('FAILED: the hand cursor and the word No overlap');
       Inc(Result);
     end;
 
