@@ -29,11 +29,13 @@ original binary as well as here.
 
 **What this does instead.** Nine spaces rather than seven, and one before "Yes".
 
-The leading space is the same defect at the other end. The hand icon is drawn
-OPAQUE, so its whole 16-pixel cell reaches the screen, and
-`MB_HAND_ICON_X + MB_ICON_SIZE` is exactly `MB_PROMPT_TEXT_X` - the cell's right
-edge finishes where the text starts, so the cursor sits against the Y with no
-gap at all. One space, 3 pixels, separates them.
+The leading space is the same defect at the other end.
+`MB_HAND_ICON_X + MB_ICON_SIZE` is exactly `MB_PROMPT_TEXT_X`, so the icon
+cell's right edge finishes where the text starts, and the hand fills its cell:
+the arrow points right and its widest rows reach column 15 of 16 on the first
+animation frame and column 14 on the second. Keying the icon (DIV-002) buys
+nothing here for that reason - with or without the black around it, the cursor
+sits against the Y. One space, 3 pixels, separates them.
 
 The cursor then sits three pixels from "Yes" and two from "No", which is as
 even as it gets: a space is 3 pixels, so the choice before "No" is a gap of 2

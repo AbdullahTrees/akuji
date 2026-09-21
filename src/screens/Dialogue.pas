@@ -540,15 +540,17 @@ begin
     FMap.SetTileRaw(X, Y, Tile);
 end;
 
-{ Draws one opaque 16x16 cell from the frame sheet's icon strip. }
+{ Draws one 16x16 cell from the frame sheet's icon strip, keyed.
+
+  MessageBox_Update passes DDBLTFAST_SRCCOLORKEY for both of these - the
+  waiting arrow and the hand cursor - while the box FRAME around them is
+  drawn opaque. That difference is real and it shows: the box interior is
+  blue, so an opaque icon puts a black square on it. See DIV-002. }
 procedure TDialogueBox.DrawIcon(Dest: TRenderTarget; X, Y, SrcX, SrcY: Integer);
 begin
   if FFrameSheet = nil then
     Exit;
-  { The sheet's Transparent flag used to be cleared here. CopyRect never read
-    it and nothing draws this sheet whole, so it was doing nothing; BlitRect is
-    opaque by definition and says so. }
-  Dest.BlitRect(FFrameSheet,
+  Dest.BlitRectKeyed(FFrameSheet,
     Rect(MB_ICON_SRC_X + SrcX, SrcY,
          MB_ICON_SRC_X + SrcX + MB_ICON_SIZE, SrcY + MB_ICON_SIZE), X, Y);
 end;

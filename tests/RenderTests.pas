@@ -305,11 +305,12 @@ begin
       Inc(Result);
     end;
 
-    { And the cursor must not touch "Yes" either. Its icon is drawn opaque, so
-      the full 16-pixel cell lands on the screen and its right edge finishes
-      exactly where the text begins - MB_HAND_ICON_X + MB_ICON_SIZE is
-      MB_PROMPT_TEXT_X. Whatever precedes "Yes" in the string is the only gap
-      there is. }
+    { And the cursor must not touch "Yes" either. MB_HAND_ICON_X +
+      MB_ICON_SIZE is MB_PROMPT_TEXT_X, so the icon cell finishes exactly
+      where the text begins, and the hand reaches the edge of its cell - it
+      points right, and its widest rows fill all 16 columns on one animation
+      frame and 14 of them on the other. Whatever precedes "Yes" in the
+      string is the only gap there is. }
     PromptW := OutlinedTextWidth(Copy(MB_PROMPT_TEXT, 1,
                                       Pos('Yes', MB_PROMPT_TEXT) - 1),
                                  OUTLINED_FONT_FACE);
