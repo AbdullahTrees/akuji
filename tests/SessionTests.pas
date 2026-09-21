@@ -760,8 +760,9 @@ begin
   Exe := OriginalExe(GameDir);
   if Exe = '' then
   begin
-    Log.Add('  FAIL: no original akuji.exe in the game directory');
-    Result := 1;
+    Log.Add('  SKIP: no reference akuji.exe beside the game data, so the '
+      + 'options tables are not re-read from it');
+    Result := 0;
     Exit;
   end;
 

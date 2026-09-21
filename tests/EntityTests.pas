@@ -1091,8 +1091,9 @@ begin
     ExeName := OriginalExe(GameDir);
     if not FileExists(ExeName) then
     begin
-      Log.Add('FAILED: akuji.exe is not in the game directory');
-      Exit(1);
+      Log.Add('SKIP: no reference akuji.exe beside the game data, so the '
+        + 'sprite tables cannot be re-read from it');
+      Exit(0);
     end;
     Exe.LoadFromFile(ExeName);
 
@@ -2534,8 +2535,14 @@ begin
     ExeName := OriginalExe(GameDir);
     if not FileExists(ExeName) then
     begin
-      Log.Add('FAILED: akuji.exe is not in the game directory');
-      Inc(Result);
+      { Without the reference image there is no jump table to compare against.
+        Part 2 below still runs: it checks the same property against
+        HANDLER_ADDR, which is where that table was recorded. }
+      Log.Add('SKIP: no reference akuji.exe beside the game data, so the jump '
+        + 'table is not re-read; HANDLER_ADDR is used instead');
+      for I := 0 to ENTITY_TYPE_COUNT - 1 do
+        if HANDLER_ADDR[I] = HANDLER_NONE then
+          Inc(NoArm);
     end
     else
     begin

@@ -665,8 +665,9 @@ begin
   Path := OriginalExe(GameDir);
   if not FileExists(Path) then
   begin
-    Log.Add('FAILED: no akuji.exe to pin the font name against');
-    Exit(1);
+    Log.Add('SKIP: no reference akuji.exe beside the game data, so the font '
+      + 'name is not pinned');
+    Exit(0);
   end;
   F := TFileStream.Create(Path, fmOpenRead or fmShareDenyNone);
   try
@@ -1000,8 +1001,8 @@ begin
     ExeName := OriginalExe(GameDir);
     if not FileExists(ExeName) then
     begin
-      Log.Add('FAILED: akuji.exe is not in the game directory');
-      Inc(Result);
+      Log.Add('SKIP: no reference akuji.exe beside the game data, so the '
+        + 'player sprite table is not re-read from it');
     end
     else
     begin
