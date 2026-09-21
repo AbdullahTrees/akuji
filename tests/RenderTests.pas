@@ -230,31 +230,31 @@ begin
       Inc(Result);
     end;
 
-    { THE SAVE PROMPT DOES NOT LINE UP, AND THAT IS ON PURPOSE.
+    { THE SAVE PROMPT HAS TO CLEAR THE HAND.
 
-      The prompt is one string, 'Yes       No  ', drawn at x=112, with the hand
-      cursor at a FIXED x=148 and 16 pixels wide. For "No" to clear the hand,
-      'Yes       ' would have to be 52 pixels.
+      The prompt is one string drawn at x=112, with the hand cursor at a FIXED
+      x=148 and 16 pixels wide, so the word "No" has to begin at 164 or later.
+      That makes everything before it at least 52 pixels.
 
-      The font is the raster MS Sans Serif at face 0, the strike the game has
-      always rendered with, and that gives 39. So the hand sits over the N and
-      the player reads "lo" - which is what the original binary does on a
-      modern Windows too. Face 0 was chosen knowing this: the alternative
-      strikes are 45 and 56, neither of which is 52 either, and 56 changes how
-      every line in the game looks in order to fix one word.
+      The original leaves seven spaces there, which at its own font is 45, so
+      the hand covers the N and the player reads "lo". MB_PROMPT_TEXT carries
+      three more - a declared divergence, see notes/divergences.md - and this
+      is what keeps it correct: change the font, the strike or the string and
+      the check says so.
 
-      Reported rather than asserted, because a failing check here would be
-      reporting a decision as a defect. The number is printed so that a change
-      of font or strike shows up in the log immediately. }
-    PromptW := OutlinedTextWidth('Yes       ', OUTLINED_FONT_FACE);
+      Measured through the renderer rather than by counting characters, because
+      what matters is the rendered advance and a space is not a fixed width. }
+    PromptW := OutlinedTextWidth(Copy(MB_PROMPT_TEXT, 1,
+                                      Pos('No', MB_PROMPT_TEXT) - 1),
+                                 OUTLINED_FONT_FACE);
     PromptNeed := (MB_HAND_ICON_X + MB_HAND_ICON_STEP + MB_ICON_SIZE)
                   - MB_PROMPT_TEXT_X;
-    Log.Add(Format('save prompt: "Yes       " is %d px, clearing the hand '
-      + 'needs %d - the word No overlaps by %d',
-      [PromptW, PromptNeed, PromptNeed - PromptW]));
-    if PromptW = 0 then
+    Log.Add(Format('save prompt: text before "No" is %d px, clearing the hand '
+      + 'needs %d', [PromptW, PromptNeed]));
+    if PromptW < PromptNeed then
     begin
-      Log.Add('FAILED: the narration font measured nothing at all');
+      Log.Add(Format('FAILED: the hand cursor covers the word No by %d px',
+        [PromptNeed - PromptW]));
       Inc(Result);
     end;
 
