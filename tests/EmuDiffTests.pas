@@ -11,7 +11,7 @@ uses
   Classes, SysUtils, TypInfo,
   QdaArchive, SoundTable, WaveFile, AudioMixer, AudioOut, MidiFile, KbgmPlayer,
   Directions, Entities, EventScripts, EventCommands, PlayerState, GameState,
-  Stages, Camera, TileMaps, Player, EntityHandlers, EntityTerrain, EntityPickups, EventRunner, GameSession,
+  Stages, Camera, TileMaps, Player, EntityHandlers, EntityProjectiles, EntityTerrain, EntityPickups, EventRunner, GameSession,
   SpritePool, Sprites, Dialogue, BgAnime, UnitInit, Title, Ending, Opening,
   GameFont, DDDDComponent, Surfaces,
   Graphics;
