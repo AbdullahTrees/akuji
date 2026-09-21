@@ -38,9 +38,24 @@
   edges are what the game has been showing, and they are what it should keep.
 
   Blended costs a real alpha channel rather than a colour key, so the sheet is
-  composited onto the destination instead of blitted through a key. The five
-  passes are blended together in SDL first, the same way five TextOut calls
-  accumulate in GDI.
+  composited onto the destination instead of blitted through a key.
+
+  HOW THE OUTLINE IS MADE
+
+  Not by drawing the string four times at one-pixel offsets, which is what the
+  game does and what GDI makes look good. It looks good there because GDI
+  renders at 11 pixels per em, where a one-pixel ring is proportionally thick;
+  at the 14 the layout requires, the same four copies leave a thin, broken
+  outline and the text reads as weaker than the game's.
+
+  FreeType can stroke the glyph outline properly, so it does: one font handle
+  with TTF_SetFontOutline for the ring, a second plain handle for the fill
+  inside it. That gives an even, rounded ring at any size instead of the union
+  of four offsets, which is what carries the look across from the smaller GDI
+  rendering.
+
+  The two handles are not an indulgence - the stroke is a property of the face,
+  so one handle cannot produce both the ring and the fill.
 
   WHY IT IS CACHED
 
@@ -92,9 +107,15 @@ type
     Bmp: TBitmap;
   end;
 
+const
+  { How far the ring is stroked, in pixels. One matches the single-pixel offset
+    the game asks for; two is visibly heavy at this size. }
+  OUTLINE_WEIGHT = 1;
+
 var
   FontDir: string = '';
   Font: PTTF_Font = nil;
+  FontRing: PTTF_Font = nil;
   FontPpem: Integer = 0;
   Started: Boolean = False;
   Cache: array of TCacheEntry;
@@ -128,6 +149,11 @@ begin
     TTF_CloseFont(Font);
     Font := nil;
   end;
+  if FontRing <> nil then
+  begin
+    TTF_CloseFont(FontRing);
+    FontRing := nil;
+  end;
 
   Path := FontDir + OUTLINED_FONT_FILE;
   if not FileExists(Path) then
@@ -135,6 +161,14 @@ begin
   Font := TTF_OpenFont(PAnsiChar(AnsiString(Path)), Ppem);
   if Font = nil then
     Exit(False);
+  FontRing := TTF_OpenFont(PAnsiChar(AnsiString(Path)), Ppem);
+  if FontRing = nil then
+  begin
+    TTF_CloseFont(Font);
+    Font := nil;
+    Exit(False);
+  end;
+  TTF_SetFontOutline(FontRing, OUTLINE_WEIGHT);
   FontPpem := Ppem;
   Result := True;
 end;
@@ -167,16 +201,13 @@ end;
 { Builds the five-pass surface, then copies it into an LCL bitmap once. }
 function Compose(const S: string; Outline, Fill: TColor;
                  Ppem: Integer): TBitmap;
-const
-  DX: array[0..3] of Integer = (-1,  1,  0,  0);
-  DY: array[0..3] of Integer = ( 0,  0, -1,  1);
 var
   Text: PSDL_Surface;
   Sheet: PSDL_Surface;
   Img: TLazIntfImage;
   Col: TFPColor;
   Dst: TSDL_Rect;
-  I, X, Y, W, H: Integer;
+  X, Y, W, H: Integer;
   Pixels: PUInt32;
   Pixel: LongWord;
   Row: PByte;
@@ -185,14 +216,15 @@ begin
   Result := nil;
   if not EnsureFont(Ppem) then
     Exit;
+  { Measured on the UNSTROKED face. The ring makes the rendered glyphs wider,
+    but the advance the layout depends on is the plain one. }
   if TTF_SizeUTF8(Font, PAnsiChar(AnsiString(S)), @TW, @TH) <> 0 then
     Exit;
   if (TW <= 0) or (TH <= 0) then
     Exit;
 
-  { One pixel of outline on every side. }
-  W := TW + 2;
-  H := TH + 2;
+  W := TW + 2 * OUTLINE_WEIGHT;
+  H := TH + 2 * OUTLINE_WEIGHT;
 
   { With an ALPHA mask - the last argument. Without it the surface has no
     alpha channel to blend into and every glyph arrives opaque. }
@@ -205,29 +237,25 @@ begin
     SDL_FillRect(Sheet, nil, SDL_MapRGBA(Sheet^.format, 0, 0, 0, 0));
     SDL_SetSurfaceBlendMode(Sheet, SDL_BLENDMODE_BLEND);
 
-    for I := 0 to 4 do
+    { The ring first, at the origin: stroked glyphs already extend outwards. }
+    Text := TTF_RenderUTF8_Blended(FontRing, PAnsiChar(AnsiString(S)),
+                                   ToSDLColor(Outline));
+    if Text <> nil then
     begin
-      if I < 4 then
-        Text := TTF_RenderUTF8_Blended(Font, PAnsiChar(AnsiString(S)),
-                                       ToSDLColor(Outline))
-      else
-        Text := TTF_RenderUTF8_Blended(Font, PAnsiChar(AnsiString(S)),
-                                       ToSDLColor(Fill));
-      if Text = nil then
-        Continue;
-      if I < 4 then
-      begin
-        Dst.x := 1 + DX[I];
-        Dst.y := 1 + DY[I];
-      end
-      else
-      begin
-        Dst.x := 1;
-        Dst.y := 1;
-      end;
-      Dst.w := Text^.w;
-      Dst.h := Text^.h;
       SDL_SetSurfaceBlendMode(Text, SDL_BLENDMODE_BLEND);
+      Dst.x := 0; Dst.y := 0; Dst.w := Text^.w; Dst.h := Text^.h;
+      SDL_BlitSurface(Text, nil, Sheet, @Dst);
+      SDL_FreeSurface(Text);
+    end;
+
+    { Then the fill, inset by the stroke so it sits inside the ring. }
+    Text := TTF_RenderUTF8_Blended(Font, PAnsiChar(AnsiString(S)),
+                                   ToSDLColor(Fill));
+    if Text <> nil then
+    begin
+      SDL_SetSurfaceBlendMode(Text, SDL_BLENDMODE_BLEND);
+      Dst.x := OUTLINE_WEIGHT; Dst.y := OUTLINE_WEIGHT;
+      Dst.w := Text^.w; Dst.h := Text^.h;
       SDL_BlitSurface(Text, nil, Sheet, @Dst);
       SDL_FreeSurface(Text);
     end;
@@ -292,6 +320,11 @@ begin
   begin
     TTF_CloseFont(Font);
     Font := nil;
+  end;
+  if FontRing <> nil then
+  begin
+    TTF_CloseFont(FontRing);
+    FontRing := nil;
   end;
   if Started then
   begin
