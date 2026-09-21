@@ -2688,13 +2688,16 @@ begin
       Place($21, I, SPRITE_NONE, 160, 120);
       EntitiesUnhandled := 0;
       Run(GS_PLAY);
-      if (Table[I] <> HANDLER_NO_ARM_TARGET) and (EntitiesUnhandled <> 0) then
+      { HANDLER_ADDR carries the dispatch table, so this check does not need
+        the reference image. Part 1 above proves the two agree wherever the
+        image is available. }
+      if (HANDLER_ADDR[I] <> HANDLER_NONE) and (EntitiesUnhandled <> 0) then
       begin
         Log.Add(Format('  type %d has an arm at 0x%.6X but no case',
-          [I, Table[I]]));
+          [I, HANDLER_ADDR[I]]));
         Inc(Bad);
       end;
-      if (Table[I] = HANDLER_NO_ARM_TARGET) and (EntitiesUnhandled = 0) then
+      if (HANDLER_ADDR[I] = HANDLER_NONE) and (EntitiesUnhandled = 0) then
       begin
         Log.Add(Format('  type %d has no arm but the case handled it', [I]));
         Inc(Bad);
