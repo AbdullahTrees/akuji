@@ -501,12 +501,12 @@ begin
     Exit;
   end;
 
-  FSession.Sprites.DrawAll(DDDD1.Canvas, FSurfaces);
+  FSession.Sprites.DrawAll(DDDD1.Target, FSurfaces);
   DrawHud;
   FDialogue.Draw(DDDD1.Canvas, FFont,
                  PixelOf(FSession.Pool.Field(0, EF_POS_Y)));
   { Bucket 8 is reserved for sprites drawn above the HUD and dialogue. }
-  FSession.Sprites.DrawTop(DDDD1.Canvas, FSurfaces);
+  FSession.Sprites.DrawTop(DDDD1.Target, FSurfaces);
 end;
 
 { Loads the surface set, sprite set, and primary map named by a stage record.

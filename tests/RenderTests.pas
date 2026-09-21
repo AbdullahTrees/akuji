@@ -195,9 +195,9 @@ begin
       drawn opaque changes the checksum even where the sprite itself is right }
     if Sprite.Count > 0 then
     begin
-      Sprite.Draw(Bmp.Canvas, Surf, 0, 40, 40);
-      Sprite.Draw(Bmp.Canvas, Surf, 1 mod Sprite.Count, 96, 64);
-      Sprite.Draw(Bmp.Canvas, Surf, 2 mod Sprite.Count, 152, 88);
+      Sprite.Draw(MapTarget, Surf, 0, 40, 40);
+      Sprite.Draw(MapTarget, Surf, 1 mod Sprite.Count, 96, 64);
+      Sprite.Draw(MapTarget, Surf, 2 mod Sprite.Count, 152, 88);
     end;
     Snap(2, 'sprites');
 

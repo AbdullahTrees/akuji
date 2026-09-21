@@ -9,7 +9,7 @@ unit SpritePool;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Types, Entities, Sprites, Surfaces;
+  Classes, SysUtils, Graphics, Types, Entities, Sprites, Surfaces, RenderTarget;
 
 const
   { Entity spawning fails when all slots are occupied. }
@@ -61,8 +61,8 @@ type
       displacement of this frame's value, not an accumulation. }
     procedure ShiftY(Delta: Integer);
     function DrawOrder: TSpriteOrder;
-    procedure DrawAll(Dest: TCanvas; ASurfaces: TSurfaceSet);
-    procedure DrawTop(Dest: TCanvas; ASurfaces: TSurfaceSet);
+    procedure DrawAll(Dest: TRenderTarget; ASurfaces: TSurfaceSet);
+    procedure DrawTop(Dest: TRenderTarget; ASurfaces: TSurfaceSet);
 
     function LiveCount: Integer;
   end;
@@ -222,7 +222,7 @@ begin
   SetLength(Result, N);
 end;
 
-procedure TSpritePool.DrawAll(Dest: TCanvas; ASurfaces: TSurfaceSet);
+procedure TSpritePool.DrawAll(Dest: TRenderTarget; ASurfaces: TSurfaceSet);
 var
   Order: TSpriteOrder;
   I: Integer;
@@ -236,7 +236,7 @@ begin
 end;
 
 { Draw the dedicated above-interface sprite layer after the HUD and dialogue. }
-procedure TSpritePool.DrawTop(Dest: TCanvas; ASurfaces: TSurfaceSet);
+procedure TSpritePool.DrawTop(Dest: TRenderTarget; ASurfaces: TSurfaceSet);
 var
   I: Integer;
 begin

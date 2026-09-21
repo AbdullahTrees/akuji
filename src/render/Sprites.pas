@@ -24,7 +24,7 @@ unit Sprites;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Types, Surfaces;
+  Classes, SysUtils, Graphics, Types, Surfaces, RenderTarget;
 
 type
   TSpriteFrame = record
@@ -42,7 +42,7 @@ type
     function LoadSet(const ADataDir: string; SetIndex: Integer): Integer;
 
     { Blits frame Index at (X, Y) using the surface bitmap's transparency. }
-    procedure Draw(Dest: TCanvas; ASurfaces: TSurfaceSet;
+    procedure Draw(Dest: TRenderTarget; ASurfaces: TSurfaceSet;
                    Index, X, Y: Integer);
 
     property Count: Integer read GetCount;
@@ -123,22 +123,23 @@ begin
   Result := Length(FFrames);
 end;
 
-procedure TSpriteSet.Draw(Dest: TCanvas; ASurfaces: TSurfaceSet;
+procedure TSpriteSet.Draw(Dest: TRenderTarget; ASurfaces: TSurfaceSet;
   Index, X, Y: Integer);
 var
   Frame: TSpriteFrame;
-  Surface: TBitmap;
+  Surface: TRenderImage;
 begin
   Frame := GetFrame(Index);
   if Frame.Surface < 0 then Exit;
   if ASurfaces = nil then Exit;
-  Surface := ASurfaces[Frame.Surface];
+  Surface := ASurfaces.Images[Frame.Surface];
   if Surface = nil then Exit;
 
-  Dest.CopyRect(
-    Rect(X, Y, X + (Frame.Src.Right - Frame.Src.Left),
-         Y + (Frame.Src.Bottom - Frame.Src.Top)),
-    Surface.Canvas, Frame.Src);
+  { BlitRect, not a keyed draw. This copies the sheet's background with the
+    sprite and is the black box in notes/transparent-blit-fix.md - kept exactly
+    as it is, because this step moves the renderer and changes nothing about
+    what it draws. }
+  Dest.BlitRect(Surface, Frame.Src, X, Y);
 end;
 
 end.
