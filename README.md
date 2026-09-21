@@ -10,22 +10,62 @@ plays the real game — the same stages, entities, scripts, music and endings.
 
 ## Build and run
 
-You need Lazarus with Free Pascal. Then:
+You need [Lazarus](https://www.lazarus-ide.org/) with Free Pascal. Built and
+tested against Lazarus 4.8 and FPC 3.2.2 on 64-bit Windows.
 
 ```sh
 tools/build.sh          # builds bin/akuji.exe
 bin/akuji.exe           # plays
 ```
 
-Or open `akuji.lpi` in the Lazarus IDE and build from there.
+`tools/build.sh` finds `lazbuild` on PATH, or in the usual install locations.
+If yours is somewhere else, name it:
+
+```sh
+LAZBUILD=/e/lazarus/lazbuild.exe tools/build.sh
+```
+
+### Without the script
+
+The script only wraps one command, so this is the whole of it:
+
+```sh
+lazbuild akuji.lpi                          # builds bin/akuji.exe
+cp third_party/sdl2/win64/*.dll bin/        # Windows only, see below
+```
+
+Or open `akuji.lpi` in the Lazarus IDE and build from there. To open
+`src/screens/GmMain.lfm` in the form designer you must first install
+`akuji_components.lpk`, which registers the four component classes the form
+uses; building does not need it.
+
+### Release build
+
+```sh
+RELEASE=1 tools/build.sh
+```
+
+3 MB rather than 30 MB. Almost all of the difference is debug information, not
+code: the default build keeps symbols because they are what makes a crash
+report worth having. The release build passes the same tests.
+
+### SDL
+
+SDL2 and SDL2_mixer are loaded at run time and have to sit beside the binary.
+`tools/build.sh` copies the vendored Windows DLLs into `bin/` for you. On Linux
+and macOS install them from your package manager instead - there is nothing to
+copy:
+
+```sh
+sudo apt install libsdl2-2.0-0 libsdl2-mixer-2.0-0      # Debian, Ubuntu
+brew install sdl2 sdl2_mixer                            # macOS
+```
+
+### Where the data comes from
 
 The binary looks for its data by walking up from its own directory, so it finds
-`assets/` with no configuration and no install step. A packaged build works too:
-put the contents of `assets/` beside the executable.
-
-To open `src/screens/GmMain.lfm` in the form designer you must first install
-`akuji_components.lpk`, which registers the four component classes the form
-uses. Building from the command line does not need it.
+`assets/` with no configuration and no install step. A packaged build works the
+same way: put the contents of `assets/` beside the executable.
 
 ## Tests
 

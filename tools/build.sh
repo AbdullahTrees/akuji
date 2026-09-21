@@ -30,10 +30,25 @@ if [ -z "${LAZBUILD:-}" ]; then
     exit 2
 fi
 
+# RELEASE=1 builds optimised, without debug info and with the symbol table
+# stripped. That is 3 MB rather than 30 MB, and almost all of the difference is
+# debug info rather than code: -g- does more here than -Xs. The default build
+# keeps the symbols, because they are what makes a crash report useful.
+OPTS=""
+if [ "${RELEASE:-0}" != "0" ]; then
+    OPTS="-O3 -g- -Xs -CX -XX"
+fi
+
 log="$(mktemp)"
 trap 'rm -f "$log"' EXIT
 
-if ! "$LAZBUILD" "$REPO/akuji.lpi" > "$log" 2>&1; then
+if [ -n "$OPTS" ]; then
+    set -- --opt="$OPTS"
+else
+    set --
+fi
+
+if ! "$LAZBUILD" "$@" "$REPO/akuji.lpi" > "$log" 2>&1; then
     echo "BUILD FAILED" >&2
     grep -iE "error|fatal" "$log" | head -20 >&2
     exit 1
