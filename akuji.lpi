@@ -69,6 +69,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src/render/RenderTarget.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src/render/Sprites.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

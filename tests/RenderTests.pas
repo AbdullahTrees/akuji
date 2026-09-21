@@ -40,7 +40,8 @@ interface
 
 uses
   Classes, SysUtils, Graphics,
-  QdaArchive, Surfaces, Sprites, TileMaps, GameFont, Stages, Entities;
+  QdaArchive, Surfaces, Sprites, TileMaps, GameFont, Stages, Entities,
+  RenderTarget;
 
 function SelfTestRender(Log: TStrings): Integer;
 
@@ -122,7 +123,10 @@ var
   Scenes: array[0..3] of TScene;
   Expected: array[0..3] of LongWord;
   Prev, Cur: TPixels;
-  I, Tileset, MapId: Integer;
+  I, Tileset, MapId, TargetDiff: Integer;
+  DirectBmp, TargetBmp, Glyph: TBitmap;
+  Target: TLCLRenderTarget;
+  SheetImage, GlyphImage: TRenderImage;
 
   procedure Snap(Index: Integer; const AName: string);
   begin
@@ -205,6 +209,89 @@ begin
     else
       Log.Add('note: surface 0 is nil, so the text scene is only the sprites');
     Snap(3, 'text');
+
+    { THE RENDER TARGET DRAWS THE SAME PIXELS AS THE CANVAS IT REPLACES.
+
+      Job B moves every drawing routine off TCanvas and onto TRenderTarget.
+      That is only safe if the target's three primitives are exactly the calls
+      they stand in for, so both sequences are run here and the results have to
+      be identical - not close, identical.
+
+      The primitives are checked against the call each one replaces:
+
+        Fill       <- Brush.Color := c; FillRect(r)
+        BlitRect   <- CopyRect(dest, src.Canvas, srcRect)
+        DrawImage  <- Draw(x, y, bitmap)   and so honours its transparency
+
+      A glyph is used for DrawImage because it is the only image in the game
+      that carries transparency, which is the part most easily got wrong. }
+    DirectBmp := TBitmap.Create;
+    TargetBmp := TBitmap.Create;
+    Glyph := TBitmap.Create;
+    Target := nil;
+    SheetImage := nil;
+    GlyphImage := nil;
+    try
+      DirectBmp.SetSize(SCREEN_W, SCREEN_H);
+      TargetBmp.SetSize(SCREEN_W, SCREEN_H);
+
+      { A transparent image, cut the way the font cuts a glyph. }
+      Glyph.SetSize(32, 32);
+      if Surf[0] <> nil then
+        Glyph.Canvas.CopyRect(Rect(0, 0, 32, 32), Surf[0].Canvas,
+                              Rect(0, 0, 32, 32));
+      Glyph.TransparentColor := clBlack;
+      Glyph.Transparent := True;
+
+      { --- the canvas calls, made directly --- }
+      DirectBmp.Canvas.Brush.Color := clNavy;
+      DirectBmp.Canvas.FillRect(Rect(0, 0, SCREEN_W, SCREEN_H));
+      DirectBmp.Canvas.Brush.Color := clMaroon;
+      DirectBmp.Canvas.FillRect(Rect(20, 20, 140, 90));
+      if Surf[Tileset] <> nil then
+        DirectBmp.Canvas.CopyRect(Rect(64, 100, 64 + 48, 100 + 48),
+                                  Surf[Tileset].Canvas, Rect(0, 0, 48, 48));
+      DirectBmp.Canvas.Draw(160, 120, Glyph);
+
+      { --- the same, through the target --- }
+      Target := TLCLRenderTarget.Create(TargetBmp.Canvas, SCREEN_W, SCREEN_H);
+      GlyphImage := TRenderImage.Create(Glyph);
+      Target.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clNavy);
+      Target.Fill(Rect(20, 20, 140, 90), clMaroon);
+      if Surf[Tileset] <> nil then
+      begin
+        SheetImage := TRenderImage.Create(Surf[Tileset]);
+        Target.BlitRect(SheetImage, Rect(0, 0, 48, 48), 64, 100);
+      end;
+      Target.DrawImage(GlyphImage, 160, 120);
+
+      ReadSurface(DirectBmp, Prev);
+      ReadSurface(TargetBmp, Cur);
+      TargetDiff := CountChanged(Prev, Cur);
+      Log.Add('');
+      Log.Add(Format('render target vs raw canvas: %d pixels differ of %d',
+        [TargetDiff, Length(Prev)]));
+      if TargetDiff <> 0 then
+      begin
+        Log.Add('FAILED: TLCLRenderTarget does not reproduce the canvas calls '
+          + 'it replaces');
+        Inc(Result);
+      end;
+      { And it has to have drawn something, or two blank surfaces would agree. }
+      if Checksum(Cur) = Checksum(Prev) then
+        if Prev[0] = 0 then
+        begin
+          Log.Add('FAILED: neither sequence drew anything');
+          Inc(Result);
+        end;
+    finally
+      SheetImage.Free;
+      GlyphImage.Free;
+      Target.Free;
+      Glyph.Free;
+      TargetBmp.Free;
+      DirectBmp.Free;
+    end;
 
     Log.Add('scene      changed   checksum   expected');
     for I := 0 to High(Scenes) do
