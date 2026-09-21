@@ -258,6 +258,22 @@ begin
       Inc(Result);
     end;
 
+    { And the cursor must not touch "Yes" either. Its icon is drawn opaque, so
+      the full 16-pixel cell lands on the screen and its right edge finishes
+      exactly where the text begins - MB_HAND_ICON_X + MB_ICON_SIZE is
+      MB_PROMPT_TEXT_X. Whatever precedes "Yes" in the string is the only gap
+      there is. }
+    PromptW := OutlinedTextWidth(Copy(MB_PROMPT_TEXT, 1,
+                                      Pos('Yes', MB_PROMPT_TEXT) - 1),
+                                 OUTLINED_FONT_FACE);
+    Log.Add(Format('save prompt: %d px between the cursor and "Yes"',
+      [PromptW]));
+    if (MB_HAND_ICON_X + MB_ICON_SIZE >= MB_PROMPT_TEXT_X) and (PromptW < 1) then
+    begin
+      Log.Add('FAILED: the hand cursor touches the word Yes');
+      Inc(Result);
+    end;
+
     { 5. the outlined system font, with the opening's own colours }
     Game_DrawTextOutlined(8, 100, 'A demon named "Akuji" once',
                           $355B7E, $A3DFFF, OUTLINED_FONT_SIZE, MapTarget);

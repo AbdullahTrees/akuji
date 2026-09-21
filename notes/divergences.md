@@ -11,7 +11,7 @@ not a divergence if the pixels are the same.
 
 ---
 
-## DIV-001 - three extra spaces in the save prompt
+## DIV-001 - four extra spaces in the save prompt
 
 **What the original does.** `MB_PROMPT_TEXT` is `'Yes' + 7 spaces + 'No  '`,
 drawn as ONE string at x=112, while the hand cursor is drawn separately at a
@@ -27,8 +27,16 @@ immediately before "Yes" when Yes is selected, with no overlap. The spacing was
 plainly meant to do the same for "No" and does not. It is visible in the
 original binary as well as here.
 
-**What this does instead.** Ten spaces rather than seven, which is 54 pixels and
-clears the hand by three.
+**What this does instead.** Ten spaces rather than seven, and one before "Yes".
+
+The leading space is the same defect at the other end. The hand icon is drawn
+OPAQUE, so its whole 16-pixel cell reaches the screen, and
+`MB_HAND_ICON_X + MB_ICON_SIZE` is exactly `MB_PROMPT_TEXT_X` - the cell's right
+edge finishes where the text starts, so the cursor sits against the Y with no
+gap at all. One space, 3 pixels, separates them.
+
+With it the text before "No" is 57 pixels rather than 54, still clear of the
+cursor's other position.
 
 **Why ten.** A space is 3 pixels at this strike. Nine gives 51, one short of
 the 52 needed, which leaves the N touching the cursor. Ten is the first that
@@ -40,8 +48,10 @@ would move it away from "Yes", trading one misalignment for another. The
 spacing is the thing that is wrong, so the spacing is what changes.
 
 **How it is held.** `--selftest-render` measures the rendered width of the text
-before "No" and fails if it is under 52. Measured through the renderer, not by
-counting characters, because what matters is the advance and a space is not a
-fixed width - a change of font, strike or string is caught the same way.
+before "No" and fails if it is under 52, and separately checks that something
+precedes "Yes" whenever the cursor cell reaches the text origin. Both measure
+through the renderer rather than counting characters, because what matters is
+the advance and a space is not a fixed width - so a change of font, strike or
+string is caught the same way.
 
 **Sites.** `MB_PROMPT_TEXT` in `src/screens/Dialogue.pas`.
