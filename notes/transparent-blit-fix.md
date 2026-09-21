@@ -1,8 +1,11 @@
 # The transparent blit, and a failed attempt at fixing it
 
-**Status: OPEN. An attempted fix was reverted on 2026-09-21 because it made the
-picture worse.** This is the record of what is known, what was tried, why it
-failed, and which explanations have already been ruled out.
+**Status: CLOSED on 2026-09-22. See DIV-002 in notes/divergences.md for what
+the fix does; the last section here says how it differs from the attempt that
+failed.** An earlier fix was reverted on 2026-09-21 because it made the
+picture worse. This is the record of what was known at the time, what was
+tried, why it failed, and which explanations had already been ruled out -
+kept because the reasoning is what made the second attempt different.
 
 ## The symptom
 
@@ -130,16 +133,47 @@ inheriting a DirectDraw driver bug. Our `CopyRect` never keyed anything, which
 is sufficient on its own to explain a black box. They may simply be two defects
 that look alike.
 
-## If picking this up again
+**Since settled: they are.** The player confirmed the original binary does NOT
+show black boxes on Windows XP, so the original's glitch belongs to the modern
+driver and ours belongs to `CopyRect`. Fixing ours therefore does not make the
+port match the original binary as it behaves today - it makes it match what
+the game looked like when it was written. That is why it is a divergence and
+not a repair.
 
-1. Reproduce the erasure first, in a test, before changing any code. It needs
-   many sprites of differing shapes and sizes drawn in sequence, probably
-   across several frames, and it needs to check pixels INSIDE the sprite rather
-   than only counting how many changed.
-2. Prefer the approach `GameFont` already proves: build one transparent
-   `TBitmap` per sprite frame, cached, instead of sharing a scratch. Each frame
-   then owns its mask and nothing can contaminate it. The cost is memory rather
-   than per-blit allocation.
-3. Whatever is done, `--selftest-render` must be re-pinned deliberately: its
-   baselines currently record the renderer WITH the black boxes, because that
-   is what ships today.
+## How it was fixed
+
+Commits `4e30a4c`, `9f5fb99`, `91eb183`, `56d6969`.
+
+`TRenderTarget.BlitRectKeyed` does the blit with two raster operations rather
+than one call: AND a black-and-white mask of the sheet into the destination to
+punch the sprite's silhouette out of it, then OR the sheet in, where its black
+background contributes nothing. Both take a source rectangle, which is the
+property a colour-keyed `Draw()` does not have and the reason the font has to
+cut its glyphs.
+
+Three things were different from the attempt that failed.
+
+**The mask belongs to the image.** `TRenderImage.KeyMask` is built once, the
+first time that image is keyed, and lives as long as it does. The failed
+attempt cut every blit into ONE scratch bitmap shared by all of them, which is
+what let one sprite be drawn through another's mask. A mask that is never
+reused for a second image cannot be contaminated by one.
+
+**The test compares colours, not counts.** `--selftest-render` draws twelve
+frames from different sheets at different sizes, overlapping each other and
+clipped against both screen edges, and checks every pixel against a colour key
+applied in software by reading the sheet directly. The failed attempt passed
+an order-dependence check, a changed-pixel count and a visual inspection while
+cutting pieces out of the character.
+
+**The flag word said which blits to change.** `TDDDD_DrawSprite` passes its
+fourth argument straight to `BltFast` as `dwTrans`, so every call site in the
+binary states whether it wanted a key: `0x01`/`0x11` with
+`DDBLTFAST_SRCCOLORKEY`, `0x00`/`0x10` without. Sprites, HUD icons, the
+dialogue box's two icons and the bitmap font are keyed; the dialogue frame and
+the game-over screen are not. Nothing had to be guessed at from how it looks.
+
+Tiles are the one place the reading was not followed. `Load_Map` defines every
+tile transparent, so the original keyed them - but only one layer is ever
+drawn and the buffer is cleared to black first, so keying them would produce
+identical pixels for twice the blits.
