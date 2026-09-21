@@ -64,19 +64,29 @@ const
     argument for one - it always returns face 0. TTF_OpenFontIndex picks the
     strike. This file holds six:
 
-        face 0   13px cell    'Yes       ' = 39px    <- what the game shows
-        face 1   16px cell    'Yes       ' = 45px
+        face 0   13px cell    'Yes       ' = 39px
+        face 1   16px cell    'Yes       ' = 45px    <- the original's strike
         face 2   20px cell    'Yes       ' = 56px
         face 3   24px cell    'Yes       ' = 67px
         face 4   29px cell    'Yes       ' = 84px
         face 5   37px cell    'Yes       ' = 118px
 
-    Face 0 is chosen deliberately: it is the strike the game renders with
-    today, so the text looks exactly as it does now rather than merely
-    similar. The save prompt's overlap comes with it - see
-    notes/transparent-blit-fix.md's sibling note on the prompt. }
+    Face 1 is the one the ORIGINAL BINARY renders with, measured off
+    screenshots of it rather than assumed. Two strings pin it independently:
+
+        "Will you save the game?"   original 146x15   face 1 gives 147x15
+        "Yes       No"              original  63x12   face 1 gives  64x12
+
+    and no other strike is close on either - face 0 gives 118x13 and 55x11,
+    face 2 gives 171x18 and 77x14.
+
+    This reconstruction had been rendering face 0, which is why its text looked
+    small beside the original. The save prompt's overlap belongs to face 1 too:
+    'Yes       ' is 45 where clearing the hand needs 52, so the original
+    overlaps by 6 pixels and so does this. That is the defect being reproduced
+    rather than one being introduced. }
   OUTLINED_FONT_FILE   = 'fonts' + PathDelim + 'sserife.fon';
-  OUTLINED_FONT_FACE   = 0;
+  OUTLINED_FONT_FACE   = 1;
 
 type
   { Something that can be blitted from: a sheet, a glyph, a full-screen
