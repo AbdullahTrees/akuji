@@ -11,7 +11,7 @@ not a divergence if the pixels are the same.
 
 ---
 
-## DIV-001 - four extra spaces in the save prompt
+## DIV-001 - three extra spaces in the save prompt
 
 **What the original does.** `MB_PROMPT_TEXT` is `'Yes' + 7 spaces + 'No  '`,
 drawn as ONE string at x=112, while the hand cursor is drawn separately at a
@@ -27,7 +27,7 @@ immediately before "Yes" when Yes is selected, with no overlap. The spacing was
 plainly meant to do the same for "No" and does not. It is visible in the
 original binary as well as here.
 
-**What this does instead.** Ten spaces rather than seven, and one before "Yes".
+**What this does instead.** Nine spaces rather than seven, and one before "Yes".
 
 The leading space is the same defect at the other end. The hand icon is drawn
 OPAQUE, so its whole 16-pixel cell reaches the screen, and
@@ -35,12 +35,13 @@ OPAQUE, so its whole 16-pixel cell reaches the screen, and
 edge finishes where the text starts, so the cursor sits against the Y with no
 gap at all. One space, 3 pixels, separates them.
 
-With it the text before "No" is 57 pixels rather than 54, still clear of the
-cursor's other position.
+The cursor then sits three pixels from "Yes" and two from "No", which is as
+even as it gets: a space is 3 pixels, so the choice before "No" is a gap of 2
+or one of 5, and 2 is the nearer match.
 
-**Why ten.** A space is 3 pixels at this strike. Nine gives 51, one short of
-the 52 needed, which leaves the N touching the cursor. Ten is the first that
-clears.
+**Why nine.** A space is 3 pixels at this strike. Counting the leading one,
+eight gives 51 - one short of the 52 needed, leaving the N against the cursor.
+Nine gives 54 and clears it.
 
 **Why not move the cursor instead.** `MB_HAND_ICON_X` and
 `MB_HAND_ICON_STEP` place the hand for BOTH choices. Moving it to suit "No"

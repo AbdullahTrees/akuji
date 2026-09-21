@@ -100,9 +100,10 @@ const
   { The yes/no prompt. The two words are one literal with the spacing baked
     in, and the cursor moves 0x34 for the second. }
   { DIVERGENCE: the original is 'Yes' + SEVEN spaces + 'No  '. See
-    notes/divergences.md - a leading space holds the cursor off "Yes", and
-    three more between the words stop it covering "No". }
-  MB_PROMPT_TEXT   = ' Yes          No  ';
+    notes/divergences.md - a leading space holds the cursor off "Yes", and two
+    more between the words stop it covering "No". The cursor then sits the same
+    three pixels from either word. }
+  MB_PROMPT_TEXT   = ' Yes         No  ';
   MB_PROMPT_TEXT_X = $70;
   MB_PROMPT_TEXT_DY = $3C;
   MB_CURSOR_X      = $60;

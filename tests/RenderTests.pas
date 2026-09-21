@@ -250,7 +250,7 @@ begin
     PromptNeed := (MB_HAND_ICON_X + MB_HAND_ICON_STEP + MB_ICON_SIZE)
                   - MB_PROMPT_TEXT_X;
     Log.Add(Format('save prompt: text before "No" is %d px, clearing the hand '
-      + 'needs %d', [PromptW, PromptNeed]));
+      + 'needs %d - a gap of %d', [PromptW, PromptNeed, PromptW - PromptNeed]));
     if PromptW < PromptNeed then
     begin
       Log.Add(Format('FAILED: the hand cursor covers the word No by %d px',
@@ -266,8 +266,7 @@ begin
     PromptW := OutlinedTextWidth(Copy(MB_PROMPT_TEXT, 1,
                                       Pos('Yes', MB_PROMPT_TEXT) - 1),
                                  OUTLINED_FONT_FACE);
-    Log.Add(Format('save prompt: %d px between the cursor and "Yes"',
-      [PromptW]));
+    Log.Add(Format('save prompt: a gap of %d px before "Yes"', [PromptW]));
     if (MB_HAND_ICON_X + MB_ICON_SIZE >= MB_PROMPT_TEXT_X) and (PromptW < 1) then
     begin
       Log.Add('FAILED: the hand cursor touches the word Yes');
