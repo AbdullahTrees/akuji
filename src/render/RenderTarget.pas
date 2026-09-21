@@ -21,11 +21,15 @@
     DrawImage  draws a WHOLE image and honours the transparency it carries.
                TCanvas.Draw.
 
-  There is no LCL call that does both, which is why the font cuts every glyph
-  into its own bitmap and sprites do not. That asymmetry is also the open
-  defect in notes/transparent-blit-fix.md, so the split is kept visible here
-  rather than smoothed over - a target that silently keyed everything would
-  change what the game looks like, and that is not this step's job.
+    BlitRectKeyed
+               a source RECTANGLE, with the sheet's background treated as
+               transparent. Two raster operations rather than one call,
+               because the LCL has no such primitive - see below.
+
+  There is no single LCL call that copies a sub-rectangle and honours a colour
+  key, which is why the font cuts every glyph into its own bitmap and sprites
+  did not. BlitRectKeyed closes that gap without cutting anything: see
+  TRenderImage.KeyMask.
 
   TRenderImage currently wraps a TBitmap and exposes it. That escape hatch is
   what lets units move across one at a time; it is also the thing that has to
@@ -41,6 +45,16 @@ uses
   Classes, SysUtils, Graphics, Types;
 
 const
+  { What the sheets use for "nothing here".
+
+    Every sheet in bmp.qda paints its background pure black and the artwork
+    never touches it: the darkest colour in the character sheets is (3,5,17),
+    a near-black chosen to stay clear of the key. The bitmap font already
+    keys on the same value - GameFont.FONT_KEY_COLOR - and the original set
+    this colour on its DirectDraw surfaces, which is what made its sprites
+    transparent on the machines it was written for. }
+  IMAGE_KEY_COLOR = clBlack;
+
   { The system font the opening narration is drawn in. It lives here rather
     than with the bitmap font because the target is what has to satisfy it,
     and GameFont re-exports it so the check that pins it against the
@@ -95,8 +109,11 @@ type
   private
     FBitmap: TBitmap;
     FOwnsBitmap: Boolean;
+    FKeyMask: TBitmap;
+    FKeyMaskBuilt: Boolean;
     function GetWidth: Integer;
     function GetHeight: Integer;
+    function GetKeyMask: TBitmap;
   public
     { AOwns transfers ownership: the surface set keeps its own bitmaps, while a
       glyph cut for one image does not outlive it. }
@@ -107,6 +124,29 @@ type
       time; every remaining use of it is work still to do before the renderer
       can be anything other than the LCL. }
     property Bitmap: TBitmap read FBitmap;
+
+    { This image with every pixel reduced to one of two values: WHITE where
+      the image is IMAGE_KEY_COLOR, BLACK everywhere else. It is what makes a
+      keyed blit possible from a sub-rectangle:
+
+          dest := (dest AND mask) OR source
+
+      Where the source is background the mask is white, so the destination
+      survives the AND and the OR adds black to it - nothing happens. Where
+      the source is artwork the mask is black, so the AND clears the
+      destination to zero and the OR writes the source pixel exactly. Both
+      steps take a source rectangle, which is the property a colour-keyed
+      Draw() does not have.
+
+      Built once per image, the first time it is asked for, and held for as
+      long as the image lives. That is deliberate: an earlier attempt at keyed
+      sprites shared ONE scratch bitmap between every blit and produced sprites
+      with pieces of other sprites' silhouettes cut out of them. A mask that
+      belongs to the image it describes cannot be contaminated by another
+      image, whatever the order of drawing. See notes/transparent-blit-fix.md.
+
+      nil if the image has no bitmap. }
+    property KeyMask: TBitmap read GetKeyMask;
 
     property Width: Integer read GetWidth;
     property Height: Integer read GetHeight;
@@ -123,6 +163,16 @@ type
     { A source rectangle, copied including whatever is behind the subject. }
     procedure BlitRect(Src: TRenderImage; const SrcRect: TRect;
                        X, Y: Integer); virtual; abstract;
+
+    { The same rectangle, with IMAGE_KEY_COLOR left behind rather than copied.
+
+      This is what the original did: its sprite blit ends in BltFast on a
+      DirectDraw surface that carries a source colour key, so a sprite reached
+      the screen without the black around it. BlitRect is kept beside it
+      because the tile layer is opaque by nature - it IS the background - and
+      keying it would cost two blits per tile for no change. }
+    procedure BlitRectKeyed(Src: TRenderImage; const SrcRect: TRect;
+                            X, Y: Integer); virtual; abstract;
 
     { A whole image, honouring any transparency it carries. }
     procedure DrawImage(Src: TRenderImage; X, Y: Integer); virtual; abstract;
@@ -167,6 +217,8 @@ type
     procedure Fill(const R: TRect; AColor: TColor); override;
     procedure BlitRect(Src: TRenderImage; const SrcRect: TRect;
                        X, Y: Integer); override;
+    procedure BlitRectKeyed(Src: TRenderImage; const SrcRect: TRect;
+                            X, Y: Integer); override;
     procedure DrawImage(Src: TRenderImage; X, Y: Integer); override;
     procedure StretchImage(Src: TRenderImage; const DestRect: TRect); override;
     procedure DrawOutlinedText(X, Y: Integer; const S: string;
@@ -180,7 +232,7 @@ implementation
 uses
   { In the implementation, because TextRender names this unit's font
     constants in turn. Pascal permits the cycle only from here. }
-  TextRender;
+  TextRender, IntfGraphics, FPImage;
 
 { TRenderImage }
 
@@ -193,9 +245,61 @@ end;
 
 destructor TRenderImage.Destroy;
 begin
+  FKeyMask.Free;
   if FOwnsBitmap then
     FBitmap.Free;
   inherited Destroy;
+end;
+
+{ Built through TLazIntfImage rather than Canvas.Pixels because the latter is
+  a round trip into the widgetset per pixel, and a sheet is a hundred thousand
+  of them. The image is edited in place and loaded back, so the mask ends up
+  in exactly the same pixel format as the sheet it describes - which is what
+  keeps the two raster operations in step. }
+function TRenderImage.GetKeyMask: TBitmap;
+var
+  Img: TLazIntfImage;
+  Key, White, Black: TFPColor;
+  C: TFPColor;
+  X, Y: Integer;
+begin
+  Result := FKeyMask;
+  if FKeyMaskBuilt or (FBitmap = nil) then
+    Exit;
+
+  { Set before the work, not after: a sheet that cannot be read must not be
+    retried on every blit for the rest of the run. }
+  FKeyMaskBuilt := True;
+  if (FBitmap.Width <= 0) or (FBitmap.Height <= 0) then
+    Exit;
+
+  Key := TColorToFPColor(ColorToRGB(IMAGE_KEY_COLOR));
+  { Opaque white and opaque black. The alpha byte matters: a mask with alpha 0
+    would AND the destination's own alpha away, and while nothing reads it
+    today, a target that later blends would find the buffer transparent. }
+  White := FPColor($FFFF, $FFFF, $FFFF, $FFFF);
+  Black := FPColor(0, 0, 0, $FFFF);
+
+  Img := FBitmap.CreateIntfImage;
+  try
+    for Y := 0 to Img.Height - 1 do
+      for X := 0 to Img.Width - 1 do
+      begin
+        C := Img.Colors[X, Y];
+        { Alpha is ignored: the sheets carry none, and where a format leaves
+          the byte uninitialised it would otherwise decide the comparison. }
+        if (C.red = Key.red) and (C.green = Key.green)
+        and (C.blue = Key.blue) then
+          Img.Colors[X, Y] := White
+        else
+          Img.Colors[X, Y] := Black;
+      end;
+    FKeyMask := TBitmap.Create;
+    FKeyMask.LoadFromIntfImage(Img);
+  finally
+    Img.Free;
+  end;
+  Result := FKeyMask;
 end;
 
 function TRenderImage.GetWidth: Integer;
@@ -251,6 +355,40 @@ begin
          X + (SrcRect.Right - SrcRect.Left),
          Y + (SrcRect.Bottom - SrcRect.Top)),
     Src.Bitmap.Canvas, SrcRect);
+end;
+
+procedure TLCLRenderTarget.BlitRectKeyed(Src: TRenderImage;
+  const SrcRect: TRect; X, Y: Integer);
+var
+  Mask: TBitmap;
+  Dest: TRect;
+  Saved: TCopyMode;
+begin
+  if (Src = nil) or (Src.Bitmap = nil) then
+    Exit;
+  Mask := Src.KeyMask;
+  if Mask = nil then
+  begin
+    { No mask could be built. An opaque sprite is wrong, but it is the picture
+      the game has drawn all along and it is better than an invisible one. }
+    BlitRect(Src, SrcRect, X, Y);
+    Exit;
+  end;
+
+  Dest := Rect(X, Y,
+               X + (SrcRect.Right - SrcRect.Left),
+               Y + (SrcRect.Bottom - SrcRect.Top));
+  Saved := FCanvas.CopyMode;
+  try
+    { Punch the silhouette black, then OR the artwork into the hole. The
+      source's own background is black and OR leaves the destination alone. }
+    FCanvas.CopyMode := cmSrcAnd;
+    FCanvas.CopyRect(Dest, Mask.Canvas, SrcRect);
+    FCanvas.CopyMode := cmSrcPaint;
+    FCanvas.CopyRect(Dest, Src.Bitmap.Canvas, SrcRect);
+  finally
+    FCanvas.CopyMode := Saved;
+  end;
 end;
 
 procedure TLCLRenderTarget.DrawImage(Src: TRenderImage; X, Y: Integer);

@@ -132,6 +132,10 @@ var
   DirectBmp, TargetBmp, Glyph: TBitmap;
   Target, MapTarget: TLCLRenderTarget;
   SheetImage, GlyphImage: TRenderImage;
+  KeyBmp: TBitmap;
+  KeyTarget: TLCLRenderTarget;
+  KeyRef: TPixels;
+  KeyKept, KeyDiff, KeyStep: Integer;
 
   procedure Snap(Index: Integer; const AName: string);
   begin
@@ -143,6 +147,45 @@ var
     else
       Scenes[Index].Changed := Length(Cur);
     Prev := Copy(Cur, 0, Length(Cur));
+  end;
+
+  { Draw one sprite frame through the target's keyed blit, and work out what
+    it should have produced by reading the sheet a pixel at a time. The
+    renderer and the reference see the same frame, the same position and the
+    same clipping rules; anything the two disagree about is the renderer. }
+  procedure KeyedSprite(Index, X, Y: Integer);
+  var
+    Frame: TSpriteFrame;
+    Sheet: TBitmap;
+    SX, SY, DX, DY: Integer;
+    C: TColor;
+  begin
+    Frame := Sprite[Index];
+    if Frame.Surface < 0 then
+      Exit;
+    Sheet := Surf[Frame.Surface];
+    if Sheet = nil then
+      Exit;
+
+    for SY := Frame.Src.Top to Frame.Src.Bottom - 1 do
+      for SX := Frame.Src.Left to Frame.Src.Right - 1 do
+      begin
+        if (SX < 0) or (SY < 0)
+        or (SX >= Sheet.Width) or (SY >= Sheet.Height) then
+          Continue;
+        DX := X + (SX - Frame.Src.Left);
+        DY := Y + (SY - Frame.Src.Top);
+        if (DX < 0) or (DY < 0) or (DX >= SCREEN_W) or (DY >= SCREEN_H) then
+          Continue;
+        C := Sheet.Canvas.Pixels[SX, SY];
+        if ColorToRGB(C) = ColorToRGB(IMAGE_KEY_COLOR) then
+          { The background: whatever is already there stays. }
+          Inc(KeyKept)
+        else
+          KeyRef[DY * SCREEN_W + DX] := LongWord(C);
+      end;
+
+    KeyTarget.BlitRectKeyed(Surf.Images[Frame.Surface], Frame.Src, X, Y);
   end;
 
 begin
@@ -369,6 +412,81 @@ begin
       Glyph.Free;
       TargetBmp.Free;
       DirectBmp.Free;
+    end;
+
+    { A KEYED BLIT PUTS THE SPRITE DOWN AND LEAVES THE SHEET BEHIND.
+
+      This is the check that a checksum cannot make. A checksum says the
+      picture changed; it cannot say whether the change was right, and the
+      last attempt at keyed sprites passed every check there was while
+      cutting pieces out of the character - so this one computes what the
+      screen SHOULD hold, pixel by pixel, straight from the sheet, and
+      compares. Not a count of what changed: the actual colours.
+
+      The scene is built to break the thing that went wrong last time. A
+      shared mask shows up as one sprite wearing another's silhouette, so
+      the frames are taken from across the whole table rather than from one
+      animation - different sheets, different sizes, different shapes - they
+      overlap each other, and two of them hang off the edge of the screen
+      where the blit has to clip. Three frames of one character would all
+      have looked alike and told us nothing. }
+    KeyBmp := TBitmap.Create;
+    KeyTarget := nil;
+    try
+      KeyBmp.SetSize(SCREEN_W, SCREEN_H);
+      KeyTarget := TLCLRenderTarget.Create(KeyBmp.Canvas, SCREEN_W, SCREEN_H);
+
+      { Two backgrounds, neither of them black. A sprite that arrives opaque
+        paints its own black over whichever it lands on, and a mask that is
+        the wrong way round erases one of them. }
+      KeyTarget.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clNavy);
+      KeyTarget.Fill(Rect(0, 0, SCREEN_W, SCREEN_H div 2), clOlive);
+
+      { The reference starts as whatever is actually on the surface rather
+        than as the colours just asked for, so the comparison is not also a
+        test of how TColor round-trips through a bitmap. }
+      ReadSurface(KeyBmp, KeyRef);
+      KeyKept := 0;
+
+      if Sprite.Count > 0 then
+      begin
+        KeyStep := Sprite.Count div 8;
+        if KeyStep < 1 then
+          KeyStep := 1;
+        for I := 0 to 7 do
+          KeyedSprite((I * KeyStep) mod Sprite.Count,
+                      12 + (I mod 4) * 72, 16 + (I div 4) * 84);
+        { Deliberately on top of what is already there. }
+        KeyedSprite(0, 20, 24);
+        KeyedSprite((3 * KeyStep) mod Sprite.Count, 26, 30);
+        { And over the edges, where the blit clips. }
+        KeyedSprite((5 * KeyStep) mod Sprite.Count, -9, -7);
+        KeyedSprite((2 * KeyStep) mod Sprite.Count, SCREEN_W - 13,
+                    SCREEN_H - 11);
+      end;
+
+      ReadSurface(KeyBmp, Cur);
+      KeyDiff := CountChanged(KeyRef, Cur);
+      Log.Add('');
+      Log.Add(Format('keyed blit: %d pixels differ from a software colour '
+        + 'key, %d background pixels left showing', [KeyDiff, KeyKept]));
+      if KeyDiff <> 0 then
+      begin
+        Log.Add('FAILED: the keyed blit does not draw what a colour key '
+          + 'would - the sprites are wrong, not merely different');
+        Inc(Result);
+      end;
+      { If the frames chosen had no background in them the comparison above
+        would hold for an opaque blit too, and prove nothing. }
+      if KeyKept = 0 then
+      begin
+        Log.Add('FAILED: no sheet background fell inside the scene, so the '
+          + 'keyed blit was never actually asked to leave anything behind');
+        Inc(Result);
+      end;
+    finally
+      KeyTarget.Free;
+      KeyBmp.Free;
     end;
 
     Log.Add('scene      changed   checksum   expected');
