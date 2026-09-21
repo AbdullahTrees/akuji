@@ -77,6 +77,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src/gameplay/EntityTerrain.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src/gameplay/EntityPickups.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
