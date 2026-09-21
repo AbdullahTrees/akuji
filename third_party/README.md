@@ -25,6 +25,7 @@ The SDL2 and SDL2_mixer runtime libraries for 64-bit Windows.
 |---|---|
 | SDL2 | 2.32.10, from https://github.com/libsdl-org/SDL/releases |
 | SDL2_mixer | 2.8.2, from https://github.com/libsdl-org/SDL_mixer/releases |
+| SDL2_ttf | 2.24.0, from https://github.com/libsdl-org/SDL_ttf/releases |
 | licence | zlib - see README-SDL.txt |
 
 `tools/build.sh` copies these next to the built binary.

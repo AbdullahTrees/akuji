@@ -55,12 +55,24 @@ const
     that substitute rather than a lookalike, and a renderer that opens it is
     asking for the same glyphs the game has always drawn.
 
-    THE SIZE IS NOT THE SAME NUMBER. OUTLINED_FONT_SIZE is 10 POINTS, which GDI
-    renders at 96 DPI as a 13.33 pixel em. SDL_ttf's ptsize argument is pixels
-    per em, so passing 10 would give glyphs three quarters the right size;
-    TTF_OpenFontDPI(file, 10, 96, 96) asks for the right thing directly. }
-  OUTLINED_FONT_FILE = 'fonts' + PathDelim + 'micross.ttf';
-  OUTLINED_FONT_DPI  = 96;
+    THE SIZE IS NOT THE SAME NUMBER, and it is not the one arithmetic suggests
+    either. OUTLINED_FONT_SIZE is 10 POINTS; 10pt at 96 DPI is a 13.33 pixel em,
+    so TTF_OpenFontDPI(file, 10, 96, 96) looks like the right call. It is not -
+    it renders the opening line 168 pixels wide where the game draws it 142.
+
+    What the game actually gets is an 11 pixel em. Measured rather than
+    reasoned: the line is 142 pixels wide including the one-pixel outline on
+    each side, so the advance is 140, and the font's own hdmx table - the
+    per-ppem integer advances that GDI uses in place of scaled ones - gives 140
+    for this string at 11 ppem and 158 at 12. TTF_OpenFont(file, 11) reproduces
+    it to 144 pixels and the same 13 pixel glyph height.
+
+    The two pixels that remain are FreeType scaling hmtx where GDI reads hdmx.
+    Closing them means advancing glyph by glyph using hdmx rather than letting
+    the renderer lay out the string. }
+  OUTLINED_FONT_FILE   = 'fonts' + PathDelim + 'micross.ttf';
+  { Pixels per em, which is what SDL_ttf's ptsize argument means. }
+  OUTLINED_FONT_PPEM   = 11;
 
 type
   { Something that can be blitted from: a sheet, a glyph, a full-screen
