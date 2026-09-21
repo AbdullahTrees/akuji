@@ -41,7 +41,7 @@ type
     { Returns the number of frames registered. }
     function LoadSet(const ADataDir: string; SetIndex: Integer): Integer;
 
-    { Blits frame Index at (X, Y) using the surface bitmap's transparency. }
+    { Blits frame Index at (X, Y), leaving the sheet's background behind. }
     procedure Draw(Dest: TRenderTarget; ASurfaces: TSurfaceSet;
                    Index, X, Y: Integer);
 
@@ -135,11 +135,10 @@ begin
   Surface := ASurfaces.Images[Frame.Surface];
   if Surface = nil then Exit;
 
-  { BlitRect, not a keyed draw. This copies the sheet's background with the
-    sprite and is the black box in notes/transparent-blit-fix.md - kept exactly
-    as it is, because this step moves the renderer and changes nothing about
-    what it draws. }
-  Dest.BlitRect(Surface, Frame.Src, X, Y);
+  { Keyed, the way the original drew it: SpritePool_DrawBucket passes
+    DDBLTFAST_SRCCOLORKEY on every sprite blit. Drawing these opaque is what
+    put a black box around every character - notes/divergences.md, DIV-002. }
+  Dest.BlitRectKeyed(Surface, Frame.Src, X, Y);
 end;
 
 end.

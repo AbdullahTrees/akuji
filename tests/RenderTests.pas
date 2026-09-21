@@ -107,13 +107,17 @@ end;
 const
   BASELINE_CLEAR   = $A3804348;
   BASELINE_TILES   = $39A6A29B;
-  BASELINE_SPRITES = $A4E5FFD0;
-  BASELINE_TEXT    = $477F6671;
+  { Re-pinned when sprites became keyed - DIV-002. The scenes accumulate on
+    one surface, so the two that are drawn ON TOP of the sprites moved with
+    them; their own draws are unchanged, and the pixel counts they report
+    (1071 and 1147) say so. }
+  BASELINE_SPRITES = $CC77D640;
+  BASELINE_TEXT    = $2FED4FE1;
   { The SYSTEM font path - the opening narration, the ending lines and the
     dialogue box. Pinned separately because it is drawn by the platform
     rather than blitted from a sheet, so it is the one scene an SDL target
     reproduces with a different rasteriser entirely. }
-  BASELINE_OUTLINED = $5D477D70;
+  BASELINE_OUTLINED = $47FFC7E9;
 
 function SelfTestRender(Log: TStrings): Integer;
 var

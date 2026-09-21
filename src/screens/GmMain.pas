@@ -1017,14 +1017,16 @@ const
 procedure TFrm_main.DrawHud;
 var
   Secs, I, Target: Integer;
-  Sheet: TBitmap;
+  Sheet: TRenderImage;
 begin
   if FFont = nil then Exit;
-  Sheet := FSurfaces[1];
+  { Keyed, as HUD_Draw passes DDBLTFAST_SRCCOLORKEY for all three of these -
+    see notes/divergences.md, DIV-002. }
+  Sheet := FSurfaces.Images[1];
 
   { Draw the counter icon followed by its '@ ' glyph and values. }
   if Sheet <> nil then
-    DDDD1.DrawSprite(Sheet, 7, $12, Rect($60, 0, $74, 10));
+    DDDD1.Target.BlitRectKeyed(Sheet, Rect($60, 0, $74, 10), 7, $12);
 
   Target := 0;
   if (FSession.Player.TargetIndex >= 0) and
@@ -1059,12 +1061,14 @@ begin
   if Sheet = nil then Exit;
   { Lit icons run 1..Lives, unlit ones Lives+1..MaxLives, both at i*0x10 + 9. }
   for I := 1 to FSession.Player.Lives do
-    DDDD1.DrawSprite(Sheet, I * LIFE_ICON_STEP + 9, LIFE_ICON_Y,
+    DDDD1.Target.BlitRectKeyed(Sheet,
       Rect(FLifeAnimX + LIFE_ICON_X0, 0,
-           FLifeAnimX + LIFE_ICON_X0 + LIFE_ICON_W, LIFE_ICON_H));
+           FLifeAnimX + LIFE_ICON_X0 + LIFE_ICON_W, LIFE_ICON_H),
+      I * LIFE_ICON_STEP + 9, LIFE_ICON_Y);
   for I := FSession.Player.Lives + 1 to FSession.Player.MaxLives do
-    DDDD1.DrawSprite(Sheet, I * LIFE_ICON_STEP + 9, LIFE_ICON_Y,
-      Rect(LIFE_ICON_X0, 0, LIFE_ICON_X0 + LIFE_ICON_W, LIFE_ICON_H));
+    DDDD1.Target.BlitRectKeyed(Sheet,
+      Rect(LIFE_ICON_X0, 0, LIFE_ICON_X0 + LIFE_ICON_W, LIFE_ICON_H),
+      I * LIFE_ICON_STEP + 9, LIFE_ICON_Y);
 end;
 
 { Sound requests from the title screen. See notes/audio_map.md for which index
