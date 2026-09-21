@@ -77,6 +77,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src/gameplay/EntityMonsters.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src/gameplay/EntityEffects.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
