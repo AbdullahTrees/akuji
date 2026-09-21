@@ -77,6 +77,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src/gameplay/EntityBosses.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src/gameplay/Player.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
