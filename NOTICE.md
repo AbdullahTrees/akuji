@@ -45,6 +45,34 @@ because the copyright is not theirs.
 Nothing here decides that. It is recorded so the decision is made deliberately
 rather than by default when the repository is pushed.
 
+## The font
+
+`assets/fonts/micross.ttf` is Microsoft Sans Serif, copied from a Windows
+installation.
+
+It is here because the game asks for "MS Sans Serif" and Windows substitutes
+this file for it, so it is the font the opening narration, the ending lines and
+the dialogue box have always actually been drawn in. A port to Linux or macOS
+has no such font and would silently render something else, which is why a local
+copy travels with the game rather than being looked up by name.
+
+**Its licence does not permit redistribution.** Microsoft's font EULA allows
+use on a licensed Windows machine, not shipping the file inside someone else's
+project. This is the same open question as the game data above and it is
+recorded for the same reason - so it is settled deliberately rather than by
+default when the repository is pushed. The options are much the same:
+
+- **Ship it, as now.** Every platform renders identically to Windows.
+- **Ship nothing and look the font up by name.** Legally clean, and the text
+  looks different on any machine without it, which is every machine that is not
+  Windows.
+- **Ship a metrically similar open font** such as Liberation Sans. Legally
+  clean, redistributable, and visibly not the same glyphs.
+- **Pre-render the glyphs into a sheet**, the way the game already stores its
+  own bitmap font. Pixel-exact everywhere, no font file at run time, and it
+  sidesteps redistributing a font program - though the glyph shapes are still
+  Microsoft's design.
+
 ## What is deliberately absent
 
 The original `akuji.exe` is **not** distributed here. It is not needed to build

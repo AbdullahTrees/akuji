@@ -47,6 +47,21 @@ const
     original binary keeps working. }
   OUTLINED_FONT_NAME = 'MS Sans Serif';
 
+  { The same font as a file, under the game's data directory, so a port does
+    not depend on the host having it installed.
+
+    Windows substitutes Microsoft Sans Serif - micross.ttf, TrueType - for the
+    name above; the raster sserife.fon is not what gets used. So the file is
+    that substitute rather than a lookalike, and a renderer that opens it is
+    asking for the same glyphs the game has always drawn.
+
+    THE SIZE IS NOT THE SAME NUMBER. OUTLINED_FONT_SIZE is 10 POINTS, which GDI
+    renders at 96 DPI as a 13.33 pixel em. SDL_ttf's ptsize argument is pixels
+    per em, so passing 10 would give glyphs three quarters the right size;
+    TTF_OpenFontDPI(file, 10, 96, 96) asks for the right thing directly. }
+  OUTLINED_FONT_FILE = 'fonts' + PathDelim + 'micross.ttf';
+  OUTLINED_FONT_DPI  = 96;
+
 type
   { Something that can be blitted from: a sheet, a glyph, a full-screen
     picture. }

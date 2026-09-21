@@ -109,6 +109,11 @@ const
   BASELINE_TILES   = $39A6A29B;
   BASELINE_SPRITES = $A4E5FFD0;
   BASELINE_TEXT    = $477F6671;
+  { The SYSTEM font path - the opening narration, the ending lines and the
+    dialogue box. Pinned separately because it is drawn by the platform
+    rather than blitted from a sheet, so it is the one scene an SDL target
+    reproduces with a different rasteriser entirely. }
+  BASELINE_OUTLINED = $6589E9BD;
 
 function SelfTestRender(Log: TStrings): Integer;
 var
@@ -120,8 +125,8 @@ var
   Font: TGameFont;
   Stages: TStageTable;
   Bmp: TBitmap;
-  Scenes: array[0..3] of TScene;
-  Expected: array[0..3] of LongWord;
+  Scenes: array[0..4] of TScene;
+  Expected: array[0..4] of LongWord;
   Prev, Cur: TPixels;
   I, Tileset, MapId, TargetDiff: Integer;
   DirectBmp, TargetBmp, Glyph: TBitmap;
@@ -150,6 +155,7 @@ begin
   Expected[1] := BASELINE_TILES;
   Expected[2] := BASELINE_SPRITES;
   Expected[3] := BASELINE_TEXT;
+  Expected[4] := BASELINE_OUTLINED;
 
   Arch := TQdaArchive.Create(GameDir + 'bmp.qda');
   Surf := TSurfaceSet.Create(Arch);
@@ -211,6 +217,32 @@ begin
     else
       Log.Add('note: surface 0 is nil, so the text scene is only the sprites');
     Snap(3, 'text');
+
+    { The vendored font has to be in the clone. Nothing reads it yet - the LCL
+      target still asks the system for the name - but a port does, and a file
+      that goes missing would first be noticed as wrong-looking narration
+      rather than as an error. }
+    if not FileExists(GameDir + OUTLINED_FONT_FILE) then
+    begin
+      Log.Add('FAILED: no ' + OUTLINED_FONT_FILE + ' under the game data - '
+        + 'see the font section of NOTICE.md');
+      Inc(Result);
+    end;
+
+    { 5. the outlined system font, with the opening's own colours }
+    Game_DrawTextOutlined(8, 100, 'A demon named "Akuji" once',
+                          $355B7E, $A3DFFF, OUTLINED_FONT_SIZE, MapTarget);
+    Snap(4, 'outlined');
+
+    { An optional picture of what was just measured. A checksum says two
+      renderers disagree; the image says how, which during the SDL rewrite is
+      the difference between "something is wrong" and "the glyphs are a
+      different size". }
+    if ParamCount >= 3 then
+    begin
+      Bmp.SaveToFile(ParamStr(3));
+      Log.Add('wrote ' + ParamStr(3));
+    end;
 
     { THE RENDER TARGET DRAWS THE SAME PIXELS AS THE CANVAS IT REPLACES.
 
