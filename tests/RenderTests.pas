@@ -180,6 +180,32 @@ const
     (CW: 700;  CH: 500;  Want: 2),   { an odd size: 2x, centred, letterboxed }
     (CW: 100;  CH: 100;  Want: 1));  { too small for 1:1, which stays 1:1 }
 
+{ The rectangle the English translation's stray menu panel occupied, and what
+  separates a panel edge from the artwork's own. Measured both ways: with the
+  panel 84 of these 84 columns step hard across its border row; without it the
+  busiest row in the whole band is 15, and those are the character's outlines. }
+const
+  PANEL_X0 = 229;
+  PANEL_X1 = 312;
+  PANEL_Y0 = 127;
+  PANEL_Y1 = 202;
+  PANEL_EDGE = 12;
+  PANEL_MAX_COLUMNS = 32;
+
+{ The largest per-channel difference between two $00BBGGRR pixels. }
+function ChannelStep(A, B: LongWord): Integer;
+var
+  I, D: Integer;
+begin
+  Result := 0;
+  for I := 0 to 2 do
+  begin
+    D := Abs(Integer((A shr (I * 8)) and $FF) - Integer((B shr (I * 8)) and $FF));
+    if D > Result then
+      Result := D;
+  end;
+end;
+
 function SelfTestRender(Log: TStrings): Integer;
 var
   GameDir: string;
@@ -203,6 +229,10 @@ var
   DecBuf: TMemoryStream;
   DecPixels: TDecodedPixels;
   DecW, DecH: Integer;
+  PanelBuf: TMemoryStream;
+  PanelPixels: TDecodedPixels;
+  PanelW, PanelH: Integer;
+  PanelIndex, PanelWorst, PanelWorstRow, PanelCount: Integer;
   DecBad, DecChecked, DecEntry: Integer;
   PresentDst: PSDL_Surface;
   PresentArea: TRect;
@@ -651,6 +681,71 @@ begin
       Log.Add('FAILED: the two decoders do not read the same picture out of '
         + 'bmp.qda');
       Inc(Result);
+    end;
+
+    { THE OPTIONS BACKGROUND MUST NOT CARRY THE MAIN MENU'S PANEL.
+
+      title.BMP has a bordered panel around the menu items. That is original
+      artwork - both Japanese releases have it - and the menu is drawn inside
+      it. Option.bmp must NOT have one: the options screen puts its values
+      there, and neither Japanese release's copy carries it.
+
+      The English 1.1 translation's copy did. It was re-exported with that
+      layer still showing, so a rectangle sat over the value column, drawn
+      faithfully by us because it was in the data. It has been painted out -
+      see notes/divergences.md, DIV-022 - and this is what stops it coming
+      back through a repacked archive or a re-extracted asset.
+
+      A panel has to have edges, so edges are what this counts: down each
+      column the border crossed, how many step hard from one row to the next. }
+    PanelBuf := TMemoryStream.Create;
+    try
+      PanelIndex := Arch.IndexOf('Option.bmp');
+      if PanelIndex < 0 then
+      begin
+        Log.Add('FAILED: bmp.qda has no Option.bmp');
+        Inc(Result);
+      end
+      else
+      begin
+        Arch.LoadRaw(PanelIndex, PanelBuf);
+        if not DecodeBmp(PanelBuf, PanelW, PanelH, PanelPixels)
+           or (PanelW < PANEL_X1 + 1) or (PanelH < PANEL_Y1 + 1) then
+        begin
+          Log.Add('FAILED: Option.bmp did not decode, or is too small');
+          Inc(Result);
+        end
+        else
+        begin
+          PanelWorst := 0;
+          PanelWorstRow := 0;
+          for PY := PANEL_Y0 to PANEL_Y1 do
+          begin
+            PanelCount := 0;
+            for PX := PANEL_X0 to PANEL_X1 do
+              if ChannelStep(PanelPixels[(PY - 1) * PanelW + PX],
+                             PanelPixels[PY * PanelW + PX]) > PANEL_EDGE then
+                Inc(PanelCount);
+            if PanelCount > PanelWorst then
+            begin
+              PanelWorst := PanelCount;
+              PanelWorstRow := PY;
+            end;
+          end;
+          Log.Add('');
+          Log.Add(Format('option background: busiest edge row y=%d, %d of %d '
+            + 'columns step (a panel border puts every one of them over)',
+            [PanelWorstRow, PanelWorst, PANEL_X1 - PANEL_X0 + 1]));
+          if PanelWorst > PANEL_MAX_COLUMNS then
+          begin
+            Log.Add('FAILED: Option.bmp has a horizontal edge across the value '
+              + 'column - the main menu''s panel is back in the options art');
+            Inc(Result);
+          end;
+        end;
+      end;
+    finally
+      PanelBuf.Free;
     end;
 
     { WHAT THE WINDOW IS SHOWN HAS TO BE WHAT WAS DRAWN.

@@ -431,6 +431,73 @@ checked by running the game.
 
 ---
 
+## DIV-022 - the stray menu panel is painted out of the options background
+
+**This one diverges from the DATA, not from the game.** Every other entry here
+changes what the code does; this changes a picture, and it moves the port
+closer to the original rather than away from it.
+
+**What the artwork holds.** `title.BMP` has a bordered, slightly darkened
+panel around the four menu items. That is original artwork - both Japanese
+releases have it - and the main menu is drawn inside it.
+
+`Option.bmp` must not have one: the options screen puts its value column
+there, and neither Japanese release's copy carries it. The copy in the English
+1.1 translation does. Re-exported with that layer still visible, it put a
+rectangle across the values on the options screen - the main menu's panel,
+showing on a screen that has no menu.
+
+**How that was established.** Three archives, read directly:
+
+    Option.bmp, column x=302      y=129            y=140
+    akuji_ver101_ja (Japanese)    (98, 65, 58)     (98, 65, 58)   flat
+    akuji_ver101                  (98, 65, 58)     (98, 65, 58)   flat
+    English 1.1 (what we ship)    (137, 94, 90)    (82, 56, 54)   border, then
+                                                                  a darker fill
+
+A screenshot of the original reads a flat (98,65,58) down that whole column -
+the Japanese pixels exactly, not a tone-shifted version of ours. The
+translation touched three of the archive's 44 entries: `title.bmp`,
+`option.bmp` and `ed005.bmp`. The other 41 are byte-identical to the Japanese
+original.
+
+**That our renderer was faithful was checked first**, because a rectangle on
+screen looks like a drawing fault. The running game's client area was captured
+and compared against the back buffer it drew: a pixel-exact 3x copy, 36
+differing pixels out of 691200 and all of them in the bottom rows the capture
+clipped. Rendering the options screen headlessly and diffing against
+`Option.bmp` shows nothing drawn but text.
+
+**What was done.** The panel's rectangle - x 229..312, y 128..200 - is
+repainted from the Japanese art, pushed through a tone curve fitted to the
+surrounding English pixels. Not copied straight in: the English export is
+toned differently throughout, about nine levels, so raw Japanese pixels would
+leave a lighter rectangle where a darker one used to be. The curve reproduces
+untouched art with a median error of 0, so the patch is seamless - the largest
+vertical step across the old border drops from 111 to 61, against a natural
+99th percentile of 79 in the same columns.
+
+**What was NOT done.** The translated wordmark is the other thing the
+translation changed in this image, and it is nowhere near the panel. It stays.
+Using the Japanese `Option.bmp` wholesale would have been simpler and would
+have taken the wordmark with it, and taking it from `akuji_ver101` would have
+swapped in that release's different English wordmark - which would then also
+have to be swapped on the title screen, or the logo would change between the
+two screens.
+
+**How it is held.** `--selftest-render` counts edges rather than trusting a
+checksum, so that a repacked archive or a re-extracted asset is caught as well
+as an edit: down each of the 84 columns the border crossed, how many step hard
+from one row to the next. With the panel, 84 of 84 at its border row; without
+it, the busiest row in the whole band is 15, and those are the character's own
+outlines. The threshold is 32. Verified both ways - the old archive fails the
+run, the patched one passes.
+
+**Sites.** `Option.bmp` in `assets/bmp.qda`, and the panel check in
+`tests/RenderTests.pas`.
+
+---
+
 ## Numbers 001 to 015
 
 Those belong to the reconstruction and are recorded in `akuji-re`'s own ledger,
