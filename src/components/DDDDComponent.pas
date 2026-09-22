@@ -75,6 +75,13 @@ type
     procedure Clear;
     procedure Present;
 
+    { Where the back buffer lands inside a client area of this size: the
+      largest whole multiple of it that fits, centred.
+
+      Exposed because it is geometry rather than drawing, and a test can
+      check geometry without a window. }
+    class function PresentRect(BufW, BufH, ClientW, ClientH: Integer): TRect;
+
     { Fade-in counts from black to clear; fade-out counts from clear to black.
       Stage changes wait for FadeBusy to clear before loading the destination. }
     procedure StartFade(Mode: Integer; FadeOut: Boolean);
@@ -238,9 +245,43 @@ begin
   FTarget.Fill(Rect(0, Height - Level, Width, Height), clBlack); { bottom }
 end;
 
+{ WHOLE NUMBERS ONLY.
+
+  A 320x240 picture stretched to fill an arbitrary window is scaled by a
+  fraction, which gives some source pixels two screen pixels and some three.
+  On art drawn at this size that is plainly visible - a one-pixel outline
+  becomes one pixel here and two there. So the picture is scaled by the
+  largest whole multiple that fits and centred, and whatever is left over
+  around it is painted rather than stretched into.
+
+  In a window the client area is set to an exact multiple, so there is
+  nothing left over. Fullscreen is where the letterbox appears. }
+class function TDDDD.PresentRect(BufW, BufH, ClientW, ClientH: Integer): TRect;
+var
+  Scale, W, H: Integer;
+begin
+  Result := Rect(0, 0, 0, 0);
+  if (BufW <= 0) or (BufH <= 0) or (ClientW <= 0) or (ClientH <= 0) then
+    Exit;
+
+  Scale := ClientW div BufW;
+  if ClientH div BufH < Scale then
+    Scale := ClientH div BufH;
+  { A client area too small for even 1:1 still gets 1:1, clipped by the
+    window. Shrinking by a fraction would reintroduce exactly the unevenness
+    this exists to avoid. }
+  if Scale < 1 then
+    Scale := 1;
+
+  W := BufW * Scale;
+  H := BufH * Scale;
+  Result := Bounds((ClientW - W) div 2, (ClientH - H) div 2, W, H);
+end;
+
 procedure TDDDD.Present;
 var
-  Dest: TRect;
+  Form: TCustomForm;
+  Dest, Client: TRect;
 begin
   if FBack = nil then
     Exit;
@@ -249,17 +290,23 @@ begin
   if not ((Owner is TCustomForm) and TCustomForm(Owner).HandleAllocated) then
     Exit;
 
-  { WHERE THE PICTURE GOES. The whole client area, which stretches a 4:3
-    buffer into whatever shape the window is and scales it by a fraction, so
-    a 320-wide picture in a 700-wide window has some source pixels two wide
-    and some three.
+  Form := TCustomForm(Owner);
+  Client := Form.ClientRect;
+  Dest := PresentRect(FPresentBmp.Width, FPresentBmp.Height,
+                      Client.Right - Client.Left, Client.Bottom - Client.Top);
 
-    Integer scaling and fullscreen are both changes to THIS RECTANGLE and
-    nothing else - the largest whole multiple that fits, centred, with the
-    surround painted - which is why it is worked out here rather than passed
-    straight through. }
-  Dest := TCustomForm(Owner).ClientRect;
-  TCustomForm(Owner).Canvas.StretchDraw(Dest, FPresentBmp);
+  { The surround, in the four bands around the picture. Painted rather than
+    left alone because what is there otherwise is whatever the desktop or the
+    previous window size left behind. Each band is empty in a window, where
+    the client area is an exact multiple, and FillRect of an empty rectangle
+    costs nothing. }
+  Form.Canvas.Brush.Color := clBlack;
+  Form.Canvas.FillRect(Client.Left, Client.Top, Dest.Left, Client.Bottom);
+  Form.Canvas.FillRect(Dest.Right, Client.Top, Client.Right, Client.Bottom);
+  Form.Canvas.FillRect(Dest.Left, Client.Top, Dest.Right, Dest.Top);
+  Form.Canvas.FillRect(Dest.Left, Dest.Bottom, Dest.Right, Client.Bottom);
+
+  Form.Canvas.StretchDraw(Dest, FPresentBmp);
 end;
 
 initialization

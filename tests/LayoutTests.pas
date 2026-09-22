@@ -121,7 +121,9 @@ begin
   Off('TGameSettings.DebugLogFlag', PtrUInt(@G.DebugLogFlag) - PtrUInt(@G), $1B);
   Off('TGameSettings.ExtraDoor1', PtrUInt(@G.ExtraDoor1) - PtrUInt(@G), $1C);
   Off('TGameSettings.ExtraDoor2', PtrUInt(@G.ExtraDoor2) - PtrUInt(@G), $1D);
-  Off('TGameSettings.Unknown1E', PtrUInt(@G.Unknown1E) - PtrUInt(@G), $1E);
+  Off('TGameSettings.WindowScaleByte',
+      PtrUInt(@G.WindowScaleByte) - PtrUInt(@G), $1E);
+  Off('TGameSettings.Unknown1F', PtrUInt(@G.Unknown1F) - PtrUInt(@G), $1F);
   Off('TGameSettings.Volume', PtrUInt(@G.Volume) - PtrUInt(@G), $24);
   Off('TGameSettings.GallerySel', PtrUInt(@G.GallerySel) - PtrUInt(@G), $28);
   Off('TGameSettings.GalleryUnlocked', PtrUInt(@G.GalleryUnlocked) - PtrUInt(@G), $2C);

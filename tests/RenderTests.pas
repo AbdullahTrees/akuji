@@ -39,9 +39,9 @@ unit RenderTests;
 interface
 
 uses
-  Classes, SysUtils, Graphics, SDL2, IntfGraphics,
+  Classes, SysUtils, Graphics, Types, SDL2, IntfGraphics,
   QdaArchive, Surfaces, Sprites, TileMaps, GameFont, Stages, Entities,
-  RenderTarget, SDLTarget, TextRender, Dialogue;
+  RenderTarget, SDLTarget, TextRender, Dialogue, DDDDComponent;
 
 function SelfTestRender(Log: TStrings): Integer;
 
@@ -165,6 +165,21 @@ begin
   end;
 end;
 
+type
+  TScaleCase = record
+    CW, CH: Integer;   { the client area }
+    Want: Integer;     { the whole-number scale it has to choose }
+  end;
+
+const
+  ScaleCases: array[0..5] of TScaleCase = (
+    (CW: 320;  CH: 240;  Want: 1),   { the window at 1x }
+    (CW: 640;  CH: 480;  Want: 2),   { at 2x }
+    (CW: 1280; CH: 960;  Want: 4),   { at 4x }
+    (CW: 1920; CH: 1080; Want: 4),   { fullscreen 16:9 - height decides }
+    (CW: 700;  CH: 500;  Want: 2),   { an odd size: 2x, centred, letterboxed }
+    (CW: 100;  CH: 100;  Want: 1));  { too small for 1:1, which stays 1:1 }
+
 function SelfTestRender(Log: TStrings): Integer;
 var
   GameDir: string;
@@ -194,6 +209,8 @@ var
   PX, PY: Integer;
   SdlRow: PByte;
   SdlPix: PLongWord;
+  ScaleR: TRect;
+  ScaleW, ScaleH: Integer;
 
   procedure Snap(Index: Integer; const AName: string);
   begin
@@ -500,6 +517,43 @@ begin
       KeyTarget.Free;
       if KeySurf <> nil then
         SDL_FreeSurface(KeySurf);
+    end;
+
+    { THE PICTURE IS SCALED BY A WHOLE NUMBER AND CENTRED.
+
+      Geometry rather than drawing, which is why it can be checked at all: the
+      scaling happens on the way to a window, and a self-test has no window.
+      What it must never do is scale by a fraction - that is what gives a
+      320-wide picture some source pixels two screen pixels wide and some
+      three, which on art this size is plainly visible.
+
+      The cases are the ones that actually occur: an exact window, a window
+      the player has been given by a scale setting, a fullscreen desktop that
+      is not 4:3, and a client area too small to hold the picture at all. }
+    for I := 0 to High(ScaleCases) do
+    begin
+      ScaleR := TDDDD.PresentRect(SCREEN_W, SCREEN_H,
+                                  ScaleCases[I].CW, ScaleCases[I].CH);
+      ScaleW := ScaleR.Right - ScaleR.Left;
+      ScaleH := ScaleR.Bottom - ScaleR.Top;
+      Log.Add(Format('scaling: %4dx%-4d client -> %dx%d at (%d,%d), %dx',
+        [ScaleCases[I].CW, ScaleCases[I].CH, ScaleW, ScaleH,
+         ScaleR.Left, ScaleR.Top, ScaleW div SCREEN_W]));
+
+      if (ScaleW <> SCREEN_W * ScaleCases[I].Want)
+      or (ScaleH <> SCREEN_H * ScaleCases[I].Want) then
+      begin
+        Log.Add(Format('  FAILED: wanted %dx, got %dx%d',
+          [ScaleCases[I].Want, ScaleW, ScaleH]));
+        Inc(Result);
+      end;
+      { Centred, to within the odd pixel an odd difference leaves over. }
+      if (Abs((ScaleR.Left * 2 + ScaleW) - ScaleCases[I].CW) > 1)
+      or (Abs((ScaleR.Top * 2 + ScaleH) - ScaleCases[I].CH) > 1) then
+      begin
+        Log.Add('  FAILED: not centred in the client area');
+        Inc(Result);
+      end;
     end;
 
     { THE TWO BMP DECODERS HAVE TO AGREE.

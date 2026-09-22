@@ -103,6 +103,8 @@ type
     procedure DrawScene;
     procedure DrawDebugOverlay;
     procedure SetFullScreen(Enable: Boolean);
+    { Resize the window to the chosen whole-number scale. }
+    procedure ApplyWindowScale;
     procedure DrawGameOver;
     { The opening cutscene. Game_StartOrLoad calls Opening_Update every frame
       while the state is 40, and does nothing else until it finishes - which is
@@ -291,6 +293,7 @@ begin
 
   { Apply the fullscreen setting after display initialization. }
   SetFullScreen(FullScreenOn);
+  ApplyWindowScale;
 
   FTitleScreen := TTitleScreen.Create;
   FGameOver := TGameOverScreen.Create;
@@ -571,6 +574,20 @@ begin
   FFont.TextOut(DDDD1.Target, 0, 16, 'S P:' + IntToStr(EntitiesDrawn));
 end;
 
+{ The window is sized to an exact multiple of the picture, so that what
+  Present works out is that multiple and there is nothing to letterbox.
+  Fullscreen owns the window size, so this leaves it alone. }
+procedure TFrm_main.ApplyWindowScale;
+begin
+  if FullScreenOn then
+    Exit;
+  if (WindowScale < WINDOW_SCALE_MIN) or (WindowScale > WINDOW_SCALE_MAX) then
+    WindowScale := WINDOW_SCALE_MIN;
+  ClientWidth := SCREEN_W * WindowScale;
+  ClientHeight := SCREEN_H * WindowScale;
+  Position := poScreenCenter;
+end;
+
 { Applies fullscreen or restores the fixed-size centered window. Archive mode
   intentionally leaves the border style unchanged when returning to a window. }
 procedure TFrm_main.SetFullScreen(Enable: Boolean);
@@ -586,8 +603,8 @@ begin
   begin
     FullScreenOn := False;
     WindowState := wsNormal;
-    ClientWidth := SCREEN_W;
-    ClientHeight := SCREEN_H;
+    ClientWidth := SCREEN_W * WindowScale;
+    ClientHeight := SCREEN_H * WindowScale;
     { Archive mode keeps the current border style. }
     if not FUseArchive then
       BorderStyle := bsSingle;

@@ -35,6 +35,12 @@ const
 
   { The frame loop advances when at least 16 ms have elapsed. }
   FRAME_MS = 16;
+
+  { The window scales the picture by a whole number, 1x to 4x. Four
+    because 4x is 1280x960, which is as large as a 320x240 picture goes
+    before it stops fitting on an ordinary display. }
+  WINDOW_SCALE_MIN = 1;
+  WINDOW_SCALE_MAX = 4;
   { Maximum acceptable clock granularity for frame pacing. }
   FRAME_CLOCK_MAX_STEP_MS = 5;
 
@@ -77,7 +83,16 @@ type
       game: extras unlocks rather than progress. }
     ExtraDoor1: Byte;                // +0x1C  -> Progress[1185]
     ExtraDoor2: Byte;                // +0x1D  -> Progress[1194]
-    Unknown1E: array[0..5] of Byte;  // +0x1E..+0x23
+    { THIS BYTE IS OURS. The original never reads or writes +0x1E - it is
+      inside the six bytes it leaves alone - so the window scale lives here
+      rather than in one of the flags the original does use.
+
+      It holds the scale MINUS ONE, so that the 0 every existing system.dat
+      carries means 1x, which is the size the window has always been. That
+      also keeps the file byte-exact through a load and save, which
+      --selftest-settings requires. }
+    WindowScaleByte: Byte;           // +0x1E  window scale - 1
+    Unknown1F: array[0..4] of Byte;  // +0x1F..+0x23
     Volume: Integer;         // +0x24  0..10, SE VOLUME
     GallerySel: Integer;     // +0x28  0..6
     { One flag per omake entry: Title_MainMenu indexes it by GallerySel, and
@@ -93,6 +108,11 @@ var
   FullScreenOn: Boolean = False;
   WaitOn: Boolean = False;
   SoftwareVsync: Boolean = True;
+  { How many screen pixels one game pixel occupies in a window. Whole
+    numbers only: a 320x240 picture stretched by a fraction gives some source
+    pixels two screen pixels and some three, which on art this size is
+    plainly visible. }
+  WindowScale: Integer = WINDOW_SCALE_MIN;
   DebugLog: Boolean = False;
   GameStateValue: Integer = GS_TITLE_INIT;
   SavedGameState: Integer = 0;
@@ -217,6 +237,11 @@ begin
   WaitOn        := Settings.WaitOnFlag <> 0;
   FullScreenOn  := Settings.FullScreenFlag <> 0;
   DebugLog      := Settings.DebugLogFlag <> 0;
+  { Stored as scale - 1; anything a corrupt file might hold reads as 1x
+    rather than as a window with no area. }
+  WindowScale := Integer(Settings.WindowScaleByte) + 1;
+  if (WindowScale < WINDOW_SCALE_MIN) or (WindowScale > WINDOW_SCALE_MAX) then
+    WindowScale := WINDOW_SCALE_MIN;
 end;
 
 procedure GlobalsToSettings;
@@ -225,6 +250,7 @@ begin
   Settings.WaitOnFlag        := Ord(WaitOn);
   Settings.FullScreenFlag    := Ord(FullScreenOn);
   Settings.DebugLogFlag      := Ord(DebugLog);
+  Settings.WindowScaleByte   := Byte(WindowScale - 1);
 end;
 
 function LoadSettings(const AGameDir: string): Boolean;
