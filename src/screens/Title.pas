@@ -41,20 +41,23 @@ const
   OPT_LABEL_X  = $28;
   OPT_VALUE_X  = $E8;
   OPT_CURSOR_X = $E0;
-  OPT_ROW_EXIT = 9;
+  OPT_ROW_EXIT = 8;
   OPT_TITLE    = '- OPTION -';
   OPT_TITLE_Y  = $20;
   OPT_CURSOR   = '<       >';    { brackets the value column }
 
-  { Labels in cursor order. }
-  OPT_LABELS: array[0..9] of string = (
+  { Labels in cursor order.
+
+    SCALING stands where WAIT and SOFTWARE VSYNC used to. Neither of those
+    could do anything here - see notes/divergences.md, DIV-018 - and one row
+    that works is worth more than two that do not. }
+  OPT_LABELS: array[0..8] of string = (
     'GAME LEVEL',
     'FULL SCREEN',
     'JUMP  BUTTON ASSIGN',
     'FIRE  BUTTON ASSIGN',
     'PAUSE BUTTON ASSIGN',
-    'WAIT',
-    'SOFTWARE VSYNC',      { this is the timeGetTime spin-wait, player-toggleable }
+    'SCALING',
     'SE VOLUME',
     'GALLERY',
     'EXIT');
@@ -88,9 +91,9 @@ const
   OMAKE_MIN = 0;  OMAKE_MAX = 6;    // p_Settings+0x28
 
 type
-  { Option rows in cursor order. Rows 2..4 are rebindable keys. }
+  { Option rows in cursor order. Rows 2..4 are the key bindings. }
   TOptionRow = (orLevel, orToggle1, orKey0, orKey1, orKey2,
-                orToggle2, orFrameLimit, orVolume, orOmake, orExit);
+                orScale, orVolume, orOmake, orExit);
 
   { Callbacks keep this unit independent of the component layer. }
   TSoundEvent = procedure(Index: Integer) of object;
@@ -104,6 +107,7 @@ type
     FOnResetState: TNotifyProc;
     FOnResetOpening: TNotifyProc;
     FOnVolume: TNotifyProc;
+    FOnWindowScale: TNotifyProc;
     FOnGallery: TGalleryEvent;
     procedure PlaySound(Index: Integer);
     procedure MenuConfirm;
@@ -135,6 +139,9 @@ type
     { The 57-channel volume sweep, which belongs to the sound device rather
       than to this unit. }
     property OnVolume: TNotifyProc read FOnVolume write FOnVolume;
+    { Called when the scale row changes, to resize the window. }
+    property OnWindowScale: TNotifyProc read FOnWindowScale
+                                        write FOnWindowScale;
   end;
 
   { External operations used by the game-over screen. }
@@ -450,17 +457,16 @@ begin
   Val(2, KeyName(Settings.KeyMap[0]));
   Val(3, KeyName(Settings.KeyMap[1]));
   Val(4, KeyName(Settings.KeyMap[2]));
-  Val(5, OnOff(WaitOn));
-  Val(6, OnOff(SoftwareVsync));
-  Val(7, Format('%3d%%', [Settings.Volume * 10]));
+  Val(Ord(orScale), Format('%dX', [WindowScale]));
+  Val(Ord(orVolume), Format('%3d%%', [Settings.Volume * 10]));
   if (Settings.GallerySel >= OMAKE_MIN) and (Settings.GallerySel <= OMAKE_MAX) then
   begin
-    Val(8, OMAKE_NAMES[Settings.GallerySel], 2);
+    Val(Ord(orOmake), OMAKE_NAMES[Settings.GallerySel], 2);
     { The unlock marker, at its own x and with its own variant. }
     if Settings.GalleryUnlocked[Settings.GallerySel] = 1 then
-      F.TextOut(C, OMAKE_MARK_X, $38 + 8 * $10, TEXT_ON, 0)
+      F.TextOut(C, OMAKE_MARK_X, $38 + Ord(orOmake) * $10, TEXT_ON, 0)
     else
-      F.TextOut(C, OMAKE_MARK_X, $38 + 8 * $10, TEXT_OFF, 2);
+      F.TextOut(C, OMAKE_MARK_X, $38 + Ord(orOmake) * $10, TEXT_OFF, 2);
   end;
 end;
 
@@ -483,15 +489,17 @@ begin
         PlaySound(SND_OK);
         FullScreenOn := not FullScreenOn;
       end;
-    orToggle2:
+    orScale:
+      { Bounded and silent at the ends, like the other bounded rows. The
+        window is resized on the spot, because a scale that took effect next
+        time would be indistinguishable from one that did nothing. }
+      if (WindowScale + Delta >= WINDOW_SCALE_MIN) and
+         (WindowScale + Delta <= WINDOW_SCALE_MAX) then
       begin
         PlaySound(SND_OK);
-        WaitOn := not WaitOn;
-      end;
-    orFrameLimit:
-      begin
-        PlaySound(SND_OK);
-        SoftwareVsync := not SoftwareVsync;
+        Inc(WindowScale, Delta);
+        if Assigned(FOnWindowScale) then
+          FOnWindowScale;
       end;
     orVolume:
       if (Settings.Volume + Delta >= VOLUME_MIN) and

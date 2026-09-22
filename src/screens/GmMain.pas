@@ -339,6 +339,7 @@ begin
   FTitleScreen.OnResetOpening := TitleResetOpening;
   FTitleScreen.OnGallery := TitleGallery;
   FTitleScreen.OnVolume := TitleVolume;
+  FTitleScreen.OnWindowScale := ApplyWindowScale;
   FSession.OnStartFade := StageBeginFade;
   FSession.OnResetHost := SessionResetHost;
   { Raise the multimedia timer period before the first frame: without it
@@ -370,11 +371,11 @@ begin
   Now_ := FrameClockMs;
   Elapsed := Now_ - FLastFrame;
 
-  { SoftwareVsync must stay the shared global the options screen writes and
-    the settings load. As a field of this form it reads correctly and is never
-    updated, so the option silently does nothing and every frame is limited
-    whatever the player chose. }
-  if SoftwareVsync and (Elapsed < FRAME_MS) then
+  { Unconditional. The original let the player turn this off, and doing so
+    did not uncap a fixed-rate game - it has no fixed rate, one idle callback
+    being one whole frame - it made the game run as fast as the loop went.
+    See notes/divergences.md, DIV-018. }
+  if Elapsed < FRAME_MS then
   begin
     Sleep(1);        { yield instead of spinning }
     Done := False;   { but come straight back }

@@ -129,6 +129,86 @@ re-pinned with it.
 
 ---
 
+## DIV-018 - WAIT and SOFTWARE VSYNC are gone; SCALING takes their place
+
+**What the original does.** Two rows of the options screen control how a frame
+is paced, and `TFrm_main_AppIdle` ends with both:
+
+```c
+if (*p_WaitOn == 1) func_0x0044c478(DDDD1);   /* WAIT */
+TDDDD_Present(DDDD1);
+if (*p_SoftwareVsync == 1) { spin on timeGetTime until 0x10 ms have passed; }
+```
+
+`0x0044c478` is seven instructions, and the last two say what WAIT is:
+
+```
+6a 00              push 0              ; hEvent = NULL
+6a 01              push 1              ; DDWAITVB_BLOCKBEGIN
+8b 80 c0 00 00 00  mov  eax,[eax+0C0h] ; the IDirectDraw the component holds
+50                 push eax            ; this
+8b 00              mov  eax,[eax]      ; vtable
+ff 50 58           call [eax+58h]      ; IDirectDraw::WaitForVerticalBlank
+c3                 ret
+```
+
+So WAIT is the hardware vsync - block until the display's next vertical blank,
+then flip - and SOFTWARE VSYNC is not a vsync at all but a frame limiter: spin
+until at least 16 ms have passed, which is 62.5 fps rather than 60. They were
+alternatives: one paced you to the monitor, the other to a clock.
+
+**Why they are defects here rather than settings.**
+
+*WAIT* cannot do anything. This port has no DirectDraw and no vertical blank to
+wait on: it presents through a window. The row set a byte that nothing read.
+
+*SOFTWARE VSYNC* is worse than useless when off. The game has no fixed rate to
+uncap - one idle callback is one whole frame, and the loop sets `Done := False`
+unconditionally - so turning the limiter off does not let the game render
+faster, it makes the game run faster. On a machine from 2001 that was already
+true; on one from today it is unplayable.
+
+**What this does instead.** Both rows are gone, pacing is unconditional at the
+same 16 ms the original used, and one row that works stands where they were:
+
+    SCALING     1X  2X  3X  4X
+
+**Why scaling, and why whole numbers.** A 320x240 picture stretched to fill an
+arbitrary window is scaled by a fraction, so some source pixels get two screen
+pixels and some three - on art drawn at this size a one-pixel outline is one
+pixel here and two there. The picture is now scaled by the largest whole
+multiple that fits, centred, with the four bands around it painted rather than
+stretched into. In a window the client area is set to an exact multiple, so
+there is nothing left over; fullscreen is where the letterbox appears.
+
+**What the player loses.** Nothing that worked. Anyone who had turned SOFTWARE
+VSYNC off was playing a game running as fast as their machine allowed, which
+was never the intent - the vblank path was, and it gave 60 fps on the monitors
+of the day.
+
+**Where it is stored.** `+0x1E` of system.dat, inside the six bytes the
+original neither reads nor writes, as the scale MINUS ONE - so the 0 every
+existing file carries reads as 1x, the size the window has always been, and a
+load and save stays byte-exact. The two bytes the removed rows used, `+0x18`
+and `+0x19`, are left exactly as they are found.
+
+**The frame rate is deliberately still 16 ms**, not 16.667. That is what the
+original's limiter did, and matching it keeps every frame-counted timer in the
+game running at the speed it was tuned for. It is 62.5 fps, and that is a
+separate decision from this one.
+
+**How it is held.** `--selftest-render` checks the scaling as geometry, which
+is the part that can be checked without a window: six client areas, including
+a 16:9 desktop where the height decides the multiple and one too small to hold
+the picture at 1:1, each required to come back a whole multiple and centred.
+`--selftest-settings` holds the byte-exact round trip.
+
+**Sites.** `OPT_LABELS` and `AdjustValue` in `src/screens/Title.pas`,
+`AppIdle` and `ApplyWindowScale` in `src/screens/GmMain.pas`,
+`TDDDD.PresentRect` in `src/components/DDDDComponent.pas`.
+
+---
+
 ## Numbers 001 to 015
 
 Those belong to the reconstruction and are recorded in `akuji-re`'s own ledger,
