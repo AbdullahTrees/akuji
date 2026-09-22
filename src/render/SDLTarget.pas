@@ -32,7 +32,7 @@
     * blend mode. The sheets carry no alpha and are copied, not blended; the
       outlined text carries alpha and must be blended. Getting that backwards
       shows up as text with a black box around it, which is the same defect
-      DIV-002 fixed for sprites, so it would be easy to misread. }
+      DIV-017 fixed for sprites, so it would be easy to misread. }
 
 unit SDLTarget;
 

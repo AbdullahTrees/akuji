@@ -823,7 +823,7 @@ begin
       else
         SourceX := (GalleryIndex + GALLERY_LIT_COL0) * GALLERY_CELL;
       { Keyed: Ending_Update draws both cells with DDBLTFAST_SRCCOLORKEY -
-        see notes/divergences.md, DIV-002. This was the last drawing left in
+        see notes/divergences.md, DIV-017. This was the last drawing left in
         the game that went straight to a canvas rather than through the
         render target. }
       DDDD1.Target.BlitRectKeyed(FSurfaces.Images[GALLERY_SURFACE],
@@ -1020,7 +1020,7 @@ var
 begin
   if FFont = nil then Exit;
   { Keyed, as HUD_Draw passes DDBLTFAST_SRCCOLORKEY for all three of these -
-    see notes/divergences.md, DIV-002. }
+    see notes/divergences.md, DIV-017. }
   Sheet := FSurfaces.Images[1];
 
   { Draw the counter icon followed by its '@ ' glyph and values. }

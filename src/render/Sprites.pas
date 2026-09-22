@@ -137,7 +137,7 @@ begin
 
   { Keyed, the way the original drew it: SpritePool_DrawBucket passes
     DDBLTFAST_SRCCOLORKEY on every sprite blit. Drawing these opaque is what
-    put a black box around every character - notes/divergences.md, DIV-002. }
+    put a black box around every character - notes/divergences.md, DIV-017. }
   Dest.BlitRectKeyed(Surface, Frame.Src, X, Y);
 end;
 

@@ -120,7 +120,7 @@ end;
 const
   BASELINE_CLEAR   = $A3804348;
   BASELINE_TILES   = $39A6A29B;
-  { Re-pinned when sprites became keyed - DIV-002. The scenes accumulate on
+  { Re-pinned when sprites became keyed - DIV-017. The scenes accumulate on
     one surface, so the two that are drawn ON TOP of the sprites moved with
     them; their own draws are unchanged, and the pixel counts they report
     (1071 and 1147) say so. }

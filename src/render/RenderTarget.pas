@@ -25,7 +25,7 @@
   TDDDD_DrawSprite passes its caller's flag word to BltFast as dwTrans, and
   every call site in the game picks whether it wanted a colour key - sprites,
   HUD icons and the dialogue box's icons did, the dialogue frame and the tile
-  layer did not. See notes/divergences.md, DIV-002. }
+  layer did not. See notes/divergences.md, DIV-017. }
 
 unit RenderTarget;
 
