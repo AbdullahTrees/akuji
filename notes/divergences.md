@@ -339,11 +339,95 @@ invariant after every bind, the options screen driven row by row against a
 stand-in host, and what the gamepad path can assert with no device attached.
 The rest was verified through the real window, by injected key presses held
 long enough to span a frame: JUMP bound to V, then X pressed on the same row,
-and the saved file came back JUMP=X, FIRE=V.
+and the saved file came back JUMP=X, FIRE=V. That was done against the LCL
+window; injected presses do not reach the SDL one that replaced it (DIV-021),
+so re-checking this by hand means pressing the keys.
 
 **Sites.** `src/components/DDIDComponent.pas` entire, `TitleKeyName` and
 `TitleBindKey` in `src/screens/GmMain.pas`, the key rows in
 `src/screens/Title.pas`, `TGameSettings.KeyMap` in `src/gameplay/GameState.pas`.
+
+---
+
+## DIV-021 - the window is SDL's, and there is no widget set
+
+**What the original does.** It is a Delphi 5 application. `TFrm_main` is a
+form, its components are streamed from a form resource, the picture reaches
+the screen through DirectDraw, and input arrives through DirectInput and the
+window's message loop. Everything about it is Windows.
+
+**What this does instead.** The renderer, the audio, the MIDI and the clock
+had already moved to SDL one at a time, each while the LCL window stayed put.
+This is the last of it: the window is an `SDL_Window`, the loop is
+`SDL_PollEvent` plus the same 16 ms pacing, keys arrive as SDL keycodes, and
+presentation is one scaled blit into the window's own surface - so the picture
+never leaves SDL. The project does not require the LCL package at all, and the
+code section of the binary went from 2023024 bytes to 607936.
+
+**TFrm_main is still called TFrm_main.** So are `FormDestroy`, `FormKeyDown`
+and `FormKeyUp`. It is not a form any more and they are not event handlers,
+but the original is a form of that name with handlers of those names, and a
+reader holding the binary next to this should not have to translate. What
+changed is underneath them.
+
+**What the form resource held is now a const block.** `GmMain.lfm` carried the
+window caption, the back buffer's size, the 57 sound channels and the fifteen
+MIDI names. Those are in `TFrm_main.Create`, named and together, rather than
+in a file the game parses at startup. `AkujiReg` and `akuji_components.lpk`
+went with it: they existed so the Lazarus designer could resolve the component
+classes, and there is no form to design.
+
+**What the player may notice.**
+
+*Nothing about the picture.* The five scene checksums and the scaling checksum
+are unchanged - this was held to drawing the same pixels, not similar ones.
+
+*The title bar is the same and fullscreen behaves better.* An SDL window that
+was never created borderless still has its border when fullscreen is turned
+off, so DIV-019's missing title bar cannot recur: there is nothing to restore
+and no archive flag to get wrong.
+
+*Alt-F4 and the close button now quit through the game's own shutdown*, which
+is how the settings get written.
+
+**What it exposed.** A double free on every quit, in `TGameSession`: it builds
+its own event host, and assigning one leaked that host and left the destructor
+freeing the CALLER's, which the caller also freed - on the word of a comment
+saying the session did not own it. It never showed, because nothing genuinely
+tore a session down; the form's OnDestroy ran at process exit and the result
+was discarded. A shell that frees what it builds made it an access violation
+on the way out. Both slots now own what they hold.
+
+**What is still shaped by the original.** The menus are still driven by the
+hard-wired keys of DIV-002 rather than by the bound buttons - the same keys,
+said in SDL's terms - so Z, space and enter still confirm a menu whatever JUMP
+is bound to. That is the last Windows-shaped input path and retiring it is a
+separate decision, because it changes how the menus feel.
+
+**How it is held.** `--selftest-render` keeps the five scene checksums and the
+scaling checksum, and its present check is now the real present path:
+`TDDDD.PresentTo` is the whole of presentation except asking the window for a
+surface, so a test can drive it into an offscreen one. 8x4 scaled into 34x18
+is 4x at (1,1), and all 612 pixels of the result are required to be either the
+right source pixel or black surround - geometry and colour at once.
+
+The second BMP decoder that test compares SDL against used to be the LCL's,
+for free. It reads the format itself now, from the specification rather than
+from another decoder's behaviour, which makes it stronger evidence than what
+it replaces - it shares no code with the thing it checks. It also corrected a
+standing misdescription: every one of the 44 entries in bmp.qda is an
+uncompressed 24-bit bottom-up BMP, not 8-bit paletted.
+
+`--selftest-session` counts destructors for the ownership rule, which is exact
+where looking for a crash is not: a double free does not reliably crash.
+
+What no self-test reaches is the window itself - whether keys arrive, whether
+fullscreen switches, whether the picture is where it should be. That was
+checked by running the game.
+
+**Sites.** `akuji.lpr`, `TFrm_main` in `src/screens/GmMain.pas`, `Present` and
+`PresentTo` in `src/components/DDDDComponent.pas`, `KeyDown`/`KeyUp` in
+`src/components/DDIDComponent.pas`, `SDLTarget.pas`, `GameColors.pas`.
 
 ---
 
@@ -364,8 +448,11 @@ neither frame-skips, so the sequence of updates is identical.
 **DIV-002 - menus are driven from the keyboard in FormKeyDown.**
 `src/screens/GmMain.pas`. The original reads movement and buttons from the Joy
 component inside the frame loop. This sets the move and confirm flags straight
-from virtual-key codes so the menus can be operated at all. Affecting: input
-arrives by a path the original does not have.
+from raw key codes so the menus can be operated at all. Affecting: input
+arrives by a path the original does not have - and since DIV-020 made the
+buttons rebindable, it is also why rebinding JUMP does not change what
+confirms a menu. Still open. The keys are now SDL keycodes rather than Windows
+virtual keys (DIV-021), which changes nothing about what it does.
 
 **DIV-003 - Entity spawn refuses an unknown Kind.** `src/gameplay/Entities.pas`.
 For a Kind outside 0..2 the original scans the slot array from uninitialised
