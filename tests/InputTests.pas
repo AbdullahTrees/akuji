@@ -178,6 +178,7 @@ var
   Frames: Integer;
   Host: TFakeHost;
   Screen: TTitleScreen;
+  Pads, Found: Integer;
   B: TAkujiButton;
   Checked, Pressing: Integer;
 begin
@@ -484,6 +485,57 @@ begin
     Host.Free;
     TitleSubMode := TSM_MENU;
     MenuIndex := 0;
+  end;
+
+  { 9. The gamepad. Everything up to the device is checkable here - that the
+       subsystem starts with no video subsystem and no window, that the
+       defaults name a button for every action, and that Update survives being
+       called with nothing attached. What a real controller reports is not,
+       so it is logged and skipped when there is none. }
+  Log.Add('');
+  Log.Add('gamepad:');
+  D := TDDIDEX.Create(nil);
+  try
+    for B := Low(TAkujiButton) to High(TAkujiButton) do
+      Want(DefaultBinding(B).Pad <> SDL_CONTROLLER_BUTTON_INVALID,
+        Format('%s has no default pad button', [BUTTON_NAMES[B]]));
+
+    { Sixty frames with nothing plugged in: no controller appears from
+      nowhere, nothing is reported held, and the keyboard still works. }
+    for J := 1 to 60 do
+      D.Update;
+    Want(D.Down = [], 'something was held with no keys and no pad');
+    D.KeyDown(VK_Z);
+    D.Update;
+    Want(D.Down = [abJump], 'the pad snapshot dropped a held key');
+    D.KeyUp(VK_Z);
+
+    if SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) <> 0 then
+      Log.Add('SKIP gamepad: the subsystem will not start: ' + SDL_GetError)
+    else
+    begin
+      SDL_GameControllerUpdate;
+      Pads := SDL_NumJoysticks;
+      Log.Add(Format('  subsystem started with no video subsystem, %d joystick(s)',
+        [Pads]));
+      Found := 0;
+      for J := 0 to Pads - 1 do
+        if SDL_IsGameController(J) = SDL_TRUE then
+        begin
+          Inc(Found);
+          Log.Add(Format('  controller %d: %s', [J, SDL_GameControllerNameForIndex(J)]));
+        end;
+      if Found = 0 then
+        Log.Add('SKIP gamepad: no controller attached, so nothing to read')
+      else
+      begin
+        Want(D.HasPad, 'a controller is attached but the component has none');
+        Log.Add(Format('  %d controller(s) opened', [Found]));
+      end;
+      SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);
+    end;
+  finally
+    D.Free;
   end;
 
   Log.Add('');

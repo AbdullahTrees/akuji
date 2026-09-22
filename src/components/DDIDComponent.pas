@@ -63,6 +63,9 @@ const
   AKUJI_ACTIONS = [abJump, abFire, abPause, abAux];
   AKUJI_DIRECTIONS = [abUp, abDown, abLeft, abRight];
 
+  { About a second at the frame rate the game runs at. }
+  PAD_RESCAN_FRAMES = 60;
+
   { KeyMap's four entries, in order. }
   AKUJI_MAPPED: array[0..3] of TAkujiButton = (abJump, abFire, abPause, abAux);
 
@@ -105,10 +108,14 @@ type
     FBindings: array[TAkujiButton] of TAkujiBinding;
     FPad: PSDL_GameController;
     FPadStarted: Boolean;
+    { Frames until the next look for a controller. Scanning is cheap but not
+      free, and there is no event to tell us one was plugged in. }
+    FPadScan: Integer;
     { The last key the window reported, BOUND OR NOT. Rebinding is the reason
       it exists: a key that drives nothing yet is exactly the one the player
       is about to assign, and the pressed sets above only track bound keys. }
     FPressedKey: TSDL_KeyCode;
+    function GetHasPad: Boolean;
     function GetBinding(Button: TAkujiButton): TAkujiBinding;
     procedure SetBinding(Button: TAkujiButton; const Value: TAkujiBinding);
     { Whichever action this key drives, or False. }
@@ -174,7 +181,8 @@ type
     property Bindings[Button: TAkujiButton]: TAkujiBinding
       read GetBinding write SetBinding;
     property Down: TAkujiButtons read FDown;
-    property HasPad: Boolean read FPadStarted;
+    { A controller is connected right now - not merely that SDL could look. }
+    property HasPad: Boolean read GetHasPad;
   published
     property DebugOption: TDDIDDebugOption read FDebugOption write FDebugOption;
   end;
@@ -491,18 +499,44 @@ begin
     Result := 'NONE';
 end;
 
+function TDDIDEX.GetHasPad: Boolean;
+begin
+  Result := FPad <> nil;
+end;
+
 procedure TDDIDEX.OpenPad;
 var
   I: Integer;
 begin
   if not FPadStarted then
   begin
+    { A machine with no joystick driver at all must not pay for a failing
+      init sixty times a second for the rest of the run. }
+    if FPadScan > 0 then
+    begin
+      Dec(FPadScan);
+      Exit;
+    end;
+    { SDL insists on keyboard focus before it reports controller input, and
+      it has no window here to have focus with - the window is the LCL's. The
+      hint has to be set before the subsystem starts. }
+    SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, '1');
     { No video subsystem is needed for this, which is what lets it happen
       while the window is still the LCL's. }
     if SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) <> 0 then
+    begin
+      FPadScan := PAD_RESCAN_FRAMES;
       Exit;
+    end;
     FPadStarted := True;
+    FPadScan := 0;
   end;
+
+  { There is no SDL event loop here, so nothing refreshes any of this on its
+    own: without this call every button reads as released forever, and a
+    controller plugged in after the game started is never noticed. }
+  SDL_GameControllerUpdate;
+
   if FPad <> nil then
   begin
     { Unplugged since last frame. }
@@ -511,6 +545,15 @@ begin
     SDL_GameControllerClose(FPad);
     FPad := nil;
   end;
+
+  { Looking means asking about every joystick on the machine, so it happens
+    about once a second rather than every frame. }
+  if FPadScan > 0 then
+  begin
+    Dec(FPadScan);
+    Exit;
+  end;
+  FPadScan := PAD_RESCAN_FRAMES;
   for I := 0 to SDL_NumJoysticks - 1 do
     if SDL_IsGameController(I) = SDL_TRUE then
     begin
