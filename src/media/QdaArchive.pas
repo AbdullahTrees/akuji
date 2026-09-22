@@ -24,7 +24,7 @@ unit QdaArchive;
 interface
 
 uses
-  Classes, SysUtils, Graphics, RenderTarget;
+  Classes, SysUtils, Graphics, SDL2, RenderTarget;
 
 const
   QDA_MAGIC      = 'QDA0';
@@ -58,6 +58,18 @@ type
     { Caller owns the returned bitmap. }
     function LoadBitmap(Index: Integer): TBitmap;
     function LoadBitmapByName(const AName: string): TBitmap;
+
+    { The same entry decoded by SDL rather than by the LCL.
+
+      Every picture in the archive is a Windows BMP, which SDL reads itself,
+      so the game does not need the widgetset's image decoder to start. That
+      matters for a port: it is one of the last things the picture depended on
+      the LCL for.
+
+      The caller owns the surface. nil if the entry is not a bitmap SDL can
+      read. }
+    function LoadSurface(Index: Integer): PSDL_Surface;
+    function LoadSurfaceByName(const AName: string): PSDL_Surface;
     { The same picture as the renderer sees it. The image OWNS the bitmap,
       so callers that swap pictures - opening slides, ending stills - free
       one object rather than two. }
@@ -168,6 +180,39 @@ begin
   finally
     Buffer.Free;
   end;
+end;
+
+function TQdaArchive.LoadSurface(Index: Integer): PSDL_Surface;
+var
+  Buffer: TMemoryStream;
+  Ops: PSDL_RWops;
+begin
+  Result := nil;
+  Buffer := TMemoryStream.Create;
+  try
+    LoadRaw(Index, Buffer);
+    if Buffer.Size <= 0 then
+      Exit;
+    { Over the bytes already in memory rather than a temporary file. The 1
+      tells SDL to close the stream it was handed, which is the RWops and not
+      the memory behind it - that is still the caller's. }
+    Ops := SDL_RWFromConstMem(Buffer.Memory, Buffer.Size);
+    if Ops = nil then
+      Exit;
+    Result := SDL_LoadBMP_RW(Ops, 1);
+  finally
+    Buffer.Free;
+  end;
+end;
+
+function TQdaArchive.LoadSurfaceByName(const AName: string): PSDL_Surface;
+var
+  EntryIndex: Integer;
+begin
+  EntryIndex := IndexOf(AName);
+  if EntryIndex < 0 then
+    raise EQdaError.CreateFmt('"%s" is not in the archive', [AName]);
+  Result := LoadSurface(EntryIndex);
 end;
 
 function TQdaArchive.LoadImageByName(const AName: string): TRenderImage;

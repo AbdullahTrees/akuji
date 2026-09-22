@@ -176,7 +176,9 @@ var
   KeyTarget: TLCLRenderTarget;
   KeyRef: TPixels;
   KeyKept, KeyDiff, KeyStep: Integer;
-  SdlSurf, StretchSurf, PresentSurf: PSDL_Surface;
+  SdlSurf, StretchSurf, PresentSurf, DecSurf, DecConv: PSDL_Surface;
+  DecBmp: TBitmap;
+  DecBad, DecChecked, DecEntry: Integer;
   PresentBmp: TBitmap;
   PresentImg: TLazIntfImage;
   PresentBad: Integer;
@@ -639,6 +641,91 @@ begin
         Log.Add('FAILED: the SDL target does not draw what the LCL one does');
         Inc(Result);
       end;
+    end;
+
+    { THE TWO BMP DECODERS HAVE TO AGREE.
+
+      Every picture in bmp.qda is read by the LCL today and by SDL after this,
+      and the pinned scenes cannot tell the difference: they would move
+      together, because both the picture and the baseline come from whichever
+      decoder is in use. A palette read differently, or a row order, would
+      simply become the new normal.
+
+      So the two are compared against each other, on the real archive, over
+      whole sheets rather than a corner - the first four entries, which is the
+      font, the HUD sheet and two character sheets. }
+    DecBad := 0;
+    DecChecked := 0;
+    for DecEntry := 0 to 3 do
+    begin
+      if DecEntry >= Arch.Count then
+        Break;
+      DecBmp := Arch.LoadBitmap(DecEntry);
+      DecSurf := Arch.LoadSurface(DecEntry);
+      if (DecBmp = nil) or (DecSurf = nil) then
+      begin
+        Log.Add(Format('FAILED: archive entry %d did not load both ways',
+          [DecEntry]));
+        Inc(Result);
+        DecBmp.Free;
+        if DecSurf <> nil then
+          SDL_FreeSurface(DecSurf);
+        Continue;
+      end;
+      { The archive's bitmaps are 8-bit paletted, so the SDL side is brought
+        to the same 32-bit form the renderer uses before the comparison -
+        which is the same conversion the renderer would do. }
+      DecConv := SDL_ConvertSurfaceFormat(DecSurf, SDL_PIXELFORMAT_ARGB8888, 0);
+      SDL_FreeSurface(DecSurf);
+      try
+        if (DecConv = nil) or (DecConv^.w <> DecBmp.Width)
+        or (DecConv^.h <> DecBmp.Height) then
+        begin
+          Log.Add(Format('FAILED: entry %d is %dx%d to the LCL and a '
+            + 'different size to SDL', [DecEntry, DecBmp.Width, DecBmp.Height]));
+          Inc(Result);
+          Continue;
+        end;
+        for PY := 0 to DecConv^.h - 1 do
+        begin
+          SdlRow := PByte(DecConv^.pixels) + PY * DecConv^.pitch;
+          SdlPix := PLongWord(SdlRow);
+          for PX := 0 to DecConv^.w - 1 do
+          begin
+            Inc(DecChecked);
+            if ((SdlPix^ and $FF) shl 16) or (SdlPix^ and $0000FF00)
+               or ((SdlPix^ shr 16) and $FF)
+               <> LongWord(DecBmp.Canvas.Pixels[PX, PY]) then
+            begin
+              if DecBad = 0 then
+                Log.Add(Format('  first disagreement in entry %d at (%d,%d): '
+                  + 'LCL %.6x, SDL %.8x',
+                  [DecEntry, PX, PY,
+                   LongWord(DecBmp.Canvas.Pixels[PX, PY]), SdlPix^]));
+              Inc(DecBad);
+            end;
+            Inc(SdlPix);
+          end;
+        end;
+      finally
+        if DecConv <> nil then
+          SDL_FreeSurface(DecConv);
+        DecBmp.Free;
+      end;
+    end;
+    Log.Add('');
+    Log.Add(Format('bmp decoders: %d pixels compared, %d disagree',
+      [DecChecked, DecBad]));
+    if DecChecked = 0 then
+    begin
+      Log.Add('FAILED: no archive entry was decoded, so nothing was compared');
+      Inc(Result);
+    end;
+    if DecBad <> 0 then
+    begin
+      Log.Add('FAILED: SDL and the LCL do not read the same picture out of '
+        + 'bmp.qda');
+      Inc(Result);
     end;
 
     { WHAT THE WINDOW IS SHOWN HAS TO BE WHAT WAS DRAWN.
