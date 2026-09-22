@@ -66,7 +66,10 @@ const
   TEXT_OFF  = 'OFF';
   KEY_SUFFIX = ' KEY';
 
-  { Names shown for the twelve bindable keys. }
+  { The names the ORIGINAL showed, and all it could show: its options screen
+    could only ever name one of these twelve. Kept because --selftest-session
+    checks the table against the addresses it was read from; nothing draws it
+    now that any key can be bound and SDL names them all. }
   KEY_NAMES: array[0..11] of string =
     ('Z', 'X', 'C', 'A', 'S', 'D', '1', '2', '3', '4', '5', '6');
 
@@ -100,6 +103,10 @@ type
   TNotifyProc = procedure of object;
   { Opens the selected gallery image. }
   TGalleryEvent = procedure(Slot: Integer) of object;
+  { The name of the key bound to one of the three editable rows, 0..2. The
+    bindings live in the input component, so this screen asks rather than
+    reading the settings record it used to index KEY_NAMES with. }
+  TKeyNameEvent = function(Row: Integer): string of object;
 
   TTitleScreen = class
   private
@@ -110,6 +117,7 @@ type
     FOnWindowScale: TNotifyProc;
     FOnFullScreen: TNotifyProc;
     FOnGallery: TGalleryEvent;
+    FOnKeyName: TKeyNameEvent;
     procedure PlaySound(Index: Integer);
     procedure MenuConfirm;
     procedure OptionsConfirm;
@@ -145,6 +153,8 @@ type
                                         write FOnWindowScale;
     { Called when the fullscreen row changes, to switch on the spot. }
     property OnFullScreen: TNotifyProc read FOnFullScreen write FOnFullScreen;
+    { Asked for each of the three key rows, every time they are drawn. }
+    property OnKeyName: TKeyNameEvent read FOnKeyName write FOnKeyName;
   end;
 
   { External operations used by the game-over screen. }
@@ -437,14 +447,15 @@ procedure TTitleScreen.DrawValues(C: TRenderTarget; F: TGameFont);
     F.TextOut(C, OPT_VALUE_X, $38 + Row * $10, S, Variant_);
   end;
 
-  { Out-of-range is drawn as the raw index rather than crashing - the settings
-    file is a 56-byte blob the player can corrupt. }
-  function KeyName(Index: Integer): string;
+  { From the input component, which owns the bindings. An unbound row reads
+    NONE rather than blank, so an empty value is never mistaken for a drawing
+    fault. }
+  function KeyName(Row: Integer): string;
   begin
-    if (Index >= Low(KEY_NAMES)) and (Index <= High(KEY_NAMES)) then
-      Result := KEY_NAMES[Index] + KEY_SUFFIX
+    if Assigned(FOnKeyName) then
+      Result := FOnKeyName(Row) + KEY_SUFFIX
     else
-      Result := IntToStr(Index) + KEY_SUFFIX;
+      Result := 'NONE' + KEY_SUFFIX;
   end;
 
   function OnOff(B: Boolean): string;
@@ -457,9 +468,9 @@ begin
     Val(0, LEVEL_NAMES[Settings.GameLevel],
         LEVEL_VARIANTS[Settings.GameLevel]);
   Val(1, OnOff(FullScreenOn));
-  Val(2, KeyName(Settings.KeyMap[0]));
-  Val(3, KeyName(Settings.KeyMap[1]));
-  Val(4, KeyName(Settings.KeyMap[2]));
+  Val(Ord(orKey0), KeyName(0));
+  Val(Ord(orKey1), KeyName(1));
+  Val(Ord(orKey2), KeyName(2));
   Val(Ord(orScale), Format('%dX', [WindowScale]));
   Val(Ord(orVolume), Format('%3d%%', [Settings.Volume * 10]));
   if (Settings.GallerySel >= OMAKE_MIN) and (Settings.GallerySel <= OMAKE_MAX) then

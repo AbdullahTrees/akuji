@@ -66,7 +66,9 @@ type
   TGameSettings = record
     CurrentStage: Integer;   // +0x00  Stage_Begin passes this to Load_Stage_Assets
     GameLevel: Integer;      // +0x04  0..2
-    { Four logical-button mappings; defaults form the identity mapping. }
+    { One entry per action, in the order AKUJI_MAPPED holds them. The original
+      stored a device button index here and this stores a tagged SDL keycode;
+      DDIDComponent.KeyMapToKeycode owns the distinction and the migration. }
     KeyMap: array[0..3] of Integer;  // +0x08..+0x14
     SoftwareVsyncFlag: Byte; // +0x18
     WaitOnFlag: Byte;        // +0x19
@@ -134,9 +136,6 @@ var
   MenuIndex: Integer = 0;
   SavedMenuIndex: Integer = 0;
   Input: TInputState;
-  { Runtime key mappings are copied from settings at startup and written back
-    when settings are saved. }
-  KeyMap: array[0..3] of Integer;
 
 { Confirm is the rising edge of either of the first two buttons:
 

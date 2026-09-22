@@ -145,6 +145,7 @@ type
     procedure SessionResetHost;
     procedure StageBeginFade;
     procedure TitleVolume;
+    function  TitleKeyName(Row: Integer): string;
     procedure TitleResetState;
     procedure TitleResetOpening;
     procedure TitleGallery(Slot: Integer);
@@ -239,10 +240,10 @@ begin
     Settings.GallerySel := 0;
     SettingsToGlobals;
 
-    { p_KeyMap gets its own copy of the four ints; FormDestroy copies them
-      back on the way out. }
-    for I := 0 to High(Settings.KeyMap) do
-      KeyMap[I] := Settings.KeyMap[I];
+    { The bindings are the only copy from here on; FormDestroy writes them
+      back into the record just before it is saved. The original kept a second
+      copy in a global, which this port never read. }
+    Joy.LoadKeyMap(Settings.KeyMap);
 
     FArchive := TQdaArchive.Create(DataDir + 'bmp.qda');
     { p_UseArchive, set by DDDD1Init the same way. }
@@ -343,6 +344,7 @@ begin
   FTitleScreen.OnVolume := TitleVolume;
   FTitleScreen.OnWindowScale := ApplyWindowScale;
   FTitleScreen.OnFullScreen := ApplyFullScreen;
+  FTitleScreen.OnKeyName := TitleKeyName;
   FSession.OnStartFade := StageBeginFade;
   FSession.OnResetHost := SessionResetHost;
   { Raise the multimedia timer period before the first frame: without it
@@ -463,10 +465,10 @@ begin
     overwritten below. }
   FConfirmLatch := FSession.Input.Button[0];
 
-  FSession.Input.Button[0] := Joy.IsDown(abAction1);
-  FSession.Input.Button[1] := Joy.IsDown(abAction2);
-  FSession.Input.Button[2] := Joy.IsDown(abAction3);
-  FSession.Input.Button[3] := Joy.IsDown(abAux1);
+  FSession.Input.Button[0] := Joy.IsDown(abJump);
+  FSession.Input.Button[1] := Joy.IsDown(abFire);
+  FSession.Input.Button[2] := Joy.IsDown(abPause);
+  FSession.Input.Button[3] := Joy.IsDown(abAux);
 
   { AnyPressed includes the first three action buttons. }
   FSession.Input.AnyPressed :=
@@ -481,10 +483,10 @@ procedure TFrm_main.InputStep7;
 var
   Down: array[0..3] of Boolean;
 begin
-  Down[0] := Joy.IsDown(abAction1);
-  Down[1] := Joy.IsDown(abAction2);
-  Down[2] := Joy.IsDown(abAction3);
-  Down[3] := Joy.IsDown(abAux1);
+  Down[0] := Joy.IsDown(abJump);
+  Down[1] := Joy.IsDown(abFire);
+  Down[2] := Joy.IsDown(abPause);
+  Down[3] := Joy.IsDown(abAux);
   InputEndOfFrame(FSession.Input, Down);
 end;
 
@@ -979,6 +981,12 @@ begin
   DDSD1.Volume := Settings.Volume;
 end;
 
+function TFrm_main.TitleKeyName(Row: Integer): string;
+begin
+  { The three editable rows are the first three of the four mapped actions. }
+  Result := Joy.KeyNameOf(Joy.Bindings[AKUJI_MAPPED[Row]].Primary);
+end;
+
 procedure TFrm_main.TitleResetState;
 begin
   FSession.ResetState(0);
@@ -1295,6 +1303,8 @@ begin
   { Give the multimedia timer period back - raising it is process-wide. }
   EndFrameClock;
   Application.OnIdle := nil;
+  { Before the save, not after: SaveSettings writes the record as it stands. }
+  Joy.StoreKeyMap(Settings.KeyMap);
   if FDataDir <> '' then
     SaveSettings(FDataDir);
   FFont.Free;
