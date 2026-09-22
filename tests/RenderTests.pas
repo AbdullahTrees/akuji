@@ -39,7 +39,7 @@ unit RenderTests;
 interface
 
 uses
-  Classes, SysUtils, Graphics, SDL2,
+  Classes, SysUtils, Graphics, SDL2, IntfGraphics,
   QdaArchive, Surfaces, Sprites, TileMaps, GameFont, Stages, Entities,
   RenderTarget, SDLTarget, TextRender, Dialogue;
 
@@ -176,7 +176,10 @@ var
   KeyTarget: TLCLRenderTarget;
   KeyRef: TPixels;
   KeyKept, KeyDiff, KeyStep: Integer;
-  SdlSurf, StretchSurf: PSDL_Surface;
+  SdlSurf, StretchSurf, PresentSurf: PSDL_Surface;
+  PresentBmp: TBitmap;
+  PresentImg: TLazIntfImage;
+  PresentBad: Integer;
   SdlTarget: TSDLRenderTarget;
   SdlDiff, PX, PY, DiffL, DiffT, DiffR, DiffB: Integer;
   SdlRow: PByte;
@@ -635,6 +638,87 @@ begin
           end;
         Log.Add('FAILED: the SDL target does not draw what the LCL one does');
         Inc(Result);
+      end;
+    end;
+
+    { WHAT THE WINDOW IS SHOWN HAS TO BE WHAT WAS DRAWN.
+
+      The game now draws into an SDL surface, and the only thing between that
+      and the screen is SurfaceToBitmap - one conversion, once a frame, in
+      TDDDD.Present. Nothing else in this test crosses that bridge: the scenes
+      above compare SDL against LCL inside the renderer, so a conversion that
+      swapped red and blue, or halved the picture, would leave every one of
+      them green and the game unplayable.
+
+      So: a surface of known colours, chosen to be different in every channel
+      and asymmetric top to bottom, converted and read back through the
+      bitmap's own accessor. }
+    PresentSurf := SDL_CreateRGBSurface(0, 8, 4, 32,
+                                        $00FF0000, $0000FF00, $000000FF, 0);
+    if PresentSurf = nil then
+    begin
+      Log.Add('FAILED: no SDL surface for the present check: ' + SDL_GetError);
+      Inc(Result);
+    end
+    else
+    begin
+      PresentBmp := TBitmap.Create;
+      PresentImg := TLazIntfImage.Create(0, 0);
+      try
+        for PY := 0 to 3 do
+        begin
+          SdlRow := PByte(PresentSurf^.pixels) + PY * PresentSurf^.pitch;
+          SdlPix := PLongWord(SdlRow);
+          for PX := 0 to 7 do
+          begin
+            { r = 16x, g = 32y + 8, b = 200 - 16x: no two channels alike and
+              no symmetry to hide a flip. }
+            SdlPix^ := (LongWord(PX * 16) shl 16)
+                       or (LongWord(PY * 32 + 8) shl 8)
+                       or LongWord(200 - PX * 16);
+            Inc(SdlPix);
+          end;
+        end;
+
+        SurfaceToBitmap(PresentSurf, PresentBmp, PresentImg);
+
+        PresentBad := 0;
+        if (PresentBmp.Width <> 8) or (PresentBmp.Height <> 4) then
+        begin
+          Log.Add(Format('FAILED: the presented bitmap is %dx%d, want 8x4',
+            [PresentBmp.Width, PresentBmp.Height]));
+          Inc(Result);
+        end
+        else
+          for PY := 0 to 3 do
+            for PX := 0 to 7 do
+            begin
+              { Canvas.Pixels reports $00BBGGRR. }
+              if LongWord(PresentBmp.Canvas.Pixels[PX, PY]) <>
+                 (LongWord(200 - PX * 16) shl 16)
+                 or (LongWord(PY * 32 + 8) shl 8)
+                 or LongWord(PX * 16) then
+              begin
+                if PresentBad = 0 then
+                  Log.Add(Format('  first wrong at (%d,%d): read %.6x, drew '
+                    + 'r=%d g=%d b=%d',
+                    [PX, PY, LongWord(PresentBmp.Canvas.Pixels[PX, PY]),
+                     PX * 16, PY * 32 + 8, 200 - PX * 16]));
+                Inc(PresentBad);
+              end;
+            end;
+        Log.Add('');
+        Log.Add(Format('present: %d of 32 pixels survive the crossing back '
+          + 'to the LCL', [32 - PresentBad]));
+        if PresentBad <> 0 then
+        begin
+          Log.Add('FAILED: what Present shows is not what the game drew');
+          Inc(Result);
+        end;
+      finally
+        PresentImg.Free;
+        PresentBmp.Free;
+        SDL_FreeSurface(PresentSurf);
       end;
     end;
 

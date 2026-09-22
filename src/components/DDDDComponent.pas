@@ -1,5 +1,12 @@
-{ LCL implementation of the display component used by the main form. It owns
-  the back buffer and handles clearing, drawing, presentation, and fades. }
+{ The display component the main form draws through. It owns the back buffer
+  and handles clearing, drawing, presentation and fades.
+
+  THE BACK BUFFER IS AN SDL SURFACE. Everything the game draws goes into it
+  through TRenderTarget, and the LCL sees it once a frame, at Present, when it
+  is copied into a bitmap and stretched over the window.
+
+  That copy is the whole of what still ties the game's picture to the LCL.
+  Porting the window means replacing Present, and nothing else here. }
 
 unit DDDDComponent;
 
@@ -8,7 +15,8 @@ unit DDDDComponent;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Controls, Forms, RenderTarget;
+  Classes, SysUtils, Graphics, Controls, Forms, SDL2, IntfGraphics,
+  RenderTarget, SDLTarget;
 
 const
   { 0x78 and the step every caller writes to self+0x10 before starting one.
@@ -39,16 +47,21 @@ type
     FD3DOptions: TD3DOptions;
     FVsyncAtWindowed: Boolean;
     FOnInit: TNotifyEvent;
-    FSurface: TBitmap;
-    FTarget: TLCLRenderTarget;
+    FBack: PSDL_Surface;
+    FTarget: TSDLRenderTarget;
+    { Present's two working parts: the bitmap the window is handed, and the
+      description of the back buffer that turns one into the other. Both are
+      kept rather than rebuilt, because this runs sixty times a second. }
+    FPresentBmp: TBitmap;
+    FPresentImg: TLazIntfImage;
     { Fade state offsets retained for layout verification. }
     FFadeLevel: Integer;      { +0x08 }
     FFadeStep: Integer;       { +0x10, written by the caller before a fade }
     FFadeMode: Integer;       { +0x04 }
     FFadeOut: Boolean;        { +0x0C }
     FFadeBusy: Boolean;       { +0x0D }
-    function GetSurfaceCanvas: TCanvas;
     function GetTarget: TRenderTarget;
+    procedure ReleaseBuffers;
   protected
     { Streaming calls this after the .lfm properties have been applied. }
     procedure Loaded; override;
@@ -75,14 +88,8 @@ type
     { 0 = clear, FADE_FULL = black. What a real fader would draw. }
     property FadeLevel: Integer read FFadeLevel;
 
-    { Everything the game draws goes here. Backed by a TBitmap for now, which
-      is why LCL-first works: the game already draws through TCanvas. }
-    property Surface: TBitmap read FSurface;
-    { The same back buffer, as the renderer sees it. Units move onto this and
-      off Canvas one at a time; when the last one has, Canvas can go and this
-      can be something other than the LCL. }
+    { Everything the game draws goes through here. }
     property Target: TRenderTarget read GetTarget;
-    property Canvas: TCanvas read GetSurfaceCanvas;
   published
     property DebugOption: TDDDDDebugOption read FDebugOption write FDebugOption;
     property InitialScreenWidth: Integer read FInitialScreenWidth write FInitialScreenWidth;
@@ -105,14 +112,24 @@ begin
   FBackColor := 0;
   { Callers may replace this; ordinary transitions use the default step. }
   FFadeStep := FADE_STEP;
-  FSurface := TBitmap.Create;
 end;
 
 destructor TDDDD.Destroy;
 begin
-  FTarget.Free;
-  FSurface.Free;
+  ReleaseBuffers;
   inherited Destroy;
+end;
+
+procedure TDDDD.ReleaseBuffers;
+begin
+  FreeAndNil(FTarget);
+  if FBack <> nil then
+  begin
+    SDL_FreeSurface(FBack);
+    FBack := nil;
+  end;
+  FreeAndNil(FPresentImg);
+  FreeAndNil(FPresentBmp);
 end;
 
 procedure TDDDD.Loaded;
@@ -121,31 +138,26 @@ begin
   Initialize;
 end;
 
-{ Built on demand and rebuilt when the surface is resized, because the target
-  carries the dimensions the game draws against. }
+{ nil until Initialize has run. A bare component - which is what the fade
+  self-test drives - has no buffer and nothing to draw on. }
 function TDDDD.GetTarget: TRenderTarget;
 begin
-  if (FTarget = nil)
-  or (FTarget.Width <> FSurface.Width) or (FTarget.Height <> FSurface.Height) then
-  begin
-    FTarget.Free;
-    FTarget := TLCLRenderTarget.Create(FSurface.Canvas,
-                                       FSurface.Width, FSurface.Height);
-  end;
   Result := FTarget;
-end;
-
-function TDDDD.GetSurfaceCanvas: TCanvas;
-begin
-  Result := FSurface.Canvas;
 end;
 
 procedure TDDDD.Initialize;
 begin
   { Property values arrive from the .lfm before this runs. }
-  FSurface.SetSize(FInitialScreenWidth, FInitialScreenHeight);
-  FSurface.Canvas.Brush.Color := FBackColor;
-  FSurface.Canvas.FillRect(0, 0, FInitialScreenWidth, FInitialScreenHeight);
+  ReleaseBuffers;
+  FBack := SDL_CreateRGBSurface(0, FInitialScreenWidth, FInitialScreenHeight,
+                                32, $00FF0000, $0000FF00, $000000FF, 0);
+  if FBack <> nil then
+  begin
+    FTarget := TSDLRenderTarget.Create(FBack);
+    FPresentBmp := TBitmap.Create;
+    FPresentImg := TLazIntfImage.Create(0, 0);
+    Clear;
+  end;
   if Assigned(FOnInit) then
     FOnInit(Self);
 end;
@@ -193,8 +205,9 @@ end;
 
 procedure TDDDD.Clear;
 begin
-  FSurface.Canvas.Brush.Color := FBackColor;
-  FSurface.Canvas.FillRect(0, 0, FSurface.Width, FSurface.Height);
+  if FTarget = nil then
+    Exit;
+  FTarget.Fill(Rect(0, 0, FTarget.Width, FTarget.Height), FBackColor);
 end;
 
 { The fade is a box wipe: four black rectangles close in from the edges.
@@ -210,29 +223,43 @@ var
   Level, Width, Height: Integer;
 begin
   { TickFade owns the state guards; this routine only paints the current level. }
-  { Nothing to paint on until the surface has been sized - the fade self-test
-    drives a bare component with no screen behind it. }
-  if (FSurface = nil) or (FSurface.Width = 0) or (FSurface.Height = 0) then
+  { Nothing to paint on until there is a buffer - the fade self-test drives a
+    bare component with no screen behind it. }
+  if FTarget = nil then
     Exit;
   Level := FFadeLevel;
   if Level <= 0 then
     Exit;
-  Width := FSurface.Width;
-  Height := FSurface.Height;
-  FSurface.Canvas.Brush.Color := clBlack;
-  FSurface.Canvas.FillRect(0, 0, Level, Height);              { left }
-  FSurface.Canvas.FillRect(Width - Level, 0, Width, Height);  { right }
-  FSurface.Canvas.FillRect(0, 0, Width, Level);                { top }
-  FSurface.Canvas.FillRect(0, Height - Level, Width, Height);  { bottom }
+  Width := FTarget.Width;
+  Height := FTarget.Height;
+  FTarget.Fill(Rect(0, 0, Level, Height), clBlack);              { left }
+  FTarget.Fill(Rect(Width - Level, 0, Width, Height), clBlack);  { right }
+  FTarget.Fill(Rect(0, 0, Width, Level), clBlack);               { top }
+  FTarget.Fill(Rect(0, Height - Level, Width, Height), clBlack); { bottom }
 end;
 
 procedure TDDDD.Present;
+var
+  Dest: TRect;
 begin
-  { Stretch the fixed-size back buffer over the entire client area. Aspect
-    ratio is not preserved when the window is resized. }
-  if (Owner is TCustomForm) and TCustomForm(Owner).HandleAllocated then
-    TCustomForm(Owner).Canvas.StretchDraw(
-      TCustomForm(Owner).ClientRect, FSurface);
+  if FBack = nil then
+    Exit;
+  { The one crossing back to the LCL, once a frame. }
+  SurfaceToBitmap(FBack, FPresentBmp, FPresentImg);
+  if not ((Owner is TCustomForm) and TCustomForm(Owner).HandleAllocated) then
+    Exit;
+
+  { WHERE THE PICTURE GOES. The whole client area, which stretches a 4:3
+    buffer into whatever shape the window is and scales it by a fraction, so
+    a 320-wide picture in a 700-wide window has some source pixels two wide
+    and some three.
+
+    Integer scaling and fullscreen are both changes to THIS RECTANGLE and
+    nothing else - the largest whole multiple that fits, centred, with the
+    surround painted - which is why it is worked out here rather than passed
+    straight through. }
+  Dest := TCustomForm(Owner).ClientRect;
+  TCustomForm(Owner).Canvas.StretchDraw(Dest, FPresentBmp);
 end;
 
 initialization
