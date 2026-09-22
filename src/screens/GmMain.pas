@@ -1,5 +1,12 @@
-{ Main form and frame loop. Published component field names must match
-  GmMain.lfm because resource streaming binds them by name. }
+{ The game shell: the window, the components it owns, and the frame loop.
+
+  TFrm_main IS NO LONGER A FORM. The name stays, and so do FormDestroy,
+  FormKeyDown and FormKeyUp, because the original is a Delphi form called
+  TFrm_main with handlers of those names - keeping them keeps the
+  correspondence with the binary readable, which is what this port is for.
+  What changed is everything underneath: the window is SDL's, the components
+  are built here rather than streamed from GmMain.lfm, and the loop is an
+  SDL_PollEvent loop instead of Application.OnIdle. }
 
 unit GmMain;
 
@@ -8,7 +15,7 @@ unit GmMain;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, LCLType, SDL2,
+  Classes, SysUtils, Types, GameColors, SDL2,
   DDDDComponent, DDIDComponent, DDSDComponent, KbgmPlayer, GameState,
   IniFiles, QdaArchive, Title, Ending, Opening, GameFont, Surfaces, Sprites, Stages, TileMaps, PlayerState,
   Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender;
@@ -38,14 +45,33 @@ type
                         FadeSeconds: Integer); override;
   end;
 
-  TFrm_main = class(TForm)
+  TFrm_main = class(TComponent)
+  public
     DDDD1: TDDDD;
     Joy: TDDIDEX;
     KbgmPlayer1: TKbgmPlayer;
     DDSD1: TDDSD;
+
+    { Builds the window and the four components, then starts the game the way
+      streaming used to: by calling the display component's Initialize, whose
+      OnInit is where startup lives. }
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+
+    { The frame loop. Returns when the game has quit. }
+    procedure Run;
+  private
+    FWindow: PSDL_Window;
+    FQuit: Boolean;
+    procedure PumpEvents;
+    { One frame, when the clock says it is time for one. }
+    procedure Frame;
+    { True when only Ctrl is held - not Ctrl with Shift or Alt. }
+    class function CtrlOnly(Modifiers: Word): Boolean;
+  private
     procedure FormDestroy(Sender: TObject);
-    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure FormKeyDown(Key: TSDL_KeyCode; Modifiers: Word);
+    procedure FormKeyUp(Key: TSDL_KeyCode);
     procedure DDDD1Init(Sender: TObject);
     procedure TitleSound(Index: Integer);
   private
@@ -92,14 +118,14 @@ type
     function FindGameData: string;
     procedure LoadStage(StageIndex: Integer);
     procedure DrawHud;
-    procedure AppIdle(Sender: TObject; var Done: Boolean);
+    procedure Redraw;
     procedure PollInput;
     procedure InputStep7;
     { The state dispatch is in two halves with the entity update between
-      them - see the note in AppIdle. }
+      them - see the note in Frame. }
     procedure DispatchPre;
     procedure DispatchPost;
-    procedure FormPaint(Sender: TObject);
+
     procedure DrawScene;
     procedure DrawDebugOverlay;
     procedure SetFullScreen(Enable: Boolean);
@@ -158,12 +184,10 @@ type
     function  EntityWorldFading: Boolean;
   end;
 
-var
-  Frm_main: TFrm_main;
+{ Builds the shell, runs it, and tears it down. The process exit code. }
+function RunGame: Integer;
 
 implementation
-
-{$R *.lfm}
 
 { Finds game data beside the executable or in the packaged data directory. }
 function TFrm_main.FindGameData: string;
@@ -265,8 +289,8 @@ begin
     { The running game. It borrows the stage table and the map; the form keeps
       owning both, and the surfaces and sprite sheets with them. }
     FSession := TGameSession.Create(DataDir, FStages, FMap);
-    { Replace the no-op audio the session builds for itself. }
-    FSession.Audio.Free;
+    { Replace the no-op audio the session builds for itself. The session
+      owns the slot, so assigning frees what was there. }
     FSession.Audio := TFormAudio.Create(Self);
     { Game_StartOrLoad's presentation hooks. The concrete host connects the
       opening sequence and playlist operations to the form-owned components. }
@@ -286,14 +310,6 @@ begin
     DDSD1.Volume := Settings.Volume;
     KbgmPlayer1.Open(DataDir);
   end;
-
-  { Present() blits straight to the form canvas for speed, which is fine while
-    the frame loop is running but leaves stale pixels wherever Windows repaints
-    the window itself (resize, occlusion, restore). Handling OnPaint from the
-    same offscreen surface covers those. Without this a partial repaint shows
-    as a lighter rectangle in whatever region Windows invalidated. }
-  OnPaint := FormPaint;
-  DoubleBuffered := True;
 
   { Apply the fullscreen setting after display initialization. }
   SetFullScreen(FullScreenOn);
@@ -363,14 +379,12 @@ begin
   SavedGameState := 0;
   { Arm TitleInit's one-time delay. }
   FTitleSlept := False;
-
-  Application.OnIdle := AppIdle;
 end;
 
 { DIVERGENCE DIV-001: frame pacing yields between updates instead of spinning. }
-{ Runs one frame when the frame clock reaches the target interval. Returning
-  Done=True before then lets the application sleep between frames. }
-procedure TFrm_main.AppIdle(Sender: TObject; var Done: Boolean);
+{ Runs one frame when the frame clock reaches the target interval, and yields
+  the rest of the time. }
+procedure TFrm_main.Frame;
 var
   Now_, Elapsed: DWord;
 begin
@@ -384,8 +398,7 @@ begin
     See notes/divergences.md, DIV-018. }
   if Elapsed < FRAME_MS then
   begin
-    Sleep(1);        { yield instead of spinning }
-    Done := False;   { but come straight back }
+    SDL_Delay(1);    { yield instead of spinning, then come straight back }
     Exit;
   end;
   FLastFrame := Now_;
@@ -393,7 +406,7 @@ begin
   PollInput;              { step 2-3 }
   DDDD1.Clear;
   { The animated background tiles, once a frame and OUTSIDE the state
-    dispatch - which is where AppIdle ticks them, so a wall keeps moving
+    dispatch - which is where Frame ticks them, so a wall keeps moving
     behind a dialogue box or a pause. }
   FSession.TickBackground;
 
@@ -443,8 +456,6 @@ begin
   InputStep7;
   DrawDebugOverlay;
   DDDD1.Present;
-
-  Done := False;          { keep the loop running }
 end;
 
 { Polls the configured controls. Opposing directions cancel to zero. }
@@ -592,48 +603,44 @@ end;
   Fullscreen owns the window size, so this leaves it alone. }
 procedure TFrm_main.ApplyWindowScale;
 begin
-  if FullScreenOn then
+  if FullScreenOn or (FWindow = nil) then
     Exit;
   if (WindowScale < WINDOW_SCALE_MIN) or (WindowScale > WINDOW_SCALE_MAX) then
     WindowScale := WINDOW_SCALE_MIN;
-  ClientWidth := SCREEN_W * WindowScale;
-  ClientHeight := SCREEN_H * WindowScale;
-  Position := poScreenCenter;
+  SDL_SetWindowSize(FWindow, SCREEN_W * WindowScale, SCREEN_H * WindowScale);
+  SDL_SetWindowPosition(FWindow, SDL_WINDOWPOS_CENTERED,
+                                 SDL_WINDOWPOS_CENTERED);
 end;
 
-{ Applies fullscreen or restores the fixed-size centered window. Archive mode
-  intentionally leaves the border style unchanged when returning to a window. }
+{ Applies fullscreen or restores the fixed-size centred window.
+
+  FULLSCREEN DESKTOP, not a mode change. The original switches the display to
+  320x240 at 16 bits; this leaves the desktop where it is and scales the
+  picture into it by a whole number, centred, with the rest painted black -
+  see DIV-018. Nothing on a modern machine wants its display mode set to
+  320x240, and monitors that would accept it are gone.
+
+  The border bug that DIV-019 found is gone with the LCL: an SDL window that
+  was never created borderless still has its border when fullscreen is turned
+  off, so there is nothing to restore and no archive flag to get wrong. }
 procedure TFrm_main.SetFullScreen(Enable: Boolean);
 begin
+  FullScreenOn := Enable;
+  if FWindow = nil then
+    Exit;
   if Enable then
   begin
-    FullScreenOn := True;
-    BorderStyle := bsNone;
-    WindowState := wsFullScreen;
-    Screen.Cursor := crNone;
+    SDL_SetWindowFullscreen(FWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
+    SDL_ShowCursor(SDL_DISABLE);
   end
   else
   begin
-    FullScreenOn := False;
-    WindowState := wsNormal;
-    { UNCONDITIONALLY, where the original tests its archive flag first.
-
-      Display_SetFullScreen restores the border only when the game is NOT
-      reading from bmp.qda, and that cost the original nothing because it
-      calls the routine exactly once, from startup, where the border is
-      already what the form was built with. Coming BACK from fullscreen is a
-      path it never takes.
-
-      This one does take it - the options row switches on the spot, DIV-019 -
-      and leaving the test in returns the shipped game to a window with no
-      title bar and no close button, which is how it was found. }
-    BorderStyle := bsSingle;
-    { After the border, because changing it recreates the window and the
-      client size has to be set on the one that ends up on screen. }
-    ClientWidth := SCREEN_W * WindowScale;
-    ClientHeight := SCREEN_H * WindowScale;
-    Position := poScreenCenter;
-    Screen.Cursor := crDefault;
+    SDL_SetWindowFullscreen(FWindow, 0);
+    SDL_ShowCursor(SDL_ENABLE);
+    SDL_SetWindowSize(FWindow, SCREEN_W * WindowScale,
+                               SCREEN_H * WindowScale);
+    SDL_SetWindowPosition(FWindow, SDL_WINDOWPOS_CENTERED,
+                                   SDL_WINDOWPOS_CENTERED);
   end;
 end;
 
@@ -1255,14 +1262,15 @@ begin
         end;
       end;
     GS_QUIT:
-      begin
-        Application.OnIdle := nil;
-        Application.Terminate;
-      end;
+      FQuit := True;
   end;
 end;
 
-procedure TFrm_main.FormPaint(Sender: TObject);
+{ The window's own repaints - uncovered, restored, resized, or coming back
+  from fullscreen. Present draws the same offscreen surface the frame loop
+  does, so what the window shows is whatever the last frame drew rather than
+  whatever was underneath it. }
+procedure TFrm_main.Redraw;
 begin
   DDDD1.Present;
 end;
@@ -1271,11 +1279,20 @@ end;
   Escape while ALREADY paused quits rather than resuming - resuming is the
   pause menu's own PAUSE_CONTINUE entry - and Ctrl+R compares Shift for
   EQUALITY with $04, so Ctrl+Shift+R deliberately does not fire, which is
-  why this is `Shift = [ssCtrl]` and not `ssCtrl in Shift`. }
-procedure TFrm_main.FormKeyDown(Sender: TObject; var Key: Word;
-  Shift: TShiftState);
+  why this asks for Ctrl ALONE rather than Ctrl among whatever else is held. }
+class function TFrm_main.CtrlOnly(Modifiers: Word): Boolean;
+const
+  { Caps lock, num lock and the mode key are left out of the comparison, as
+    they are left out of the TShiftState the original compared. }
+  CHORD = KMOD_CTRL or KMOD_SHIFT or KMOD_ALT or KMOD_GUI;
 begin
-  if Key = VK_ESCAPE then
+  Result := ((Modifiers and KMOD_CTRL) <> 0)
+        and ((Modifiers and CHORD and not KMOD_CTRL) = 0);
+end;
+
+procedure TFrm_main.FormKeyDown(Key: TSDL_KeyCode; Modifiers: Word);
+begin
+  if Key = SDLK_ESCAPE then
   begin
     if GameStateValue = GS_PAUSE then
     begin
@@ -1285,25 +1302,25 @@ begin
     EnterPause;
   end;
 
-  if (Key = Ord('R')) and (Shift = [ssCtrl]) then
+  if (Key = SDLK_r) and CtrlOnly(Modifiers) then
     GameStateValue := GS_TITLE_INIT;
 
-  { DIVERGENCE DIV-002: menus also accept virtual-key input here. }
-  { Keyboard fallback for menu navigation. Remove when all input-device paths
-    provide equivalent polling. }
+  { DIVERGENCE DIV-002: menus also accept raw key input here rather than
+    reading the bound buttons. The keys are the same ones the LCL path named,
+    now said in SDL's terms; that a rebound JUMP does not also rebind what
+    confirms a menu is what retiring DIV-002 would fix. }
   case Key of
-    VK_UP:                 FMoveY := -1;
-    VK_DOWN:               FMoveY := 1;
-    VK_LEFT:               FMoveX := -1;
-    VK_RIGHT:              FMoveX := 1;
-    VK_RETURN, VK_SPACE,
-    VK_Z:                  FConfirm := True;
+    SDLK_UP:                 FMoveY := -1;
+    SDLK_DOWN:               FMoveY := 1;
+    SDLK_LEFT:               FMoveX := -1;
+    SDLK_RIGHT:              FMoveX := 1;
+    SDLK_RETURN, SDLK_SPACE,
+    SDLK_z:                  FConfirm := True;
   end;
   Joy.KeyDown(Key);
 end;
 
-procedure TFrm_main.FormKeyUp(Sender: TObject; var Key: Word;
-  Shift: TShiftState);
+procedure TFrm_main.FormKeyUp(Key: TSDL_KeyCode);
 begin
   Joy.KeyUp(Key);
 end;
@@ -1313,16 +1330,16 @@ procedure TFrm_main.FormDestroy(Sender: TObject);
 begin
   { Give the multimedia timer period back - raising it is process-wide. }
   EndFrameClock;
-  Application.OnIdle := nil;
   { Before the save, not after: SaveSettings writes the record as it stands. }
   Joy.StoreKeyMap(Settings.KeyMap);
   if FDataDir <> '' then
     SaveSettings(FDataDir);
   FFont.Free;
   FTitleScreen.Free;
-  { FDialogue is the session's EventHost, and the session does not own it. }
+  { FDialogue is the session's EventHost, and the session DOES own it - so it
+    goes with the session and must not be freed again here. }
   FSession.Free;
-  FDialogue.Free;
+  FDialogue := nil;
   FPowerBmp.Free;
   FreeAndNil(FOpeningBmp);
   FStartHost.Free;
@@ -1336,6 +1353,113 @@ begin
   KbgmPlayer1.Close;
   DDSD1.Close;
   { FGameOver, FPause, FOpening, and FEnding live for the process lifetime. }
+end;
+
+{ ---------------------------------------------------------------- the shell }
+
+constructor TFrm_main.Create(AOwner: TComponent);
+const
+  { What GmMain.lfm used to carry, kept together and named so that the
+    correspondence with the original's form resource stays readable. }
+  WINDOW_CAPTION = 'Akuji the Demon';
+  SE_CHANNELS = 57;
+  AUTO_LOAD_MIDIS =
+    'midi\init'#10'midi\main01'#10'midi\gameover'#10'midi\boss01'#10 +
+    'midi\itemget'#10'midi\open01'#10'midi\end01'#10'midi\main02'#10 +
+    'midi\open02'#10'midi\boss02'#10'midi\end02'#10'midi\soulget'#10 +
+    'midi\end03'#10'midi\end04'#10'midi\end05';
+begin
+  inherited Create(AOwner);
+
+  { The video subsystem, which the renderer never needed - it draws into
+    surfaces - but a window does. }
+  if SDL_InitSubSystem(SDL_INIT_VIDEO) <> 0 then
+    raise Exception.CreateFmt('SDL video will not start: %s', [SDL_GetError]);
+
+  FWindow := SDL_CreateWindow(WINDOW_CAPTION,
+                              SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                              SCREEN_W, SCREEN_H, SDL_WINDOW_SHOWN);
+  if FWindow = nil then
+    raise Exception.CreateFmt('no window: %s', [SDL_GetError]);
+
+  DDDD1 := TDDDD.Create(Self);
+  DDDD1.InitialScreenWidth := SCREEN_W;
+  DDDD1.InitialScreenHeight := SCREEN_H;
+  DDDD1.BackColor := clBlack;
+  DDDD1.DisableScreenSaver := True;
+  DDDD1.Window := FWindow;
+  DDDD1.OnInit := DDDD1Init;
+
+  Joy := TDDIDEX.Create(Self);
+
+  DDSD1 := TDDSD.Create(Self);
+  DDSD1.ChannelCount := SE_CHANNELS;
+
+  KbgmPlayer1 := TKbgmPlayer.Create(Self);
+  KbgmPlayer1.AutoLoadMidis.Text := AUTO_LOAD_MIDIS;
+
+  { Streaming used to do this from Loaded, once the .lfm properties were in.
+    They are in, so this is the same moment. }
+  DDDD1.Initialize;
+end;
+
+destructor TFrm_main.Destroy;
+begin
+  FormDestroy(Self);
+  { The components go with the inherited destructor, which frees everything
+    this owns; the window outlives them because Present reads it. }
+  inherited Destroy;
+  if FWindow <> nil then
+    SDL_DestroyWindow(FWindow);
+  SDL_QuitSubSystem(SDL_INIT_VIDEO);
+end;
+
+procedure TFrm_main.PumpEvents;
+var
+  E: TSDL_Event;
+begin
+  while SDL_PollEvent(@E) = 1 do
+    case E.type_ of
+      SDL_QUITEV:
+        FQuit := True;
+      SDL_KEYDOWN:
+        { Repeats included, deliberately: holding an arrow walks the menu
+          cursor, which is what the window's own auto-repeat used to do. }
+        FormKeyDown(E.key.keysym.sym, E.key.keysym.mod_);
+      SDL_KEYUP:
+        FormKeyUp(E.key.keysym.sym);
+      SDL_WINDOWEVENT:
+        case E.window.event of
+          SDL_WINDOWEVENT_EXPOSED,
+          SDL_WINDOWEVENT_RESTORED,
+          SDL_WINDOWEVENT_SIZE_CHANGED:
+            Redraw;
+        end;
+    end;
+end;
+
+procedure TFrm_main.Run;
+begin
+  while not FQuit do
+  begin
+    PumpEvents;
+    if FQuit then
+      Break;
+    Frame;
+  end;
+end;
+
+function RunGame: Integer;
+var
+  Game: TFrm_main;
+begin
+  Result := 0;
+  Game := TFrm_main.Create(nil);
+  try
+    Game.Run;
+  finally
+    Game.Free;
+  end;
 end;
 
 end.

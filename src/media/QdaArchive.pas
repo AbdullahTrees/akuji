@@ -24,9 +24,7 @@ unit QdaArchive;
 interface
 
 uses
-  { Graphics for TBitmap, which only the render self-test's second BMP
-    decoder still wants. }
-  Classes, SysUtils, Graphics, SDL2, RenderTarget, GameColors;
+  Classes, SysUtils, SDL2, RenderTarget, GameColors;
 
 const
   QDA_MAGIC      = 'QDA0';
@@ -57,19 +55,11 @@ type
     { Returns -1 when absent. }
     function IndexOf(const AName: string): Integer;
 
-    { Caller owns the returned bitmap. }
-    { Decoded by the LCL. Nothing in the game reads a picture this way any
-      more - it is what --selftest-render compares SDL's decoder against, and
-      it goes when the LCL does. }
-    function LoadBitmap(Index: Integer): TBitmap;
-    function LoadBitmapByName(const AName: string): TBitmap;
-
-    { The same entry decoded by SDL rather than by the LCL.
+    { Decoded by SDL.
 
       Every picture in the archive is a Windows BMP, which SDL reads itself,
-      so the game does not need the widgetset's image decoder to start. That
-      matters for a port: it is one of the last things the picture depended on
-      the LCL for.
+      so nothing here needs an image decoder from a widget set - which was one
+      of the last things the picture depended on the LCL for.
 
       The caller owns the surface. nil if the entry is not a bitmap SDL can
       read. }
@@ -168,25 +158,6 @@ begin
   Dest.Position := 0;
 end;
 
-function TQdaArchive.LoadBitmap(Index: Integer): TBitmap;
-var
-  Buffer: TMemoryStream;
-begin
-  Buffer := TMemoryStream.Create;
-  try
-    LoadRaw(Index, Buffer);
-    Result := TBitmap.Create;
-    try
-      Result.LoadFromStream(Buffer);
-    except
-      Result.Free;
-      raise;
-    end;
-  finally
-    Buffer.Free;
-  end;
-end;
-
 function TQdaArchive.LoadSurface(Index: Integer): PSDL_Surface;
 var
   Buffer: TMemoryStream;
@@ -223,16 +194,6 @@ end;
 function TQdaArchive.LoadImageByName(const AName: string): TRenderImage;
 begin
   Result := TRenderImage.Create(LoadSurfaceByName(AName));
-end;
-
-function TQdaArchive.LoadBitmapByName(const AName: string): TBitmap;
-var
-  EntryIndex: Integer;
-begin
-  EntryIndex := IndexOf(AName);
-  if EntryIndex < 0 then
-    raise EQdaError.CreateFmt('"%s" is not in the archive', [AName]);
-  Result := LoadBitmap(EntryIndex);
 end;
 
 end.

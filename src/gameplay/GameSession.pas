@@ -74,7 +74,6 @@ type
     FTiles: TMapTileSource;
     FEventHost: TEventHost;
     FAudio: TSessionAudio;
-    FOwnAudio: Boolean;
     FGameDir: string;
     FStages: TStageTable;
     FStageIndex: Integer;
@@ -83,6 +82,8 @@ type
     FOnStartFade: TSessionNotify;
     FOnResetHost: TSessionNotify;
     function GetLayer: TLayerInfo;
+    procedure SetAudio(Value: TSessionAudio);
+    procedure SetEventHost(Value: TEventHost);
   public
     { Borrowed, not owned. }
     Map: TTileMap;
@@ -166,8 +167,20 @@ type
     property Events: TEventScript read FEvents;
     property Runner: TEventRunner read FRunner;
     property StageIndex: Integer read FStageIndex;
-    property Audio: TSessionAudio read FAudio write FAudio;
-    property EventHost: TEventHost read FEventHost write FEventHost;
+    { THE SESSION OWNS BOTH OF THESE, including one it is handed.
+
+      It builds a do-nothing audio and a do-nothing host for itself, so that
+      a session with no game around it still runs; a host that can actually
+      show a line or play a sound is then put in the slot. Assigning frees
+      what was there, and the destructor frees what is there at the end.
+
+      It was not always so. EventHost was a plain field: assigning leaked the
+      session's own host, and the destructor then freed the CALLER's - which
+      the caller also freed, because a comment said the session did not own
+      it. That is a double free, and it is what ended every run of the game
+      until the shell started genuinely tearing the session down. }
+    property Audio: TSessionAudio read FAudio write SetAudio;
+    property EventHost: TEventHost read FEventHost write SetEventHost;
   end;
 
 implementation
@@ -320,7 +333,6 @@ begin
   FTiles := TMapTileSource.Create;
   FEventHost := TEventHost.Create;
   FAudio := TSessionAudio.Create;
-  FOwnAudio := True;
 
   FWorld := TGameWorld.Create(Self);
   FWorld.Pool := FPool;
@@ -332,11 +344,26 @@ begin
   FillChar(Input, SizeOf(Input), 0);
 end;
 
+procedure TGameSession.SetAudio(Value: TSessionAudio);
+begin
+  if Value = FAudio then
+    Exit;
+  FAudio.Free;
+  FAudio := Value;
+end;
+
+procedure TGameSession.SetEventHost(Value: TEventHost);
+begin
+  if Value = FEventHost then
+    Exit;
+  FEventHost.Free;
+  FEventHost := Value;
+end;
+
 destructor TGameSession.Destroy;
 begin
   FWorld.Free;
-  if FOwnAudio then
-    FAudio.Free;
+  FAudio.Free;
   FEventHost.Free;
   FBgAnime.Free;
   FTiles.Free;

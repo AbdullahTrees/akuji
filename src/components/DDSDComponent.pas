@@ -128,7 +128,4 @@ begin
   FMixer.Volume := Value;
 end;
 
-initialization
-  RegisterClass(TDDSD);
-
 end.

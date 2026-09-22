@@ -23,15 +23,14 @@
   a gamepad button. SDL keycodes because they are the same numbers on every
   platform, which is the whole point of moving off dinput.
 
-  The keyboard still ARRIVES from the LCL, through the form's OnKeyDown, which
-  hands over Windows-shaped virtual key codes. That is the one platform-bound
-  thing left in here and it is confined to VKToKeycode below: SDL cannot see a
-  keyboard without a window of its own, and the window is still the LCL's. When
-  that changes, VKToKeycode is deleted and SDL keycodes arrive already in SDL's
-  terms - nothing above this line moves.
+  The keyboard arrives from SDL's own event loop, already as keycodes, so
+  there is nothing platform-shaped left in here at all. It used to arrive from
+  the LCL as Windows virtual keys and be translated on the way in; the
+  translation is gone with the window it served, and nothing else moved -
+  which was the point of putting it behind one function.
 
-  The gamepad needs no window. Its subsystem starts with no video subsystem at
-  all, which was measured before this was written, so it is read here directly. }
+  The gamepad needs no window either. Its subsystem starts with no video
+  subsystem at all, which was measured before this was written. }
 
 unit DDIDComponent;
 
@@ -40,7 +39,7 @@ unit DDIDComponent;
 interface
 
 uses
-  Classes, SysUtils, LCLType, ctypes, SDL2;
+  Classes, SysUtils, ctypes, SDL2;
 
 type
   TDDIDDebugOptionItem = (dioHaltOnError);
@@ -132,9 +131,11 @@ type
 
     function IsDown(Button: TAkujiButton): Boolean;
 
-    { Called from the form's OnKeyDown/OnKeyUp, with an LCL virtual key. }
-    procedure KeyDown(Key: Word);
-    procedure KeyUp(Key: Word);
+    { Called from the shell's event loop, with what SDL reported. Repeats
+      are harmless: holding a key down re-includes a button already in the
+      set, which is what the window used to do too. }
+    procedure KeyDown(Key: TSDL_KeyCode);
+    procedure KeyUp(Key: TSDL_KeyCode);
 
     { Bind a key to an action, taking it off whatever held it.
 
@@ -200,13 +201,6 @@ function DefaultBinding(Button: TAkujiButton): TAkujiBinding;
   default alone" - system.dat is a 56-byte blob the player can corrupt. }
 function KeyMapToKeycode(Stored: Integer): TSDL_KeyCode;
 function KeycodeToKeyMap(Key: TSDL_KeyCode): Integer;
-
-{ An LCL virtual key as the SDL keycode meaning the same key, or SDLK_UNKNOWN.
-
-  THE ONE PLATFORM-SHAPED THING LEFT IN THIS UNIT. It exists because the
-  keyboard arrives from the window, and the window is the LCL's; when the
-  window becomes SDL's, SDL hands over keycodes directly and this goes. }
-function VKToKeycode(Key: Word): TSDL_KeyCode;
 
 implementation
 
@@ -275,43 +269,6 @@ begin
   Result := KEYMAP_TAG + Integer(Key);
 end;
 
-function VKToKeycode(Key: Word): TSDL_KeyCode;
-begin
-  { The letters and digits are contiguous in both, so they go as ranges: an
-    LCL VK_A is the ordinal of 'A' and an SDL keycode is the ordinal of the
-    LOWERCASE letter, which is the only catch. }
-  if (Key >= VK_A) and (Key <= VK_Z) then
-    Exit(TSDL_KeyCode(Ord('a') + (Key - VK_A)));
-  if (Key >= VK_0) and (Key <= VK_9) then
-    Exit(TSDL_KeyCode(Ord('0') + (Key - VK_0)));
-
-  case Key of
-    VK_UP:       Result := SDLK_UP;
-    VK_DOWN:     Result := SDLK_DOWN;
-    VK_LEFT:     Result := SDLK_LEFT;
-    VK_RIGHT:    Result := SDLK_RIGHT;
-    VK_NUMPAD0:  Result := SDLK_KP_0;
-    VK_NUMPAD1:  Result := SDLK_KP_1;
-    VK_NUMPAD2:  Result := SDLK_KP_2;
-    VK_NUMPAD3:  Result := SDLK_KP_3;
-    VK_NUMPAD4:  Result := SDLK_KP_4;
-    VK_NUMPAD5:  Result := SDLK_KP_5;
-    VK_NUMPAD6:  Result := SDLK_KP_6;
-    VK_NUMPAD7:  Result := SDLK_KP_7;
-    VK_NUMPAD8:  Result := SDLK_KP_8;
-    VK_NUMPAD9:  Result := SDLK_KP_9;
-    VK_SPACE:    Result := SDLK_SPACE;
-    VK_RETURN:   Result := SDLK_RETURN;
-    VK_ESCAPE:   Result := SDLK_ESCAPE;
-    VK_TAB:      Result := SDLK_TAB;
-    VK_BACK:     Result := SDLK_BACKSPACE;
-    VK_SHIFT:    Result := SDLK_LSHIFT;
-    VK_CONTROL:  Result := SDLK_LCTRL;
-  else
-    Result := SDLK_UNKNOWN;
-  end;
-end;
-
 constructor TDDIDEX.Create(AOwner: TComponent);
 var
   B: TAkujiButton;
@@ -356,33 +313,29 @@ begin
     end;
 end;
 
-procedure TDDIDEX.KeyDown(Key: Word);
+procedure TDDIDEX.KeyDown(Key: TSDL_KeyCode);
 var
   Button: TAkujiButton;
-  Code: TSDL_KeyCode;
 begin
-  Code := VKToKeycode(Key);
-  if Code = SDLK_UNKNOWN then
+  if Key = SDLK_UNKNOWN then
     Exit;
-  FPressedKey := Code;
-  if ActionOfKey(Code, Button) then
+  FPressedKey := Key;
+  if ActionOfKey(Key, Button) then
   begin
     Include(FKeysDown, Button);
     Include(FDown, Button);
   end;
 end;
 
-procedure TDDIDEX.KeyUp(Key: Word);
+procedure TDDIDEX.KeyUp(Key: TSDL_KeyCode);
 var
   Button: TAkujiButton;
-  Code: TSDL_KeyCode;
 begin
-  Code := VKToKeycode(Key);
-  if Code = SDLK_UNKNOWN then
+  if Key = SDLK_UNKNOWN then
     Exit;
-  if FPressedKey = Code then
+  if FPressedKey = Key then
     FPressedKey := SDLK_UNKNOWN;
-  if ActionOfKey(Code, Button) then
+  if ActionOfKey(Key, Button) then
   begin
     Exclude(FKeysDown, Button);
     { Only if the pad is not holding it too. }
@@ -402,9 +355,8 @@ begin
     is exactly what rebinding needs. Without an SDL window this array is never
     filled, so it reports nothing and the caller falls back on what the
     keyboard handlers know. }
-  { What the window last reported, which is the only source there is while the
-    window is the LCL's. SDL's own array is read after it rather than instead
-    of it, so nothing here changes when the window becomes SDL's. }
+  { What the event loop last reported. SDL's own array is read after it, for
+    a key that was already held when the game started. }
   Key := FPressedKey;
   if Key <> SDLK_UNKNOWN then
     Exit(True);
@@ -610,8 +562,5 @@ function TDDIDEX.IsDown(Button: TAkujiButton): Boolean;
 begin
   Result := Button in FDown;
 end;
-
-initialization
-  RegisterClass(TDDIDEX);
 
 end.

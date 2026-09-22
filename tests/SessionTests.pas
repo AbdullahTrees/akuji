@@ -1591,6 +1591,111 @@ begin
       + 'rank banks the right flags');
 end;
 
+{ WHO FREES THE EVENT HOST, AND THE AUDIO.
+
+  The session builds a do-nothing host and a do-nothing audio for itself, and
+  the game puts real ones in their place. For a long time EventHost was a
+  plain field, so putting one in place leaked the session's own and left the
+  destructor freeing the CALLER's - which the caller freed as well, because a
+  comment said the session did not own it.
+
+  Nothing noticed, because nothing genuinely tore a session down: the LCL
+  form's OnDestroy ran at process exit with the result thrown away. The SDL
+  shell frees it properly and the double free became an access violation on
+  every quit.
+
+  A double free does not reliably crash, so this does not go looking for one.
+  It counts destructors instead, which is exact: replacing a host must free
+  exactly the one replaced, and freeing the session must free exactly the one
+  it is holding - one destructor each, never two, never none. }
+var
+  HostsFreed: Integer = 0;
+  AudiosFreed: Integer = 0;
+
+type
+  TCountedHost = class(TEventHost)
+  public
+    destructor Destroy; override;
+  end;
+
+  TCountedAudio = class(TSessionAudio)
+  public
+    destructor Destroy; override;
+  end;
+
+destructor TCountedHost.Destroy;
+begin
+  Inc(HostsFreed);
+  inherited Destroy;
+end;
+
+destructor TCountedAudio.Destroy;
+begin
+  Inc(AudiosFreed);
+  inherited Destroy;
+end;
+
+function TestSessionOwnership(Log: TStrings; const GameDir: string): Integer;
+var
+  Stages: TStageTable;
+  Map: TTileMap;
+  S: TGameSession;
+  First, Second: TCountedHost;
+
+  procedure Want(Cond: Boolean; const Msg: string);
+  begin
+    if not Cond then
+    begin
+      Log.Add('  FAIL: ' + Msg);
+      Inc(Result);
+    end;
+  end;
+
+begin
+  Result := 0;
+  Log.Add('');
+  Log.Add('session ownership of the event host and the audio:');
+
+  HostsFreed := 0;
+  AudiosFreed := 0;
+  Stages := TStageTable.Create;
+  Map := TTileMap.Create;
+  S := TGameSession.Create(GameDir, Stages, Map);
+  try
+    First := TCountedHost.Create;
+    S.EventHost := First;
+    Want(HostsFreed = 0, 'assigning a host freed a counted one too early');
+    Want(S.EventHost = First, 'the host assigned is not the host held');
+
+    { Replacing must free exactly the one replaced. }
+    Second := TCountedHost.Create;
+    S.EventHost := Second;
+    Want(HostsFreed = 1,
+      Format('replacing a host freed %d counted hosts, want 1', [HostsFreed]));
+    Want(S.EventHost = Second, 'the replacement is not the host held');
+
+    { Assigning the same one again must not free it out from under itself. }
+    S.EventHost := Second;
+    Want(HostsFreed = 1, 'assigning the same host again freed it');
+
+    S.Audio := TCountedAudio.Create;
+    Want(AudiosFreed = 0, 'assigning audio freed a counted one too early');
+  finally
+    S.Free;
+    Stages.Free;
+    Map.Free;
+  end;
+
+  { And the destructor frees what it is holding - the second host and the
+    audio - which is what the caller must therefore NOT free. }
+  Want(HostsFreed = 2,
+    Format('%d counted hosts freed in all, want 2', [HostsFreed]));
+  Want(AudiosFreed = 1,
+    Format('%d counted audios freed in all, want 1', [AudiosFreed]));
+  Log.Add(Format('  %d hosts and %d audios freed, each exactly once',
+    [HostsFreed, AudiosFreed]));
+end;
+
 function SelfTestSession(Log: TStrings): Integer;
 var
   GameDir: string;
@@ -2142,6 +2247,7 @@ begin
   Inc(Bad, TestDisableDestroys(Log, GameDir));
   Inc(Bad, TestKillTileWiring(Log));
   Inc(Bad, TestMessageLoop(Log, GameDir));
+  Inc(Bad, TestSessionOwnership(Log, GameDir));
 
   Result := Bad;
   Log.Add('');

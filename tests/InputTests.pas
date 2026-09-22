@@ -24,32 +24,52 @@ function SelfTestInput(Log: TStrings): Integer;
 implementation
 
 uses
-  LCLType, SDL2, DDIDComponent, GameState, SoundTable, Title;
+  SDL2, DDIDComponent, GameState, SoundTable, Title;
 
 type
   { One row of the table DDIDComponent had before bindings existed, recovered
-    from the version this replaced. S and D are absent on purpose: they set
-    abAux2 and abAux3, which nothing anywhere read. }
+    from the version this replaced. It was written in Windows virtual keys
+    then, because the keyboard came from the LCL; it is the same thirteen
+    keys, said in the keycodes SDL now delivers. S and D are absent on
+    purpose: they set abAux2 and abAux3, which nothing anywhere read. }
   TOldRow = record
-    VK: Word;
+    Key: TSDL_KeyCode;
     Button: TAkujiButton;
   end;
 
 const
   OLD_TABLE: array[0..12] of TOldRow = (
-    (VK: VK_UP;      Button: abUp),
-    (VK: VK_NUMPAD8; Button: abUp),
-    (VK: VK_DOWN;    Button: abDown),
-    (VK: VK_NUMPAD2; Button: abDown),
-    (VK: VK_LEFT;    Button: abLeft),
-    (VK: VK_NUMPAD4; Button: abLeft),
-    (VK: VK_RIGHT;   Button: abRight),
-    (VK: VK_NUMPAD6; Button: abRight),
-    (VK: VK_Z;       Button: abJump),
-    (VK: VK_SPACE;   Button: abJump),
-    (VK: VK_X;       Button: abFire),
-    (VK: VK_C;       Button: abPause),
-    (VK: VK_A;       Button: abAux));
+    (Key: SDLK_UP;    Button: abUp),
+    (Key: SDLK_KP_8;  Button: abUp),
+    (Key: SDLK_DOWN;  Button: abDown),
+    (Key: SDLK_KP_2;  Button: abDown),
+    (Key: SDLK_LEFT;  Button: abLeft),
+    (Key: SDLK_KP_4;  Button: abLeft),
+    (Key: SDLK_RIGHT; Button: abRight),
+    (Key: SDLK_KP_6;  Button: abRight),
+    (Key: SDLK_z;     Button: abJump),
+    (Key: SDLK_SPACE; Button: abJump),
+    (Key: SDLK_x;     Button: abFire),
+    (Key: SDLK_c;     Button: abPause),
+    (Key: SDLK_a;     Button: abAux));
+
+  { Every key the old translation could name, plus a few it could not, which
+    are there to prove they do nothing. This is what the sweep over all 256
+    virtual keys became when the virtual keys went: the same question - does
+    any key press something the old table did not - asked of the keys that
+    exist rather than of a number space. }
+  PROBE_KEYS: array[0..47] of TSDL_KeyCode = (
+    SDLK_a, SDLK_b, SDLK_c, SDLK_d, SDLK_e, SDLK_f, SDLK_g, SDLK_h,
+    SDLK_i, SDLK_j, SDLK_k, SDLK_l, SDLK_m, SDLK_n, SDLK_o, SDLK_p,
+    SDLK_q, SDLK_r, SDLK_s, SDLK_t, SDLK_u, SDLK_v, SDLK_w, SDLK_x,
+    SDLK_y, SDLK_z,
+    SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4,
+    SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT,
+    SDLK_KP_0, SDLK_KP_2, SDLK_KP_4, SDLK_KP_6, SDLK_KP_8,
+    SDLK_SPACE, SDLK_RETURN, SDLK_ESCAPE, SDLK_TAB, SDLK_BACKSPACE,
+    SDLK_LSHIFT, SDLK_LCTRL,
+    { One the old translation had no name for at all. }
+    SDLK_F1);
 
   BUTTON_NAMES: array[TAkujiButton] of string =
     ('UP', 'DOWN', 'LEFT', 'RIGHT', 'JUMP', 'FIRE', 'PAUSE', 'AUX');
@@ -161,17 +181,18 @@ var
         end;
   end;
 
-  { What one virtual key presses, pressed and released in isolation. }
-  function Press(D: TDDIDEX; VK: Word): TAkujiButtons;
+  { What one key presses, pressed and released in isolation. }
+  function Press(D: TDDIDEX; Key: TSDL_KeyCode): TAkujiButtons;
   begin
-    D.KeyDown(VK);
+    D.KeyDown(Key);
     Result := D.Down;
-    D.KeyUp(VK);
+    D.KeyUp(Key);
   end;
 
 var
   D, E: TDDIDEX;
-  VK, I, J, Dups: Integer;
+  Probe: TSDL_KeyCode;
+  I, J, Dups: Integer;
   Wanted, Got: TAkujiButtons;
   Map, Back: array[0..3] of Integer;
   K: TSDL_KeyCode;
@@ -185,45 +206,47 @@ begin
   Result := 0;
   Bad := 0;
 
-  { 1. The defaults must be the old table, key for key. Driving all 256 virtual
-       keys rather than the twelve in the table is the point: a binding that
-       reaches a key the old one did not is just as wrong as one that misses. }
-  Log.Add('default bindings vs the pre-binding VK table, all 256 virtual keys:');
+  { 1. The defaults must be the old table, key for key. Sweeping every key the
+       old translation could name, rather than the thirteen in the table, is
+       the point: a binding that reaches a key the old one did not is just as
+       wrong as one that misses. }
+  Log.Add('default bindings vs the pre-binding table, every key it could name:');
   D := TDDIDEX.Create(nil);
   try
     Checked := 0;
     Pressing := 0;
-    for VK := 0 to 255 do
+    for J := Low(PROBE_KEYS) to High(PROBE_KEYS) do
     begin
+      Probe := PROBE_KEYS[J];
       Wanted := [];
       for I := Low(OLD_TABLE) to High(OLD_TABLE) do
-        if OLD_TABLE[I].VK = VK then
+        if OLD_TABLE[I].Key = Probe then
           Wanted := [OLD_TABLE[I].Button];
-      Got := Press(D, VK);
+      Got := Press(D, Probe);
       Inc(Checked);
       if Wanted <> [] then
         Inc(Pressing);
       if Got <> Wanted then
       begin
-        Log.Add(Format('  VK $%.2X: was %s, now %s',
-          [VK, SetText(Wanted), SetText(Got)]));
+        Log.Add(Format('  %s: was %s, now %s',
+          [D.KeyNameOf(Probe), SetText(Wanted), SetText(Got)]));
         Inc(Bad);
       end;
       Want(D.Down = [],
-        Format('VK $%.2X left something held after release', [VK]));
+        Format('%s left something held after release', [D.KeyNameOf(Probe)]));
     end;
     Log.Add(Format('  %d keys checked, %d of them press something',
       [Checked, Pressing]));
     Want(Pressing = Length(OLD_TABLE),
-      'the old table names keys this build has no virtual key for');
+      'the sweep does not reach every key the old table named');
 
     { 2. Holding two at once is a set, not a last-one-wins. }
-    D.KeyDown(VK_LEFT);
-    D.KeyDown(VK_Z);
+    D.KeyDown(SDLK_LEFT);
+    D.KeyDown(SDLK_z);
     Want(D.Down = [abLeft, abJump], 'LEFT+Z does not hold both');
-    D.KeyUp(VK_LEFT);
+    D.KeyUp(SDLK_LEFT);
     Want(D.Down = [abJump], 'releasing LEFT did not leave Z held');
-    D.KeyUp(VK_Z);
+    D.KeyUp(SDLK_z);
     Want(D.Down = [], 'nothing should be held');
 
     Want(Duplicates(D) = 0, 'the defaults put one key on two actions');
@@ -316,7 +339,7 @@ begin
     for B := Low(TAkujiButton) to High(TAkujiButton) do
       Want(D.Bindings[B].Primary = DefaultBinding(B).Primary,
         Format('%s moved off its default', [BUTTON_NAMES[B]]));
-    Want(Press(D, VK_Z) = [abJump], 'Z stopped jumping');
+    Want(Press(D, SDLK_z) = [abJump], 'Z stopped jumping');
     Log.Add('  four unreadable entries, four defaults kept');
   finally
     D.Free;
@@ -331,22 +354,22 @@ begin
   D := TDDIDEX.Create(nil);
   try
     Want(D.BindKey(abJump, SDLK_s), 'a free key was refused');
-    Want(Press(D, VK_S) = [abJump], 'S does not jump');
-    Want(Press(D, VK_Z) = [], 'Z still jumps after being replaced');
-    Want(Press(D, VK_SPACE) = [abJump], 'the alternate was lost');
-    Want(Press(D, VK_X) = [abFire], 'FIRE moved');
+    Want(Press(D, SDLK_s) = [abJump], 'S does not jump');
+    Want(Press(D, SDLK_z) = [], 'Z still jumps after being replaced');
+    Want(Press(D, SDLK_SPACE) = [abJump], 'the alternate was lost');
+    Want(Press(D, SDLK_x) = [abFire], 'FIRE moved');
     Want(Duplicates(D) = 0, 'binding a free key made a duplicate');
 
     { Trade: FIRE takes S, which JUMP holds, and JUMP gets X back. }
     Want(D.BindKey(abFire, SDLK_s), 'a held key was refused');
-    Want(Press(D, VK_S) = [abFire], 'S does not fire');
-    Want(Press(D, VK_X) = [abJump], 'JUMP was left without the traded key');
+    Want(Press(D, SDLK_s) = [abFire], 'S does not fire');
+    Want(Press(D, SDLK_x) = [abJump], 'JUMP was left without the traded key');
     Want(Duplicates(D) = 0, 'the trade made a duplicate');
 
     { Trading against an ALTERNATE moves the alternate, not the primary. }
     Want(D.BindKey(abPause, SDLK_SPACE), 'the space bar was refused');
-    Want(Press(D, VK_SPACE) = [abPause], 'space does not pause');
-    Want(Press(D, VK_X) = [abJump],
+    Want(Press(D, SDLK_SPACE) = [abPause], 'space does not pause');
+    Want(Press(D, SDLK_x) = [abJump],
       'JUMP lost its primary to an alternate swap');
     Want(D.Bindings[abJump].Alternate = SDLK_c,
       'PAUSE''s key did not land on the alternate it traded with');
@@ -355,8 +378,8 @@ begin
     { Held down for many frames: the same bind over and over is a fixed point. }
     for J := 1 to 60 do
       Want(D.BindKey(abPause, SDLK_SPACE), 'a repeat bind was refused');
-    Want(Press(D, VK_SPACE) = [abPause], 'a repeated bind drifted');
-    Want(Press(D, VK_X) = [abJump], 'a repeated bind moved another action');
+    Want(Press(D, SDLK_SPACE) = [abPause], 'a repeated bind drifted');
+    Want(Press(D, SDLK_x) = [abJump], 'a repeated bind moved another action');
     Want(Duplicates(D) = 0, 'a repeated bind made a duplicate');
 
     Want(not D.BindKey(abJump, SDLK_UNKNOWN), 'no key at all was accepted');
@@ -366,7 +389,7 @@ begin
     for B := Low(TAkujiButton) to High(TAkujiButton) do
     begin
       D.BindKey(B, SDLK_q);
-      Want(Press(D, VK_Q) = [B],
+      Want(Press(D, SDLK_q) = [B],
         Format('Q does not drive %s after being bound to it',
           [BUTTON_NAMES[B]]));
       Inc(Dups, Duplicates(D));
@@ -389,23 +412,23 @@ begin
 
     { An UNBOUND key is what rebinding is for, so it has to be visible even
       though it drives nothing - V is in no default binding. }
-    D.KeyDown(VK_V);
+    D.KeyDown(SDLK_v);
     Want(D.AnyKeyDown(K) and (K = SDLK_v), 'an unbound key is not offered');
     Want(D.Down = [], 'an unbound key pressed something');
     Want(D.BindAction(abJump, K), 'the JUMP row refused a free key');
-    D.KeyUp(VK_V);
+    D.KeyUp(SDLK_v);
     Want(not D.AnyKeyDown(K), 'the key is still held after release');
-    Want(Press(D, VK_V) = [abJump], 'V does not jump');
+    Want(Press(D, SDLK_v) = [abJump], 'V does not jump');
 
     { Offered again while still held: no change, so the screen stays silent. }
-    D.KeyDown(VK_V);
+    D.KeyDown(SDLK_v);
     Want(not D.BindAction(abJump, SDLK_v), 'a key already on the row rebound');
     Frames := 0;
     for J := 1 to 60 do
       if D.BindAction(abJump, SDLK_v) then
         Inc(Frames);
     Want(Frames = 0, 'holding the key down rebinds every frame');
-    D.KeyUp(VK_V);
+    D.KeyUp(SDLK_v);
 
     { The cursor keys are the refusal that matters: taking one would trade the
       arrow away and strand the player on the row. }
@@ -419,18 +442,18 @@ begin
           Format('the JUMP row took the alternate driving %s',
             [BUTTON_NAMES[B]]));
       end;
-    Want(Press(D, VK_DOWN) = [abDown], 'the down arrow stopped moving the cursor');
-    Want(Press(D, VK_V) = [abJump], 'a refused bind moved the row anyway');
+    Want(Press(D, SDLK_DOWN) = [abDown], 'the down arrow stopped moving the cursor');
+    Want(Press(D, SDLK_v) = [abJump], 'a refused bind moved the row anyway');
 
     { The rows are the three the screen shows, and a direction has no row. }
     Want(not D.BindAction(abUp, SDLK_v), 'a direction was bound from a row');
 
     { A key held ACROSS a rebind must not stay stuck. X drives FIRE on the way
       down and JUMP on the way up, so the release has to clear both. }
-    D.KeyDown(VK_X);
+    D.KeyDown(SDLK_x);
     Want(D.Down = [abFire], 'X does not fire');
     Want(D.BindAction(abJump, SDLK_x), 'the JUMP row refused a key FIRE held');
-    D.KeyUp(VK_X);
+    D.KeyUp(SDLK_x);
     Want(D.Down = [], 'a key held across a rebind stayed down: ' + SetText(D.Down));
     Want(Duplicates(D) = 0, 'the row''s trade made a duplicate');
     Log.Add('  offered, refused and traded with nothing left held');
@@ -505,10 +528,10 @@ begin
     for J := 1 to 60 do
       D.Update;
     Want(D.Down = [], 'something was held with no keys and no pad');
-    D.KeyDown(VK_Z);
+    D.KeyDown(SDLK_z);
     D.Update;
     Want(D.Down = [abJump], 'the pad snapshot dropped a held key');
-    D.KeyUp(VK_Z);
+    D.KeyUp(SDLK_z);
 
     if SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) <> 0 then
       Log.Add('SKIP gamepad: the subsystem will not start: ' + SDL_GetError)

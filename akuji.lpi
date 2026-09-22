@@ -15,11 +15,6 @@
     <BuildModes>
       <Item Name="Default" Default="True"/>
     </BuildModes>
-    <RequiredPackages>
-      <Item>
-        <PackageName Value="LCL"/>
-      </Item>
-    </RequiredPackages>
     <Units>
       <Unit>
         <Filename Value="akuji.lpr"/>
@@ -28,9 +23,6 @@
       <Unit>
         <Filename Value="src/screens/GmMain.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="Frm_main"/>
-        <HasResources Value="True"/>
-        <ResourceBaseClass Value="Form"/>
       </Unit>
       <Unit>
         <Filename Value="src/components/DDDDComponent.pas"/>

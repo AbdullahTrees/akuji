@@ -39,11 +39,9 @@ unit RenderTests;
 interface
 
 uses
-  { Graphics is here for TBitmap, the second BMP decoder this test checks
-    SDL's against. GameColors after it, so TColor is the game's. }
-  Classes, SysUtils, Graphics, GameColors, Types, SDL2, IntfGraphics,
-  QdaArchive, Surfaces, Sprites, TileMaps, GameFont, Stages, Entities,
-  RenderTarget, SDLTarget, TextRender, Dialogue, DDDDComponent;
+  Classes, SysUtils, GameColors, Types, SDL2,
+  TestSupport, QdaArchive, Surfaces, Sprites, TileMaps, GameFont, Stages,
+  Entities, RenderTarget, SDLTarget, TextRender, Dialogue, DDDDComponent;
 
 function SelfTestRender(Log: TStrings): Integer;
 
@@ -202,10 +200,14 @@ var
   KeyRef: TPixels;
   KeyKept, KeyDiff, KeyStep: Integer;
   StretchSurf, PresentSurf, DecSurf, DecConv: PSDL_Surface;
-  DecBmp: TBitmap;
+  DecBuf: TMemoryStream;
+  DecPixels: TDecodedPixels;
+  DecW, DecH: Integer;
   DecBad, DecChecked, DecEntry: Integer;
-  PresentBmp: TBitmap;
-  PresentImg: TLazIntfImage;
+  PresentDst: PSDL_Surface;
+  PresentArea: TRect;
+  PresentBands: Integer;
+  PresentGot, PresentWant: LongWord;
   PresentBad: Integer;
   SdlTarget: TSDLRenderTarget;
   PX, PY: Integer;
@@ -560,73 +562,81 @@ begin
 
     { THE TWO BMP DECODERS HAVE TO AGREE.
 
-      Every picture in bmp.qda is read by the LCL today and by SDL after this,
-      and the pinned scenes cannot tell the difference: they would move
-      together, because both the picture and the baseline come from whichever
-      decoder is in use. A palette read differently, or a row order, would
-      simply become the new normal.
+      Every picture in bmp.qda is read by SDL, and the pinned scenes cannot
+      tell a decoding mistake from a correct decode: the picture and the
+      baseline both come from SDL, so a palette read backwards, or the rows
+      the wrong way up, would simply become the new normal.
 
-      So the two are compared against each other, on the real archive, over
-      whole sheets rather than a corner - the first four entries, which is the
+      So a second decoder reads the same entries - TestSupport.DecodeBmp,
+      written from the BMP format rather than from any other decoder, which is
+      what makes it a witness. It used to be the LCL's decoder, for free;
+      the widget set is gone and this is better evidence than what it
+      replaces, because it shares no code with the thing it is checking.
+
+      Whole sheets rather than a corner: the first four entries, which are the
       font, the HUD sheet and two character sheets. }
     DecBad := 0;
     DecChecked := 0;
-    for DecEntry := 0 to 3 do
-    begin
-      if DecEntry >= Arch.Count then
-        Break;
-      DecBmp := Arch.LoadBitmap(DecEntry);
-      DecSurf := Arch.LoadSurface(DecEntry);
-      if (DecBmp = nil) or (DecSurf = nil) then
+    DecBuf := TMemoryStream.Create;
+    try
+      for DecEntry := 0 to 3 do
       begin
-        Log.Add(Format('FAILED: archive entry %d did not load both ways',
-          [DecEntry]));
-        Inc(Result);
-        DecBmp.Free;
-        if DecSurf <> nil then
-          SDL_FreeSurface(DecSurf);
-        Continue;
-      end;
-      { The archive's bitmaps are 8-bit paletted, so the SDL side is brought
-        to the same 32-bit form the renderer uses before the comparison -
-        which is the same conversion the renderer would do. }
-      DecConv := SDL_ConvertSurfaceFormat(DecSurf, SDL_PIXELFORMAT_ARGB8888, 0);
-      SDL_FreeSurface(DecSurf);
-      try
-        if (DecConv = nil) or (DecConv^.w <> DecBmp.Width)
-        or (DecConv^.h <> DecBmp.Height) then
+        if DecEntry >= Arch.Count then
+          Break;
+        DecBuf.Clear;
+        Arch.LoadRaw(DecEntry, DecBuf);
+        DecSurf := Arch.LoadSurface(DecEntry);
+        if (DecSurf = nil)
+           or not DecodeBmp(DecBuf, DecW, DecH, DecPixels) then
         begin
-          Log.Add(Format('FAILED: entry %d is %dx%d to the LCL and a '
-            + 'different size to SDL', [DecEntry, DecBmp.Width, DecBmp.Height]));
+          Log.Add(Format('FAILED: archive entry %d did not load both ways',
+            [DecEntry]));
           Inc(Result);
+          if DecSurf <> nil then
+            SDL_FreeSurface(DecSurf);
           Continue;
         end;
-        for PY := 0 to DecConv^.h - 1 do
-        begin
-          SdlRow := PByte(DecConv^.pixels) + PY * DecConv^.pitch;
-          SdlPix := PLongWord(SdlRow);
-          for PX := 0 to DecConv^.w - 1 do
+        { Every entry is an uncompressed 24-bit bottom-up BMP - all 44 of
+          them, checked - so the SDL side is brought to the same 32-bit form
+          the renderer uses before the comparison, which is the conversion
+          the renderer would do anyway. }
+        DecConv := SDL_ConvertSurfaceFormat(DecSurf, SDL_PIXELFORMAT_ARGB8888, 0);
+        SDL_FreeSurface(DecSurf);
+        try
+          if (DecConv = nil) or (DecConv^.w <> DecW) or (DecConv^.h <> DecH) then
           begin
-            Inc(DecChecked);
-            if ((SdlPix^ and $FF) shl 16) or (SdlPix^ and $0000FF00)
-               or ((SdlPix^ shr 16) and $FF)
-               <> LongWord(DecBmp.Canvas.Pixels[PX, PY]) then
-            begin
-              if DecBad = 0 then
-                Log.Add(Format('  first disagreement in entry %d at (%d,%d): '
-                  + 'LCL %.6x, SDL %.8x',
-                  [DecEntry, PX, PY,
-                   LongWord(DecBmp.Canvas.Pixels[PX, PY]), SdlPix^]));
-              Inc(DecBad);
-            end;
-            Inc(SdlPix);
+            Log.Add(Format('FAILED: entry %d is %dx%d read here and a '
+              + 'different size to SDL', [DecEntry, DecW, DecH]));
+            Inc(Result);
+            Continue;
           end;
+          for PY := 0 to DecConv^.h - 1 do
+          begin
+            SdlRow := PByte(DecConv^.pixels) + PY * DecConv^.pitch;
+            SdlPix := PLongWord(SdlRow);
+            for PX := 0 to DecConv^.w - 1 do
+            begin
+              Inc(DecChecked);
+              if ((SdlPix^ and $FF) shl 16) or (SdlPix^ and $0000FF00)
+                 or ((SdlPix^ shr 16) and $FF)
+                 <> DecPixels[PY * DecW + PX] then
+              begin
+                if DecBad = 0 then
+                  Log.Add(Format('  first disagreement in entry %d at (%d,%d): '
+                    + 'read %.6x, SDL %.8x',
+                    [DecEntry, PX, PY, DecPixels[PY * DecW + PX], SdlPix^]));
+                Inc(DecBad);
+              end;
+              Inc(SdlPix);
+            end;
+          end;
+        finally
+          if DecConv <> nil then
+            SDL_FreeSurface(DecConv);
         end;
-      finally
-        if DecConv <> nil then
-          SDL_FreeSurface(DecConv);
-        DecBmp.Free;
       end;
+    finally
+      DecBuf.Free;
     end;
     Log.Add('');
     Log.Add(Format('bmp decoders: %d pixels compared, %d disagree',
@@ -638,34 +648,40 @@ begin
     end;
     if DecBad <> 0 then
     begin
-      Log.Add('FAILED: SDL and the LCL do not read the same picture out of '
+      Log.Add('FAILED: the two decoders do not read the same picture out of '
         + 'bmp.qda');
       Inc(Result);
     end;
 
     { WHAT THE WINDOW IS SHOWN HAS TO BE WHAT WAS DRAWN.
 
-      The game now draws into an SDL surface, and the only thing between that
-      and the screen is SurfaceToBitmap - one conversion, once a frame, in
-      TDDDD.Present. Nothing else in this test crosses that bridge: the scenes
-      above compare SDL against LCL inside the renderer, so a conversion that
-      swapped red and blue, or halved the picture, would leave every one of
-      them green and the game unplayable.
+      Presentation is now one scaled blit into the window's own surface, and
+      TDDDD.PresentTo is all of it but the asking for that surface - which is
+      why it is a class method taking a destination rather than a window.
 
-      So: a surface of known colours, chosen to be different in every channel
-      and asymmetric top to bottom, converted and read back through the
-      bitmap's own accessor. }
+      Nothing else in this test crosses that bridge: the scenes above check
+      what the renderer puts in the BACK buffer, so a present that swapped red
+      and blue, put the picture in the wrong place, or scaled it by the wrong
+      number would leave every one of them green and the game unplayable.
+
+      A surface of known colours, chosen to differ in every channel and to be
+      asymmetric top to bottom, presented into a destination big enough to
+      letterbox: 8x4 into 34x18 is 4x - the height allows 4 and the width
+      allows 4 - leaving one column of slack each side and one row top and
+      bottom. Every pixel of the result is then accounted for, band or
+      picture, which makes this a check of the geometry and the colours at
+      once. }
     PresentSurf := SDL_CreateRGBSurface(0, 8, 4, 32,
                                         $00FF0000, $0000FF00, $000000FF, 0);
-    if PresentSurf = nil then
+    PresentDst := SDL_CreateRGBSurface(0, 34, 18, 32,
+                                       $00FF0000, $0000FF00, $000000FF, 0);
+    if (PresentSurf = nil) or (PresentDst = nil) then
     begin
       Log.Add('FAILED: no SDL surface for the present check: ' + SDL_GetError);
       Inc(Result);
     end
     else
     begin
-      PresentBmp := TBitmap.Create;
-      PresentImg := TLazIntfImage.Create(0, 0);
       try
         for PY := 0 to 3 do
         begin
@@ -682,86 +698,79 @@ begin
           end;
         end;
 
-        SurfaceToBitmap(PresentSurf, PresentBmp, PresentImg);
+        { Filled with something that is not black first, so that a band left
+          unpainted is a failure rather than a coincidence. }
+        SDL_FillRect(PresentDst, nil,
+                     SDL_MapRGB(PresentDst^.format, 255, 0, 255));
+
+        PresentArea := TDDDD.PresentRect(8, 4, 34, 18);
+        Log.Add('');
+        Log.Add(Format('present: 8x4 into 34x18 lands at (%d,%d) %dx%d',
+          [PresentArea.Left, PresentArea.Top,
+           PresentArea.Right - PresentArea.Left,
+           PresentArea.Bottom - PresentArea.Top]));
+        if (PresentArea.Left <> 1) or (PresentArea.Top <> 1)
+           or (PresentArea.Right <> 33) or (PresentArea.Bottom <> 17) then
+        begin
+          Log.Add('FAILED: 4x centred in 34x18 is (1,1) 32x16');
+          Inc(Result);
+        end;
+
+        TDDDD.PresentTo(PresentSurf, PresentDst);
 
         PresentBad := 0;
-        if (PresentBmp.Width <> 8) or (PresentBmp.Height <> 4) then
-        begin
-          Log.Add(Format('FAILED: the presented bitmap is %dx%d, want 8x4',
-            [PresentBmp.Width, PresentBmp.Height]));
-          Inc(Result);
-        end
-        else
-          for PY := 0 to 3 do
-            for PX := 0 to 7 do
+        PresentBands := 0;
+        for PY := 0 to 17 do
+          for PX := 0 to 33 do
+          begin
+            PresentGot := LongWord(SurfacePixel(PresentDst, PX, PY));
+            if (PX < PresentArea.Left) or (PX >= PresentArea.Right)
+               or (PY < PresentArea.Top) or (PY >= PresentArea.Bottom) then
             begin
-              { Canvas.Pixels reports $00BBGGRR. }
-              if LongWord(PresentBmp.Canvas.Pixels[PX, PY]) <>
-                 (LongWord(200 - PX * 16) shl 16)
-                 or (LongWord(PY * 32 + 8) shl 8)
-                 or LongWord(PX * 16) then
-              begin
-                if PresentBad = 0 then
-                  Log.Add(Format('  first wrong at (%d,%d): read %.6x, drew '
-                    + 'r=%d g=%d b=%d',
-                    [PX, PY, LongWord(PresentBmp.Canvas.Pixels[PX, PY]),
-                     PX * 16, PY * 32 + 8, 200 - PX * 16]));
-                Inc(PresentBad);
-              end;
+              { A band. Black, not the magenta that was there before. }
+              Inc(PresentBands);
+              PresentWant := 0;
+            end
+            else
+              { Nearest-neighbour at 4x is exact replication, so the source
+                pixel is found by dividing rather than by sampling. }
+              PresentWant := LongWord(SurfacePixel(PresentSurf,
+                                        (PX - PresentArea.Left) div 4,
+                                        (PY - PresentArea.Top) div 4));
+            if PresentGot <> PresentWant then
+            begin
+              if PresentBad = 0 then
+                Log.Add(Format('  first wrong at (%d,%d): read %.6x, want %.6x',
+                  [PX, PY, PresentGot, PresentWant]));
+              Inc(PresentBad);
             end;
-        Log.Add('');
-        Log.Add(Format('present: %d of 32 pixels survive the crossing back '
-          + 'to the LCL', [32 - PresentBad]));
+          end;
+
+        Log.Add(Format('present: %d of %d pixels right, %d of them surround',
+          [34 * 18 - PresentBad, 34 * 18, PresentBands]));
         if PresentBad <> 0 then
         begin
           Log.Add('FAILED: what Present shows is not what the game drew');
           Inc(Result);
         end;
 
-        { AND IT MUST NOT CLAIM AN ALPHA CHANNEL.
-
-          Having the right bytes is not enough. The LCL draws the bitmap onto
-          the window, and what it does there depends on what the bitmap SAYS
-          about itself - so a buffer whose pixels are perfect can still reach
-          the screen as nothing at all.
-
-          It did, for the length of one morning. The back buffer is created
-          with an alpha MASK OF ZERO, so SDL never writes the fourth byte: a
-          fill leaves it 0 and a blit copies a 0 through. Describing that to
-          the LCL as B8G8R8A8 therefore declared every pixel fully
-          transparent, and the window showed only the outlined text - the one
-          thing in the buffer that is blended, and so the only thing with a
-          non-zero fourth byte - over whatever had last been painted. The
-          dialogue box, the opening slides and the ending stills all
-          disappeared while the back buffer behind them was perfect.
-
-          The check above stayed green through all of it, because
-          Canvas.Pixels reads the bytes and ignores what they are said to
-          mean. Nor can it be caught by drawing: bitmap to bitmap, at any
-          scale and either pixel format, the LCL copies the pixels and the
-          claim costs nothing. It is only on a window that it bites, and a
-          self-test has no window.
-
-          So the two halves of the contract are asserted instead: the buffer
-          genuinely has no alpha, and the bitmap does not say it has. }
-        if (PresentSurf^.format^.Amask <> 0) then
+        { The back buffer must stay alpha-less. PresentTo blits it into the
+          window surface, and a source with an alpha mask would be BLENDED
+          against whatever the window had rather than copied over it - which
+          is the same defect, arrived at from the other side, that showed the
+          outlined text alone over a window full of stale pixels while the
+          back buffer behind it was perfect. }
+        if PresentSurf^.format^.Amask <> 0 then
         begin
           Log.Add('FAILED: the back buffer now HAS an alpha mask - the '
             + 'present path assumes it does not, and must be revisited');
           Inc(Result);
         end;
-        Log.Add(Format('present: alpha bits claimed by the presented bitmap: '
-          + '%d (must be 0)', [PresentBmp.RawImage.Description.AlphaPrec]));
-        if PresentBmp.RawImage.Description.AlphaPrec <> 0 then
-        begin
-          Log.Add('FAILED: the presented bitmap claims an alpha channel it '
-            + 'does not have, so the window will draw it as transparent');
-          Inc(Result);
-        end;
       finally
-        PresentImg.Free;
-        PresentBmp.Free;
-        SDL_FreeSurface(PresentSurf);
+        if PresentDst <> nil then
+          SDL_FreeSurface(PresentDst);
+        if PresentSurf <> nil then
+          SDL_FreeSurface(PresentSurf);
       end;
     end;
 

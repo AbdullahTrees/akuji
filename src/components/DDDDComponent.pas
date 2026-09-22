@@ -1,12 +1,9 @@
 { The display component the main form draws through. It owns the back buffer
   and handles clearing, drawing, presentation and fades.
 
-  THE BACK BUFFER IS AN SDL SURFACE. Everything the game draws goes into it
-  through TRenderTarget, and the LCL sees it once a frame, at Present, when it
-  is copied into a bitmap and stretched over the window.
-
-  That copy is the whole of what still ties the game's picture to the LCL.
-  Porting the window means replacing Present, and nothing else here. }
+  THE BACK BUFFER IS AN SDL SURFACE, and so is the window's. Present scales
+  one into the other and asks SDL to show it. There is no bitmap, no canvas
+  and no conversion in between any more - the picture never leaves SDL. }
 
 unit DDDDComponent;
 
@@ -15,8 +12,7 @@ unit DDDDComponent;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Controls, Forms, SDL2, IntfGraphics,
-  RenderTarget, SDLTarget, GameColors;
+  Classes, SysUtils, Types, SDL2, RenderTarget, SDLTarget, GameColors;
 
 const
   { 0x78 and the step every caller writes to self+0x10 before starting one.
@@ -49,11 +45,7 @@ type
     FOnInit: TNotifyEvent;
     FBack: PSDL_Surface;
     FTarget: TSDLRenderTarget;
-    { Present's two working parts: the bitmap the window is handed, and the
-      description of the back buffer that turns one into the other. Both are
-      kept rather than rebuilt, because this runs sixty times a second. }
-    FPresentBmp: TBitmap;
-    FPresentImg: TLazIntfImage;
+    FWindow: PSDL_Window;
     { Fade state offsets retained for layout verification. }
     FFadeLevel: Integer;      { +0x08 }
     FFadeStep: Integer;       { +0x10, written by the caller before a fade }
@@ -62,9 +54,6 @@ type
     FFadeBusy: Boolean;       { +0x0D }
     function GetTarget: TRenderTarget;
     procedure ReleaseBuffers;
-  protected
-    { Streaming calls this after the .lfm properties have been applied. }
-    procedure Loaded; override;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -74,6 +63,16 @@ type
 
     procedure Clear;
     procedure Present;
+
+    { The window the picture is shown in. The shell owns it and outlives
+      this; nothing is drawn until it is set. }
+    property Window: PSDL_Window read FWindow write FWindow;
+
+    { All of presentation except asking the window for its surface: the
+      picture scaled by a whole number and centred, and the four bands around
+      it painted. A class method because that is the part a test can drive -
+      it needs a destination surface, not a window. }
+    class procedure PresentTo(Src, Dst: PSDL_Surface);
 
     { Where the back buffer lands inside a client area of this size: the
       largest whole multiple of it that fits, centred.
@@ -135,14 +134,6 @@ begin
     SDL_FreeSurface(FBack);
     FBack := nil;
   end;
-  FreeAndNil(FPresentImg);
-  FreeAndNil(FPresentBmp);
-end;
-
-procedure TDDDD.Loaded;
-begin
-  inherited Loaded;
-  Initialize;
 end;
 
 { nil until Initialize has run. A bare component - which is what the fade
@@ -161,8 +152,6 @@ begin
   if FBack <> nil then
   begin
     FTarget := TSDLRenderTarget.Create(FBack);
-    FPresentBmp := TBitmap.Create;
-    FPresentImg := TLazIntfImage.Create(0, 0);
     Clear;
   end;
   if Assigned(FOnInit) then
@@ -278,39 +267,63 @@ begin
   Result := Bounds((ClientW - W) div 2, (ClientH - H) div 2, W, H);
 end;
 
-procedure TDDDD.Present;
+class procedure TDDDD.PresentTo(Src, Dst: PSDL_Surface);
 var
-  Form: TCustomForm;
-  Dest, Client: TRect;
-begin
-  if FBack = nil then
-    Exit;
-  { The one crossing back to the LCL, once a frame. }
-  SurfaceToBitmap(FBack, FPresentBmp, FPresentImg);
-  if not ((Owner is TCustomForm) and TCustomForm(Owner).HandleAllocated) then
-    Exit;
-
-  Form := TCustomForm(Owner);
-  Client := Form.ClientRect;
-  Dest := PresentRect(FPresentBmp.Width, FPresentBmp.Height,
-                      Client.Right - Client.Left, Client.Bottom - Client.Top);
+  R: TRect;
+  Picture: TSDL_Rect;
+  Black: LongWord;
 
   { The surround, in the four bands around the picture. Painted rather than
-    left alone because what is there otherwise is whatever the desktop or the
-    previous window size left behind. Each band is empty in a window, where
-    the client area is an exact multiple, and FillRect of an empty rectangle
-    costs nothing. }
-  Form.Canvas.Brush.Color := clBlack;
-  Form.Canvas.FillRect(Client.Left, Client.Top, Dest.Left, Client.Bottom);
-  Form.Canvas.FillRect(Dest.Right, Client.Top, Client.Right, Client.Bottom);
-  Form.Canvas.FillRect(Dest.Left, Client.Top, Dest.Right, Dest.Top);
-  Form.Canvas.FillRect(Dest.Left, Dest.Bottom, Dest.Right, Client.Bottom);
+    left alone, because what is there otherwise is whatever the desktop or
+    the previous window size left behind. Each band is empty in a window,
+    where the client area is an exact multiple. }
+  procedure Band(L, T, Rt, B: Integer);
+  var
+    Area: TSDL_Rect;
+  begin
+    if (Rt <= L) or (B <= T) then
+      Exit;
+    Area.x := L; Area.y := T; Area.w := Rt - L; Area.h := B - T;
+    SDL_FillRect(Dst, @Area, Black);
+  end;
 
-  Form.Canvas.StretchDraw(Dest, FPresentBmp);
+begin
+  if (Src = nil) or (Dst = nil) then
+    Exit;
+  Black := SDL_MapRGB(Dst^.format, 0, 0, 0);
+  R := PresentRect(Src^.w, Src^.h, Dst^.w, Dst^.h);
+
+  Band(0, 0, R.Left, Dst^.h);
+  Band(R.Right, 0, Dst^.w, Dst^.h);
+  Band(R.Left, 0, R.Right, R.Top);
+  Band(R.Left, R.Bottom, R.Right, Dst^.h);
+
+  { Nearest-neighbour, which at a whole-number scale is exact pixel
+    replication - every source pixel becomes the same square of screen
+    pixels, which is the whole reason the scale is a whole number.
+    SDL_BlitSurfaceScaled writes back through the rectangle it is given, so
+    this one is built fresh rather than kept. }
+  Picture.x := R.Left;
+  Picture.y := R.Top;
+  Picture.w := R.Right - R.Left;
+  Picture.h := R.Bottom - R.Top;
+  SDL_BlitSurfaceScaled(Src, nil, Dst, @Picture);
 end;
 
-initialization
-  { Required: the .lfm reader resolves components by class name via GetClass. }
-  RegisterClass(TDDDD);
+procedure TDDDD.Present;
+var
+  Surf: PSDL_Surface;
+begin
+  if (FBack = nil) or (FWindow = nil) then
+    Exit;
+  { Asked for every frame rather than kept: SDL invalidates the window
+    surface whenever the window is resized, and going to or coming back from
+    fullscreen is a resize. }
+  Surf := SDL_GetWindowSurface(FWindow);
+  if Surf = nil then
+    Exit;
+  PresentTo(FBack, Surf);
+  SDL_UpdateWindowSurface(FWindow);
+end;
 
 end.

@@ -7,15 +7,11 @@
   software and need neither. This uses surfaces.
 
   The game is 320x240 and draws a few hundred blits a frame, so there is
-  nothing here a GPU is needed for. What matters is that a surface target can
-  be dropped in underneath the existing window: the component keeps its LCL
-  back buffer, SDL draws into those very pixels, and the one line that puts
-  the buffer on screen does not change. No window is created, no video
-  subsystem is started, and nothing about input, the message loop or
-  fullscreen is touched.
-
-  That leaves ONE place that still knows about the LCL - presentation - and it
-  is the place an SDL window replaces when the game is ported.
+  nothing here a GPU is needed for. What it bought, while it was being put in,
+  was that a surface target could be dropped in underneath the LCL window
+  without touching input, the message loop or fullscreen; what it buys now
+  that the window is SDL's is that the window surface is a surface too, so
+  presentation is one scaled blit and the picture never leaves SDL.
 
   WHAT HAS TO MATCH
 
@@ -41,29 +37,7 @@ unit SDLTarget;
 interface
 
 uses
-  { Graphics is here only for TBitmap, which Present still hands to the
-    window. GameColors comes AFTER it deliberately: both declare TColor, and
-    the one this unit means is the game's. Both go when the window does. }
-  Classes, SysUtils, Graphics, IntfGraphics, Types, ctypes, SDL2,
-  RenderTarget, GameColors;
-
-{ Copy an SDL surface into an LCL bitmap.
-
-  THE LAST PLACE THAT KNOWS ABOUT THE LCL. The game draws into an SDL surface
-  and something has to put that on a window; until the window is SDL's too,
-  that something is a TBitmap and a StretchDraw. When the window changes, this
-  is what goes.
-
-  The bitmap's own pixel memory cannot be written into directly - what
-  TBitmap.RawImage hands back is a copy, not the buffer GDI reads - so the
-  pixels go the other way: the surface is described as a raw image and the
-  bitmap is loaded from it. Measured at 0.06 ms for a 320x240 frame, against
-  the 16 ms the game has.
-
-  Img is the caller's, kept between frames so the description is not rebuilt
-  sixty times a second. Src must be 32-bit. }
-procedure SurfaceToBitmap(Src: PSDL_Surface; Dst: TBitmap;
-                          Img: TLazIntfImage);
+  Classes, SysUtils, Types, ctypes, SDL2, RenderTarget, GameColors;
 
 { One pixel of a 32-bit surface, as the TColor the game would have named.
 
@@ -102,41 +76,7 @@ type
 implementation
 
 uses
-  GraphType, TextRender;
-
-procedure SurfaceToBitmap(Src: PSDL_Surface; Dst: TBitmap;
-                          Img: TLazIntfImage);
-var
-  Raw: TRawImage;
-begin
-  if (Src = nil) or (Dst = nil) or (Img = nil) then
-    Exit;
-  Raw.Init;
-  { B8G8R8 and NOT B8G8R8A8, even though the surface is 32 bits per pixel.
-
-    THE FOURTH BYTE IS NOT ALPHA HERE. The back buffer is created with an
-    alpha mask of 0, so SDL never writes that byte: a fill leaves it 0 and a
-    blit copies whatever the source had, which after conversion is also 0.
-    Describing it as alpha would tell the LCL that the entire frame is
-    transparent, and it would draw almost nothing - only the outlined text,
-    which is blended and so is the one thing in the buffer with a non-zero
-    fourth byte. That was a real bug: the back buffer was correct and the
-    window showed the text alone.
-
-    The byte order is what an SDL_PIXELFORMAT_ARGB8888 surface has in memory
-    on a little-endian machine, which is every machine this runs on. TTB
-    because an SDL surface is always top row first.
-
-    The stride is not passed because the description computes it, and
-    for a 32-bit surface SDL's own pitch is the same width times four:
-    both are already aligned. A surface with padding would need the row
-    copy this deliberately does not do. }
-  Raw.Description.Init_BPP32_B8G8R8_BIO_TTB(Src^.w, Src^.h);
-  Raw.Data := PByte(Src^.pixels);
-  Raw.DataSize := PtrUInt(Src^.pitch) * PtrUInt(Src^.h);
-  Img.SetRawImage(Raw, False);
-  Dst.LoadFromIntfImage(Img);
-end;
+  TextRender;
 
 function SurfacePixel(Src: PSDL_Surface; X, Y: Integer): TColor;
 var
