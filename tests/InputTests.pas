@@ -24,7 +24,7 @@ function SelfTestInput(Log: TStrings): Integer;
 implementation
 
 uses
-  LCLType, SDL2, DDIDComponent;
+  LCLType, SDL2, DDIDComponent, GameState, SoundTable, Title;
 
 type
   { One row of the table DDIDComponent had before bindings existed, recovered
@@ -53,6 +53,48 @@ const
 
   BUTTON_NAMES: array[TAkujiButton] of string =
     ('UP', 'DOWN', 'LEFT', 'RIGHT', 'JUMP', 'FIRE', 'PAUSE', 'AUX');
+
+type
+  { Stands in for the form while the options screen is driven with no window.
+    It records which row was offered a key and what sound came back, which is
+    all the screen contributes: the rule itself is the component's. }
+  TFakeHost = class
+  public
+    Offers: Integer;
+    LastRow: Integer;
+    Sounds: Integer;
+    LastSound: Integer;
+    Accept: Boolean;
+    constructor Create;
+    function BindKey(Row: Integer): Boolean;
+    function KeyName(Row: Integer): string;
+    procedure Sound(Index: Integer);
+  end;
+
+constructor TFakeHost.Create;
+begin
+  inherited Create;
+  LastRow := -1;
+  LastSound := -1;
+end;
+
+function TFakeHost.BindKey(Row: Integer): Boolean;
+begin
+  Inc(Offers);
+  LastRow := Row;
+  Result := Accept;
+end;
+
+function TFakeHost.KeyName(Row: Integer): string;
+begin
+  Result := Format('R%d', [Row]);
+end;
+
+procedure TFakeHost.Sound(Index: Integer);
+begin
+  Inc(Sounds);
+  LastSound := Index;
+end;
 
 function SetText(S: TAkujiButtons): string;
 var
@@ -132,6 +174,10 @@ var
   VK, I, J, Dups: Integer;
   Wanted, Got: TAkujiButtons;
   Map, Back: array[0..3] of Integer;
+  K: TSDL_KeyCode;
+  Frames: Integer;
+  Host: TFakeHost;
+  Screen: TTitleScreen;
   B: TAkujiButton;
   Checked, Pressing: Integer;
 begin
@@ -329,6 +375,115 @@ begin
       [Ord(High(TAkujiButton)) + 1, Dups]));
   finally
     D.Free;
+  end;
+
+  { 7. What the options screen does with those rows. It offers whatever key is
+       held to the selected row, every frame, and the component decides. }
+  Log.Add('');
+  Log.Add('the options screen''s three key rows:');
+  D := TDDIDEX.Create(nil);
+  try
+    { Nothing held: nothing to offer. }
+    Want(not D.AnyKeyDown(K), 'a key is reported held before anything is pressed');
+
+    { An UNBOUND key is what rebinding is for, so it has to be visible even
+      though it drives nothing - V is in no default binding. }
+    D.KeyDown(VK_V);
+    Want(D.AnyKeyDown(K) and (K = SDLK_v), 'an unbound key is not offered');
+    Want(D.Down = [], 'an unbound key pressed something');
+    Want(D.BindAction(abJump, K), 'the JUMP row refused a free key');
+    D.KeyUp(VK_V);
+    Want(not D.AnyKeyDown(K), 'the key is still held after release');
+    Want(Press(D, VK_V) = [abJump], 'V does not jump');
+
+    { Offered again while still held: no change, so the screen stays silent. }
+    D.KeyDown(VK_V);
+    Want(not D.BindAction(abJump, SDLK_v), 'a key already on the row rebound');
+    Frames := 0;
+    for J := 1 to 60 do
+      if D.BindAction(abJump, SDLK_v) then
+        Inc(Frames);
+    Want(Frames = 0, 'holding the key down rebinds every frame');
+    D.KeyUp(VK_V);
+
+    { The cursor keys are the refusal that matters: taking one would trade the
+      arrow away and strand the player on the row. }
+    for B := Low(TAkujiButton) to High(TAkujiButton) do
+      if B in AKUJI_DIRECTIONS then
+      begin
+        Want(not D.BindAction(abJump, D.Bindings[B].Primary),
+          Format('the JUMP row took %s, which drives %s',
+            [D.KeyNameOf(D.Bindings[B].Primary), BUTTON_NAMES[B]]));
+        Want(not D.BindAction(abJump, D.Bindings[B].Alternate),
+          Format('the JUMP row took the alternate driving %s',
+            [BUTTON_NAMES[B]]));
+      end;
+    Want(Press(D, VK_DOWN) = [abDown], 'the down arrow stopped moving the cursor');
+    Want(Press(D, VK_V) = [abJump], 'a refused bind moved the row anyway');
+
+    { The rows are the three the screen shows, and a direction has no row. }
+    Want(not D.BindAction(abUp, SDLK_v), 'a direction was bound from a row');
+
+    { A key held ACROSS a rebind must not stay stuck. X drives FIRE on the way
+      down and JUMP on the way up, so the release has to clear both. }
+    D.KeyDown(VK_X);
+    Want(D.Down = [abFire], 'X does not fire');
+    Want(D.BindAction(abJump, SDLK_x), 'the JUMP row refused a key FIRE held');
+    D.KeyUp(VK_X);
+    Want(D.Down = [], 'a key held across a rebind stayed down: ' + SetText(D.Down));
+    Want(Duplicates(D) = 0, 'the row''s trade made a duplicate');
+    Log.Add('  offered, refused and traded with nothing left held');
+  finally
+    D.Free;
+  end;
+
+  { 8. The screen's side of it, driven with no window: which rows offer a key,
+       with what row number, and whether the sound follows the answer. }
+  Log.Add('');
+  Log.Add('the options screen, driven row by row:');
+  Host := TFakeHost.Create;
+  Screen := TTitleScreen.Create;
+  try
+    Screen.OnBindKey := Host.BindKey;
+    Screen.OnKeyName := Host.KeyName;
+    Screen.OnSound := Host.Sound;
+    TitleSubMode := TSM_OPTIONS;
+    Host.Accept := True;
+    for I := 0 to Ord(High(TOptionRow)) do
+    begin
+      MenuIndex := I;
+      Host.Offers := 0;
+      Host.LastRow := -1;
+      Host.Sounds := 0;
+      Screen.Update(0, 0, False);
+      if TOptionRow(I) in [orKey0, orKey1, orKey2] then
+      begin
+        Want(Host.Offers = 1,
+          Format('row %d offered %d times, not once', [I, Host.Offers]));
+        Want(Host.LastRow = I - Ord(orKey0),
+          Format('row %d offered as row %d', [I, Host.LastRow]));
+        Want((Host.Sounds = 1) and (Host.LastSound = SND_OK),
+          Format('row %d did not sound once on a bind', [I]));
+      end
+      else
+        Want(Host.Offers = 0,
+          Format('row %d offered a key and should not have', [I]));
+    end;
+    Log.Add(Format('  %d rows, 3 of them bind', [Ord(High(TOptionRow)) + 1]));
+
+    { Refused: the row is still offered the key, and stays silent. }
+    Host.Accept := False;
+    MenuIndex := Ord(orKey0);
+    Host.Offers := 0;
+    Host.Sounds := 0;
+    Screen.Update(0, 0, False);
+    Want(Host.Offers = 1, 'a refused row was not offered the key');
+    Want(Host.Sounds = 0, 'a refused bind still played a sound');
+  finally
+    Screen.Free;
+    Host.Free;
+    TitleSubMode := TSM_MENU;
+    MenuIndex := 0;
   end;
 
   Log.Add('');

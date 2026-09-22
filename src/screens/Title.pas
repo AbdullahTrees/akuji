@@ -107,6 +107,11 @@ type
     bindings live in the input component, so this screen asks rather than
     reading the settings record it used to index KEY_NAMES with. }
   TKeyNameEvent = function(Row: Integer): string of object;
+  { Offers whatever key is held to row 0..2. True when it became that row's
+    binding, which is the only thing this screen needs to know - the rule for
+    what may be bound, and the trade when another action holds it, belong to
+    the input component. }
+  TBindKeyEvent = function(Row: Integer): Boolean of object;
 
   TTitleScreen = class
   private
@@ -118,6 +123,7 @@ type
     FOnFullScreen: TNotifyProc;
     FOnGallery: TGalleryEvent;
     FOnKeyName: TKeyNameEvent;
+    FOnBindKey: TBindKeyEvent;
     procedure PlaySound(Index: Integer);
     procedure MenuConfirm;
     procedure OptionsConfirm;
@@ -155,6 +161,8 @@ type
     property OnFullScreen: TNotifyProc read FOnFullScreen write FOnFullScreen;
     { Asked for each of the three key rows, every time they are drawn. }
     property OnKeyName: TKeyNameEvent read FOnKeyName write FOnKeyName;
+    { Offered the held key while the cursor sits on one of those rows. }
+    property OnBindKey: TBindKeyEvent read FOnBindKey write FOnBindKey;
   end;
 
   { External operations used by the game-over screen. }
@@ -568,9 +576,17 @@ begin
     TSM_OPTIONS:
       begin
         AdjustValue(MoveX);
-        { DIVERGENCE DIV-009: key rebinding is unavailable. }
-        { Key rebinding still requires raw button polling and is not handled by
-          this directional-input interface. }
+        { The three key rows bind whatever is held. This screen sees only
+          directions and a confirm, so the key itself comes from the form,
+          which owns the input component; all this decides is the sound.
+
+          Left and right do nothing on these rows, so the value changing is
+          the only feedback there is, and a bind that changes nothing returns
+          False - otherwise holding a key down would chirp every frame. }
+        if TOptionRow(MenuIndex) in [orKey0, orKey1, orKey2] then
+          if Assigned(FOnBindKey) and
+             FOnBindKey(MenuIndex - Ord(orKey0)) then
+            PlaySound(SND_OK);
         if MoveY <> 0 then
         begin
           PlaySound(SND_PI);

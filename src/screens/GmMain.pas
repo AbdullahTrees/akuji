@@ -8,7 +8,7 @@ unit GmMain;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, LCLType,
+  Classes, SysUtils, Forms, Controls, Graphics, LCLType, SDL2,
   DDDDComponent, DDIDComponent, DDSDComponent, KbgmPlayer, GameState,
   IniFiles, QdaArchive, Title, Ending, Opening, GameFont, Surfaces, Sprites, Stages, TileMaps, PlayerState,
   Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender;
@@ -146,6 +146,7 @@ type
     procedure StageBeginFade;
     procedure TitleVolume;
     function  TitleKeyName(Row: Integer): string;
+    function  TitleBindKey(Row: Integer): Boolean;
     procedure TitleResetState;
     procedure TitleResetOpening;
     procedure TitleGallery(Slot: Integer);
@@ -345,6 +346,7 @@ begin
   FTitleScreen.OnWindowScale := ApplyWindowScale;
   FTitleScreen.OnFullScreen := ApplyFullScreen;
   FTitleScreen.OnKeyName := TitleKeyName;
+  FTitleScreen.OnBindKey := TitleBindKey;
   FSession.OnStartFade := StageBeginFade;
   FSession.OnResetHost := SessionResetHost;
   { Raise the multimedia timer period before the first frame: without it
@@ -985,6 +987,15 @@ function TFrm_main.TitleKeyName(Row: Integer): string;
 begin
   { The three editable rows are the first three of the four mapped actions. }
   Result := Joy.KeyNameOf(Joy.Bindings[AKUJI_MAPPED[Row]].Primary);
+end;
+
+function TFrm_main.TitleBindKey(Row: Integer): Boolean;
+var
+  Key: TSDL_KeyCode;
+begin
+  { Which keys may be bound, and what happens to whatever held one, is the
+    component's business - see TDDIDEX.BindAction. }
+  Result := Joy.AnyKeyDown(Key) and Joy.BindAction(AKUJI_MAPPED[Row], Key);
 end;
 
 procedure TFrm_main.TitleResetState;

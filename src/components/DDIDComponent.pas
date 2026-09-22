@@ -105,6 +105,10 @@ type
     FBindings: array[TAkujiButton] of TAkujiBinding;
     FPad: PSDL_GameController;
     FPadStarted: Boolean;
+    { The last key the window reported, BOUND OR NOT. Rebinding is the reason
+      it exists: a key that drives nothing yet is exactly the one the player
+      is about to assign, and the pressed sets above only track bound keys. }
+    FPressedKey: TSDL_KeyCode;
     function GetBinding(Button: TAkujiButton): TAkujiBinding;
     procedure SetBinding(Button: TAkujiButton; const Value: TAkujiBinding);
     { Whichever action this key drives, or False. }
@@ -135,6 +139,18 @@ type
 
       Returns False if the key is not one a binding can hold. }
     function BindKey(Button: TAkujiButton; Key: TSDL_KeyCode): Boolean;
+
+    { The bind the options screen makes, which is BindKey with the screen's
+      two extra rules - and they are here rather than up there so that a test
+      with no window can hold them.
+
+      A key already on this row is refused, so that holding it down does not
+      re-announce itself every frame. A key that currently drives a DIRECTION
+      is refused too: binding one would trade the arrow away, and the player
+      would be left on a row they could no longer move off. It is the same
+      restriction the original had, arrived at differently - its screen polled
+      twelve buttons and the arrows were not among them. }
+    function BindAction(Button: TAkujiButton; Key: TSDL_KeyCode): Boolean;
 
     { The four mapped actions' PRIMARY keys, the way Settings.KeyMap holds
       them - one int per action, which is the shape the original's record has
@@ -335,8 +351,13 @@ end;
 procedure TDDIDEX.KeyDown(Key: Word);
 var
   Button: TAkujiButton;
+  Code: TSDL_KeyCode;
 begin
-  if ActionOfKey(VKToKeycode(Key), Button) then
+  Code := VKToKeycode(Key);
+  if Code = SDLK_UNKNOWN then
+    Exit;
+  FPressedKey := Code;
+  if ActionOfKey(Code, Button) then
   begin
     Include(FKeysDown, Button);
     Include(FDown, Button);
@@ -346,8 +367,14 @@ end;
 procedure TDDIDEX.KeyUp(Key: Word);
 var
   Button: TAkujiButton;
+  Code: TSDL_KeyCode;
 begin
-  if ActionOfKey(VKToKeycode(Key), Button) then
+  Code := VKToKeycode(Key);
+  if Code = SDLK_UNKNOWN then
+    Exit;
+  if FPressedKey = Code then
+    FPressedKey := SDLK_UNKNOWN;
+  if ActionOfKey(Code, Button) then
   begin
     Exclude(FKeysDown, Button);
     { Only if the pad is not holding it too. }
@@ -367,8 +394,14 @@ begin
     is exactly what rebinding needs. Without an SDL window this array is never
     filled, so it reports nothing and the caller falls back on what the
     keyboard handlers know. }
+  { What the window last reported, which is the only source there is while the
+    window is the LCL's. SDL's own array is read after it rather than instead
+    of it, so nothing here changes when the window becomes SDL's. }
+  Key := FPressedKey;
+  if Key <> SDLK_UNKNOWN then
+    Exit(True);
+
   Result := False;
-  Key := SDLK_UNKNOWN;
   State := SDL_GetKeyboardState(@Count);
   if State = nil then
     Exit;
@@ -404,6 +437,14 @@ begin
       FBindings[Holder].Alternate := Swap;
   end;
   FBindings[Button].Primary := Key;
+
+  { Nothing stays held across a rebind. The key the player is holding was
+    resolved to an action on the way down and would resolve to a DIFFERENT
+    one on the way up, which would leave the first stuck down for the rest of
+    the run - a fire button that never releases. }
+  FKeysDown := [];
+  FPadDown := [];
+  FDown := [];
   Result := True;
 end;
 
@@ -423,6 +464,20 @@ begin
   for I := Low(AKUJI_MAPPED) to High(AKUJI_MAPPED) do
     if I <= High(Map) then
       Map[I] := KeycodeToKeyMap(FBindings[AKUJI_MAPPED[I]].Primary);
+end;
+
+function TDDIDEX.BindAction(Button: TAkujiButton; Key: TSDL_KeyCode): Boolean;
+var
+  Holder: TAkujiButton;
+begin
+  Result := False;
+  if not (Button in AKUJI_ACTIONS) then
+    Exit;
+  if (Key = SDLK_UNKNOWN) or (FBindings[Button].Primary = Key) then
+    Exit;
+  if ActionOfKey(Key, Holder) and (Holder in AKUJI_DIRECTIONS) then
+    Exit;
+  Result := BindKey(Button, Key);
 end;
 
 function TDDIDEX.KeyNameOf(Key: TSDL_KeyCode): string;
