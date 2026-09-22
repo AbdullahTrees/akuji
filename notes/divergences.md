@@ -209,6 +209,62 @@ the picture at 1:1, each required to come back a whole multiple and centred.
 
 ---
 
+## DIV-019 - FULL SCREEN switches on the spot, not at the next launch
+
+**What the original does.** `Display_SetFullScreen` is called exactly once, at
+`0x00466C78`, from `DDDD1Init` at startup, with `Settings.FullScreenFlag`. The
+options row does nothing but flip the byte:
+
+```c
+case 1:
+  if (p_InputState->AxisX != 0) {
+    TDDSD_PlaySound(...);
+    *p_FullScreenOn = *p_FullScreenOn ^ 1;
+  }
+```
+
+So the player toggles FULL SCREEN, sees the word change, and nothing happens
+until the game is next started.
+
+**What this does instead.** The row calls back into the form and the switch
+happens immediately, which is also what the SCALING row beside it does. A
+setting that takes effect next launch is indistinguishable, at the moment it
+is used, from one that does nothing - and this screen already had two of
+those (DIV-018).
+
+**What it exposed.** The original's windowed branch restores the window border
+only when the game is NOT reading from bmp.qda:
+
+```c
+if (*p_UseArchive == 0) {
+  FUN_0043d62c(DAT_00484fec, 2);    /* BorderStyle := bsSingle */
+}
+```
+
+That cost it nothing, because coming BACK from fullscreen is a path it never
+takes: the one call is at startup, where the border is already what the form
+was built with. Taking the path for the first time returned the shipped game -
+which does read from bmp.qda - to a window with no title bar and no close
+button. The border is now restored unconditionally, and before the client size
+is set, because changing it recreates the window.
+
+**Also different.** The original's fullscreen is a display MODE CHANGE, to
+320x240 at 16 bits. This one leaves the desktop alone and scales the picture
+into it by a whole number, centred, with the rest painted black - on a 2560x1440
+desktop that is 6x, measured. Changing the display mode of a modern machine to
+320x240 is not something to inflict on anyone, and monitors that accept it are
+gone.
+
+**How it is held.** Not by a self-test: a test has no window. It was checked by
+running the game, switching both ways at 1x and at 3x, and reading the window
+style back from the OS - caption and system menu present, client area exactly
+320x240 and 960x720 again afterwards.
+
+**Sites.** `AdjustValue` in `src/screens/Title.pas`, `ApplyFullScreen` and
+`SetFullScreen` in `src/screens/GmMain.pas`.
+
+---
+
 ## Numbers 001 to 015
 
 Those belong to the reconstruction and are recorded in `akuji-re`'s own ledger,

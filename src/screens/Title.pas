@@ -108,6 +108,7 @@ type
     FOnResetOpening: TNotifyProc;
     FOnVolume: TNotifyProc;
     FOnWindowScale: TNotifyProc;
+    FOnFullScreen: TNotifyProc;
     FOnGallery: TGalleryEvent;
     procedure PlaySound(Index: Integer);
     procedure MenuConfirm;
@@ -142,6 +143,8 @@ type
     { Called when the scale row changes, to resize the window. }
     property OnWindowScale: TNotifyProc read FOnWindowScale
                                         write FOnWindowScale;
+    { Called when the fullscreen row changes, to switch on the spot. }
+    property OnFullScreen: TNotifyProc read FOnFullScreen write FOnFullScreen;
   end;
 
   { External operations used by the game-over screen. }
@@ -488,6 +491,10 @@ begin
       begin
         PlaySound(SND_OK);
         FullScreenOn := not FullScreenOn;
+        { Applied here rather than at the next launch, which is where the
+          original applied it - see notes/divergences.md, DIV-019. }
+        if Assigned(FOnFullScreen) then
+          FOnFullScreen;
       end;
     orScale:
       { Bounded and silent at the ends, like the other bounded rows. The

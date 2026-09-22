@@ -103,6 +103,8 @@ type
     procedure DrawScene;
     procedure DrawDebugOverlay;
     procedure SetFullScreen(Enable: Boolean);
+    { Switch to whatever FullScreenOn now says, for the options row. }
+    procedure ApplyFullScreen;
     { Resize the window to the chosen whole-number scale. }
     procedure ApplyWindowScale;
     procedure DrawGameOver;
@@ -340,6 +342,7 @@ begin
   FTitleScreen.OnGallery := TitleGallery;
   FTitleScreen.OnVolume := TitleVolume;
   FTitleScreen.OnWindowScale := ApplyWindowScale;
+  FTitleScreen.OnFullScreen := ApplyFullScreen;
   FSession.OnStartFade := StageBeginFade;
   FSession.OnResetHost := SessionResetHost;
   { Raise the multimedia timer period before the first frame: without it
@@ -575,6 +578,11 @@ begin
   FFont.TextOut(DDDD1.Target, 0, 16, 'S P:' + IntToStr(EntitiesDrawn));
 end;
 
+procedure TFrm_main.ApplyFullScreen;
+begin
+  SetFullScreen(FullScreenOn);
+end;
+
 { The window is sized to an exact multiple of the picture, so that what
   Present works out is that multiple and there is nothing to letterbox.
   Fullscreen owns the window size, so this leaves it alone. }
@@ -604,11 +612,22 @@ begin
   begin
     FullScreenOn := False;
     WindowState := wsNormal;
+    { UNCONDITIONALLY, where the original tests its archive flag first.
+
+      Display_SetFullScreen restores the border only when the game is NOT
+      reading from bmp.qda, and that cost the original nothing because it
+      calls the routine exactly once, from startup, where the border is
+      already what the form was built with. Coming BACK from fullscreen is a
+      path it never takes.
+
+      This one does take it - the options row switches on the spot, DIV-019 -
+      and leaving the test in returns the shipped game to a window with no
+      title bar and no close button, which is how it was found. }
+    BorderStyle := bsSingle;
+    { After the border, because changing it recreates the window and the
+      client size has to be set on the one that ends up on screen. }
     ClientWidth := SCREEN_W * WindowScale;
     ClientHeight := SCREEN_H * WindowScale;
-    { Archive mode keeps the current border style. }
-    if not FUseArchive then
-      BorderStyle := bsSingle;
     Position := poScreenCenter;
     Screen.Cursor := crDefault;
   end;
