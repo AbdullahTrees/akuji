@@ -265,6 +265,88 @@ style back from the OS - caption and system menu present, client area exactly
 
 ---
 
+## DIV-020 - input is bound by SDL keycode, and the key rows work
+
+**What the original does.** Input comes through DirectInput. The device owns
+sixteen buttons, each carrying a primary and an alternate key written by
+`Input_SetKeyBinding`, and `AppIdle` polls four of them:
+
+    physical key -> device button 0..15 -> KeyMap -> logical button 0..3
+
+So `KeyMap` does not name a key. It says which DEVICE BUTTON each action
+watches, which is what let the same four actions be driven by a keyboard or by
+either of two joysticks - `Settings.InputDevice` picks between them. The
+options screen polls twelve of those buttons, and when one is hit it gives the
+selected row that button and hands the row's old button back to whoever had
+it: a swap, so that no two of the three rows end up on one key.
+
+**What this does instead.** The same two stages, named in SDL's terms. An
+action carries a primary key, an alternate, and a gamepad button; the keys are
+SDL keycodes, which are the same numbers on every platform, and that is the
+whole point of moving off `dinput.dll`. The enum says what the buttons do -
+JUMP, FIRE, PAUSE, AUX, and the four directions - rather than numbering them.
+
+The four directions are bindings too, though no row shows them. A binding that
+is a special case is a binding that gets forgotten.
+
+**The swap is kept and widened.** No key may drive two actions. Binding one
+that another action holds trades: the two exchange keys, so neither is left
+without one. The original did this across the three rows it could edit;
+doing it across all eight is the same rule carried to its conclusion.
+
+**What the player gains.** Any key the game can see, instead of twelve. The
+rows are also no longer display-only - see DIV-009, which this retires.
+
+**What the player cannot bind.** A key that currently drives a DIRECTION.
+Binding one would trade the arrow away and leave the player on a row they
+could no longer move off. The original had the same restriction by
+construction: the arrows were not among the twelve buttons it polled.
+
+**What the game can still only see.** The keyboard arrives from the LCL as
+Windows virtual keys, so the bindable set is whatever `VKToKeycode` names -
+letters, digits, the arrows, the numpad, space, enter, escape, tab, backspace,
+shift and control. That function is the only platform-shaped thing left in the
+input component, and it goes when the window becomes SDL's.
+
+**The menus are not bound.** They are still driven by the hard-wired virtual
+keys of DIV-002, so the arrows move the cursor and Z, space or enter confirm
+whatever JUMP is bound to. Retiring DIV-002 is what makes the bindings
+authoritative everywhere; until then, rebinding JUMP does not change what
+confirms a menu.
+
+**The gamepad.** The original's joystick support was a second DirectInput
+device chosen by `Settings.InputDevice`. Here a controller is read IN ADDITION
+to the keyboard, always, and `InputDevice` is ignored - the reason the original
+made you choose was that it polled one device, and SDL costs nothing to poll
+both. Its subsystem starts with no video subsystem and no window at all, which
+was measured before it was written, so this works while the window is still
+the LCL's.
+
+**Where it is stored.** The same four ints at `+0x08`, holding a tagged SDL
+keycode rather than a device button index. The two are told apart by the tag
+and NOT by range, because three keycodes - backspace, tab and return - land
+inside the original's 0..15. An untagged value in 0..11 is read through the
+twelve keys the original's screen could name, so the shipped `0,1,2,3`
+migrates to exactly the four defaults and anyone with an existing system.dat
+sees nothing change. A file this cannot read leaves the defaults alone.
+
+**How it is held.** `--selftest-input`, headless. Its core check drives all 256
+virtual keys through the default bindings and requires the result to equal the
+pre-binding table exactly, key for key - the defaults are the old behaviour or
+they are a regression. Around it: the twelve legacy indices, the round trip
+through the stored form, a corrupt file, the trade rule, the no-duplicate
+invariant after every bind, the options screen driven row by row against a
+stand-in host, and what the gamepad path can assert with no device attached.
+The rest was verified through the real window, by injected key presses held
+long enough to span a frame: JUMP bound to V, then X pressed on the same row,
+and the saved file came back JUMP=X, FIRE=V.
+
+**Sites.** `src/components/DDIDComponent.pas` entire, `TitleKeyName` and
+`TitleBindKey` in `src/screens/GmMain.pas`, the key rows in
+`src/screens/Title.pas`, `TGameSettings.KeyMap` in `src/gameplay/GameState.pas`.
+
+---
+
 ## Numbers 001 to 015
 
 Those belong to the reconstruction and are recorded in `akuji-re`'s own ledger,
@@ -302,10 +384,9 @@ construction has no default. The added arm counts unhandled types so the
 self-test can assert that every id the table claims reaches an arm. The
 counter is write-only outside the test.
 
-**DIV-009 - the options screen cannot rebind keys.** `src/screens/Title.pas`.
-The original polls 16 raw buttons and swaps the hit one with the selected row.
-This displays the three bindings and cannot change them. Affecting. The way
-out is raw button polling in the input layer, which the swap needs.
+**DIV-009 - the options screen cannot rebind keys. RETIRED.** The three rows
+bind, and the swap is kept and widened - see DIV-020. The marker is gone from
+`src/screens/Title.pas`; the number stays listed so it does not read as a gap.
 
 **DIV-010 - type 25 clamps EF_VARIANT instead of running off its table.**
 `src/gameplay/EntityHandlers.pas`. The original indexes a three-entry sprite
