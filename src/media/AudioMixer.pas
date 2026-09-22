@@ -19,7 +19,12 @@ const
         DirectSoundBuffer.SetVolume((10 - v) * -0x1C2)
 
     DirectSound volume is measured in hundredths of a decibel, with zero at
-    full volume. The lowest setting is therefore -45 dB, not silence. }
+    full volume. So in the original the lowest setting is -45 dB, not
+    silence - SE VOLUME 0% still plays every effect, faintly.
+
+    Here 0 is silent. A setting that reads 0% and is still audible is a
+    defect, not a feature of the curve; the other ten steps are the original's
+    exactly. See notes/divergences.md, DIV-023. }
   VOLUME_STEP_MB = -450;
   VOLUME_MAX     = 10;
 
@@ -78,8 +83,8 @@ var
 begin
   if Volume >= VOLUME_MAX then
     Exit(65536);
-  if Volume < 0 then
-    Volume := 0;
+  if Volume <= 0 then
+    Exit(0);
   MilliBels := (VOLUME_MAX - Volume) * VOLUME_STEP_MB;
   { gain = 10 ^ (mB / 2000); mB is hundredths of a dB and amplitude ratio is
     10 ^ (dB / 20). }

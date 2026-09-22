@@ -8,7 +8,7 @@ unit MediaTests;
 interface
 
 uses
-  Classes, SysUtils, TypInfo,
+  Classes, SysUtils, TypInfo, Math,
   QdaArchive, SoundTable, WaveFile, AudioMixer, AudioOut, MidiFile, KbgmPlayer,
   Directions, Entities, EventScripts, EventCommands, PlayerState, GameState,
   Stages, Camera, TileMaps, Player, EntityHandlers, EventRunner, GameSession,
@@ -82,6 +82,7 @@ function SelfTestAudio(Log: TStrings): Integer;
 var
   GameDir, OutDir, Path: string;
   SoundIndex, DecodedCount, MissingCount: Integer;
+  CurveBad, Want: Integer;
   Wave: TWaveData;
   Stream: TFileStream;
 begin
@@ -136,12 +137,28 @@ begin
   { Report the game's attenuation curve in hundredths of a decibel. }
   Log.Add('');
   Log.Add('volume curve (settings +0x24 -> DirectSound mB -> linear gain):');
+  CurveBad := 0;
   for SoundIndex := 0 to VOLUME_MAX do
+  begin
     Log.Add(Format('  v=%2d  %6d mB  gain %.5f',
       [SoundIndex, (VOLUME_MAX - SoundIndex) * VOLUME_STEP_MB,
        VolumeToGain(SoundIndex) / 65536.0]));
+    { 0 is silent - DIV-023 - and every other step is the original's
+      DirectSound attenuation, exactly. }
+    if SoundIndex = 0 then
+      Want := 0
+    else
+      Want := Round(65536.0 * Power(10.0,
+        ((VOLUME_MAX - SoundIndex) * VOLUME_STEP_MB) / 2000.0));
+    if VolumeToGain(SoundIndex) <> Want then
+    begin
+      Log.Add(Format('  FAIL: v=%d gives gain %d, want %d',
+        [SoundIndex, VolumeToGain(SoundIndex), Want]));
+      Inc(CurveBad);
+    end;
+  end;
 
-  if MissingCount > 0 then
+  if (MissingCount > 0) or (CurveBad > 0) then
     Result := 1
   else
     Log.Add('OK');
@@ -263,13 +280,18 @@ var
   Mixer: TAudioMixer;
   Device: TAudioOut;
   Music: TKbgmPlayer;
-  I, Secs: Integer;
+  I, Secs, MusicVol: Integer;
 begin
   Result := 0;
   GameDir := ParamStr(2);
   Secs := 20;
   if ParamCount >= 3 then
     Secs := StrToIntDef(ParamStr(3), 20);
+  { The music volume, 0..10. Optional, so that MUSIC VOLUME can be measured
+    from outside the process - the title screen plays no music to meter. }
+  MusicVol := KBGM_VOLUME_MAX;
+  if ParamCount >= 4 then
+    MusicVol := StrToIntDef(ParamStr(4), KBGM_VOLUME_MAX);
 
   Log.Add(Format('game dir: %s', [GameDir]));
   Log.Add('');
@@ -312,7 +334,8 @@ begin
     else
     begin
       Log.Add('midi device: open');
-      Music.Volume := KBGM_VOLUME_MAX;
+      Music.Volume := MusicVol;
+      Log.Add(Format('  music volume %d of %d', [Music.Volume, KBGM_VOLUME_MAX]));
       Music.Play(0, True);
       { ASSERT, do not announce. This block used to log that it was playing and
         then sleep, which reports success whether or not a note is ever sounded

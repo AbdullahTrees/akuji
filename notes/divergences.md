@@ -498,6 +498,30 @@ run, the patched one passes.
 
 ---
 
+## DIV-023 - SE VOLUME 0% is silent
+
+**What the original does.** Each effect buffer's volume is set once from the
+0..10 setting:
+
+    DirectSoundBuffer.SetVolume((10 - v) * -0x1C2)
+
+DirectSound measures volume in hundredths of a decibel with zero at full, so
+each step is 4.5 dB and the bottom step, 0%, is -45 dB. Not silence: every
+effect still plays, faintly, and with headphones clearly.
+
+**What this does instead.** 0 is silent. The other ten steps are the
+original's exactly. A setting that reads 0% and can still be heard is a
+defect, not a property of the curve, and nothing about the curve above it
+needed to change to fix it.
+
+**How it is held.** `--selftest-audio` asserts the whole table rather than
+logging it: gain 0 at 0, and at every other step the original's attenuation
+to the unit. Putting the -45 dB floor back fails the run.
+
+**Sites.** `VolumeToGain` in `src/media/AudioMixer.pas`.
+
+---
+
 ## Numbers 001 to 015
 
 Those belong to the reconstruction and are recorded in `akuji-re`'s own ledger,
