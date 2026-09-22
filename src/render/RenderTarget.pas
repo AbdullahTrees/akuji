@@ -34,9 +34,7 @@ unit RenderTarget;
 interface
 
 uses
-  { Graphics for TColor and the clXxx names the game uses to say what
-    colour it means. Nothing here draws with the LCL. }
-  Classes, SysUtils, Graphics, Types, ctypes, SDL2;
+  Classes, SysUtils, GameColors, Types, ctypes, SDL2;
 
 const
   { What the sheets use for "nothing here".

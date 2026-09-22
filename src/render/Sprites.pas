@@ -24,7 +24,7 @@ unit Sprites;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Types, Surfaces, RenderTarget;
+  Classes, SysUtils, GameColors, Types, Surfaces, RenderTarget;
 
 type
   TSpriteFrame = record

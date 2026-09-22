@@ -14,7 +14,7 @@ uses
   Stages, Camera, TileMaps, Player, EntityHandlers, EntityMonsters, EntityEffects, EntityProjectiles, EntityTerrain, EntityPickups, EventRunner, GameSession,
   SpritePool, Sprites, Dialogue, BgAnime, UnitInit, Title, Ending, Opening,
   GameFont, DDDDComponent, Surfaces,
-  Graphics, SDL2, RenderTarget, SDLTarget;
+  GameColors, SDL2, RenderTarget, SDLTarget;
 
 function SelfTestSession(Log: TStrings): Integer;
 

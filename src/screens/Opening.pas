@@ -19,7 +19,7 @@ unit Opening;
 interface
 
 uses
-  SysUtils, Graphics, GameState, GameFont, RenderTarget;
+  SysUtils, GameColors, GameState, GameFont, RenderTarget;
 
 const
   OPENING_SLIDES = 10;

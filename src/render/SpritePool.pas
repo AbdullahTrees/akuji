@@ -9,7 +9,7 @@ unit SpritePool;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Types, Entities, Sprites, Surfaces, RenderTarget;
+  Classes, SysUtils, GameColors, Types, Entities, Sprites, Surfaces, RenderTarget;
 
 const
   { Entity spawning fails when all slots are occupied. }

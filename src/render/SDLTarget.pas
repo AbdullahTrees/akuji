@@ -41,7 +41,11 @@ unit SDLTarget;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Types, ctypes, SDL2, RenderTarget, IntfGraphics;
+  { Graphics is here only for TBitmap, which Present still hands to the
+    window. GameColors comes AFTER it deliberately: both declare TColor, and
+    the one this unit means is the game's. Both go when the window does. }
+  Classes, SysUtils, Graphics, IntfGraphics, Types, ctypes, SDL2,
+  RenderTarget, GameColors;
 
 { Copy an SDL surface into an LCL bitmap.
 

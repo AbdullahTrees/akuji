@@ -19,7 +19,7 @@ unit GameFont;
 interface
 
 uses
-  Classes, SysUtils, Types, Graphics, RenderTarget;
+  Classes, SysUtils, Types, GameColors, RenderTarget;
 
 const
   { Font used for outlined narrative text. }

@@ -16,7 +16,7 @@ interface
 
 uses
   Classes, SysUtils, Graphics, Controls, Forms, SDL2, IntfGraphics,
-  RenderTarget, SDLTarget;
+  RenderTarget, SDLTarget, GameColors;
 
 const
   { 0x78 and the step every caller writes to self+0x10 before starting one.

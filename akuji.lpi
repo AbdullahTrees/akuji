@@ -169,6 +169,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src/render/GameColors.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="tests/TestSupport.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

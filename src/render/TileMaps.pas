@@ -17,7 +17,7 @@ unit TileMaps;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Types, Surfaces, RenderTarget;
+  Classes, SysUtils, GameColors, Types, Surfaces, RenderTarget;
 
 const
   MAP_HEADER_SIZE = 24;

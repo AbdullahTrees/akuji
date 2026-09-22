@@ -24,7 +24,9 @@ unit QdaArchive;
 interface
 
 uses
-  Classes, SysUtils, Graphics, SDL2, RenderTarget;
+  { Graphics for TBitmap, which only the render self-test's second BMP
+    decoder still wants. }
+  Classes, SysUtils, Graphics, SDL2, RenderTarget, GameColors;
 
 const
   QDA_MAGIC      = 'QDA0';

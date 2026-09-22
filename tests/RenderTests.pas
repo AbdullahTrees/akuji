@@ -39,7 +39,9 @@ unit RenderTests;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Types, SDL2, IntfGraphics,
+  { Graphics is here for TBitmap, the second BMP decoder this test checks
+    SDL's against. GameColors after it, so TColor is the game's. }
+  Classes, SysUtils, Graphics, GameColors, Types, SDL2, IntfGraphics,
   QdaArchive, Surfaces, Sprites, TileMaps, GameFont, Stages, Entities,
   RenderTarget, SDLTarget, TextRender, Dialogue, DDDDComponent;
 

@@ -18,7 +18,8 @@ unit Dialogue;
 interface
 
 uses
-  Classes, SysUtils, Graphics, GameFont, PlayerState, EventRunner, EventScripts,
+  Classes, SysUtils, Types, GameColors, GameFont, PlayerState, EventRunner,
+  EventScripts,
   TileMaps,
   GameState, Entities, SoundTable, RenderTarget;
 

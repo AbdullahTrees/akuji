@@ -7,7 +7,8 @@ unit Title;
 interface
 
 uses
-  Classes, SysUtils, Graphics, GameState, GameFont, SoundTable, RenderTarget;
+  Classes, SysUtils, Types, GameColors, GameState, GameFont, SoundTable,
+  RenderTarget;
 
 const
   { Title-screen sub-modes. }

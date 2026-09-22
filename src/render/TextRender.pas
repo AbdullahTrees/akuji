@@ -57,8 +57,7 @@ unit TextRender;
 interface
 
 uses
-  { Graphics for TColor, which is how the game says what colour it means. }
-  Classes, SysUtils, Graphics, SDL2;
+  Classes, SysUtils, GameColors, SDL2;
 
 { Where assets/fonts lives. Called once the data directory is known; until it
   is, text renders nothing rather than guessing at a path. }

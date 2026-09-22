@@ -14,7 +14,7 @@ uses
   Stages, Camera, TileMaps, Player, EntityHandlers, EntityMonsters, EntityEffects, EntityProjectiles, EntityTerrain, EntityPickups, EventRunner, GameSession,
   SpritePool, Sprites, Dialogue, BgAnime, UnitInit, Title, Ending, Opening,
   GameFont, DDDDComponent, Surfaces,
-  Graphics, Types, SDL2, RenderTarget, SDLTarget;
+  GameColors, Types, SDL2, RenderTarget, SDLTarget;
 
 function EmuDiff(Log: TStringList): Integer;
 function SelfTestMapProbe(Log: TStringList): Integer;
