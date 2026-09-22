@@ -816,7 +816,7 @@ begin
     FFont.TextOut(DDDD1.Target, RESULT_VALUE_X, RESULT_MANA_Y,
                   EndingPercentText(PlayerState.Counter), RESULT_VALUE_VARIANT);
   end;
-  if (RevealedLines > 4) and (FSurfaces[GALLERY_SURFACE] <> nil) then
+  if (RevealedLines > 4) and (FSurfaces.Images[GALLERY_SURFACE] <> nil) then
     for GalleryIndex := 0 to GALLERY_COUNT - 1 do
     begin
       { A locked entry is the one dark cell; an unlocked one is its own. }
@@ -824,13 +824,14 @@ begin
         SourceX := GALLERY_DARK_X
       else
         SourceX := (GalleryIndex + GALLERY_LIT_COL0) * GALLERY_CELL;
-      DDDD1.Canvas.CopyRect(
-        Rect(GalleryIndex * GALLERY_STEP + GALLERY_X0, GALLERY_Y,
-             GalleryIndex * GALLERY_STEP + GALLERY_X0 + GALLERY_CELL,
-             GALLERY_Y + (GALLERY_SRC_BOTTOM - GALLERY_SRC_TOP)),
-        FSurfaces[GALLERY_SURFACE].Canvas,
+      { Keyed: Ending_Update draws both cells with DDBLTFAST_SRCCOLORKEY -
+        see notes/divergences.md, DIV-002. This was the last drawing left in
+        the game that went straight to a canvas rather than through the
+        render target. }
+      DDDD1.Target.BlitRectKeyed(FSurfaces.Images[GALLERY_SURFACE],
         Rect(SourceX, GALLERY_SRC_TOP, SourceX + GALLERY_CELL,
-             GALLERY_SRC_BOTTOM));
+             GALLERY_SRC_BOTTOM),
+        GalleryIndex * GALLERY_STEP + GALLERY_X0, GALLERY_Y);
     end;
   if RevealedLines > 5 then
     { The rank flickers - its variant is the frame timer mod 3. }
