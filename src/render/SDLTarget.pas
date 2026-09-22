@@ -19,10 +19,11 @@
 
   WHAT HAS TO MATCH
 
-  This target has to draw the same pixels as TLCLRenderTarget, not merely
-  similar ones, because the pinned scenes in --selftest-render were recorded
-  from the LCL one. The test runs every scene through both and compares. Two
-  places needed care to make that true:
+  This draws the same pixels as the LCL renderer it replaced, not merely
+  similar ones: the scenes pinned in --selftest-render were recorded from that
+  one and still hold. While both existed the test ran every scene through both
+  and required 0 pixels of 76800 to differ; what is left of that proof is the
+  checksums. Two places needed care to make it true:
 
     * the colour key is a property of the SOURCE SURFACE in SDL, not of the
       blit, so TRenderImage.SDLSurface takes the blit's intent and sets the
@@ -59,6 +60,12 @@ uses
   sixty times a second. Src must be 32-bit. }
 procedure SurfaceToBitmap(Src: PSDL_Surface; Dst: TBitmap;
                           Img: TLazIntfImage);
+
+{ One pixel of a 32-bit surface, as the TColor the game would have named.
+
+  For checking what was drawn - the self-tests read scenes back this way.
+  Nothing in the game reads its own back buffer. Out-of-range is black. }
+function SurfacePixel(Src: PSDL_Surface; X, Y: Integer): TColor;
 
 type
   TSDLRenderTarget = class(TRenderTarget)
@@ -114,6 +121,19 @@ begin
   Raw.DataSize := PtrUInt(Src^.pitch) * PtrUInt(Src^.h);
   Img.SetRawImage(Raw, False);
   Dst.LoadFromIntfImage(Img);
+end;
+
+function SurfacePixel(Src: PSDL_Surface; X, Y: Integer): TColor;
+var
+  P: LongWord;
+begin
+  Result := 0;
+  if (Src = nil) or (X < 0) or (Y < 0) or (X >= Src^.w) or (Y >= Src^.h) then
+    Exit;
+  P := PLongWord(PByte(Src^.pixels) + Y * Src^.pitch + X * 4)^;
+  { ARGB8888 to the $00BBGGRR a TColor is. }
+  Result := TColor(((P and $FF) shl 16) or (P and $0000FF00)
+                   or ((P shr 16) and $FF));
 end;
 
 constructor TSDLRenderTarget.Create(ASurface: PSDL_Surface);

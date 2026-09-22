@@ -14,7 +14,7 @@ uses
   Stages, Camera, TileMaps, Player, EntityHandlers, EntityMonsters, EntityEffects, EntityProjectiles, EntityTerrain, EntityPickups, EventRunner, GameSession,
   SpritePool, Sprites, Dialogue, BgAnime, UnitInit, Title, Ending, Opening,
   GameFont, DDDDComponent, Surfaces,
-  Graphics, RenderTarget;
+  Graphics, SDL2, RenderTarget, SDLTarget;
 
 function SelfTestSession(Log: TStrings): Integer;
 
@@ -814,8 +814,8 @@ function TestSpriteOrder(Log: TStrings): Integer;
 var
   Bad, I: Integer;
   Pool: TSpritePool;
-  Dest, Pic: TBitmap;
-  DestTarget: TLCLRenderTarget;
+  Dest, Pic: PSDL_Surface;
+  DestTarget: TSDLRenderTarget;
   PicImage: TRenderImage;
   Title: TTitleScreen;
   Sign, Door, Player, Dead, Hidden, Other: Integer;
@@ -903,39 +903,44 @@ begin
       gallery, so choosing an image loaded the bitmap and showed whatever was
       already there. Painted into a real canvas and read back, because the
       defect was a missing branch - nothing short of the pixel proves it. }
-    Dest := TBitmap.Create;
-    Pic := TBitmap.Create;
+    Dest := SDL_CreateRGBSurface(0, 64, 64, 32,
+                                 $00FF0000, $0000FF00, $000000FF, 0);
+    Pic := SDL_CreateRGBSurface(0, 64, 64, 32,
+                                $00FF0000, $0000FF00, $000000FF, 0);
     Title := TTitleScreen.Create;
+    DestTarget := nil;
+    PicImage := nil;
     try
-      Dest.SetSize(64, 64);
-      Dest.Canvas.Brush.Color := clBlack;
-      Dest.Canvas.FillRect(0, 0, 64, 64);
-      Pic.SetSize(64, 64);
-      Pic.Canvas.Brush.Color := clRed;
-      Pic.Canvas.FillRect(0, 0, 64, 64);
-      DestTarget := TLCLRenderTarget.Create(Dest.Canvas, 64, 64);
+      if (Dest = nil) or (Pic = nil) then
+      begin
+        Want(False, 'no SDL surface to draw the gallery check into');
+        Exit(Bad);
+      end;
+      SDL_FillRect(Pic, nil, SDL_MapRGB(Pic^.format, 255, 0, 0));
+      DestTarget := TSDLRenderTarget.Create(Dest);
+      { The image takes the surface over, so Pic must not be freed below. }
       PicImage := TRenderImage.Create(Pic);
 
+      SDL_FillRect(Dest, nil, SDL_MapRGB(Dest^.format, 0, 0, 0));
       TitleSubMode := TSM_OMAKE;
       Title.Draw(DestTarget, nil, nil, nil, PicImage);
-      Want(Dest.Canvas.Pixels[8, 8] = clRed,
+      Want(SurfacePixel(Dest, 8, 8) = clRed,
            'the gallery sub-mode drew nothing - Draw has no TSM_OMAKE arm, so '
            + 'the picture is loaded and never blitted');
 
       { and it must not paint the gallery over the ordinary menu }
-      Dest.Canvas.Brush.Color := clBlack;
-      Dest.Canvas.FillRect(0, 0, 64, 64);
+      SDL_FillRect(Dest, nil, SDL_MapRGB(Dest^.format, 0, 0, 0));
       TitleSubMode := TSM_MENU;
       Title.Draw(DestTarget, nil, nil, nil, PicImage);
-      Want(Dest.Canvas.Pixels[8, 8] <> clRed,
+      Want(SurfacePixel(Dest, 8, 8) <> clRed,
            'the gallery picture was drawn while in the ordinary menu');
       TitleSubMode := TSM_MENU;
     finally
       Title.Free;
       PicImage.Free;
       DestTarget.Free;
-      Pic.Free;
-      Dest.Free;
+      if Dest <> nil then
+        SDL_FreeSurface(Dest);
     end;
   finally
     Pool.Free;

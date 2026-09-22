@@ -56,6 +56,9 @@ type
     function IndexOf(const AName: string): Integer;
 
     { Caller owns the returned bitmap. }
+    { Decoded by the LCL. Nothing in the game reads a picture this way any
+      more - it is what --selftest-render compares SDL's decoder against, and
+      it goes when the LCL does. }
     function LoadBitmap(Index: Integer): TBitmap;
     function LoadBitmapByName(const AName: string): TBitmap;
 
@@ -216,13 +219,8 @@ begin
 end;
 
 function TQdaArchive.LoadImageByName(const AName: string): TRenderImage;
-var
-  Bmp: TBitmap;
 begin
-  Bmp := LoadBitmapByName(AName);
-  if Bmp = nil then
-    Exit(nil);
-  Result := TRenderImage.Create(Bmp, True);
+  Result := TRenderImage.Create(LoadSurfaceByName(AName));
 end;
 
 function TQdaArchive.LoadBitmapByName(const AName: string): TBitmap;

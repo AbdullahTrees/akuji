@@ -57,16 +57,29 @@ type
 type
   TPixels = array of LongWord;
 
-{ Every pixel, in order. Read once per scene rather than per comparison,
-  because Canvas.Pixels is a round trip into the widgetset each time. }
-procedure ReadSurface(Bmp: TBitmap; out Buf: TPixels);
+{ Every pixel, in order, as the $00BBGGRR a TColor is - which is the form the
+  baselines were recorded in, back when the renderer was the LCL's. }
+procedure ReadSurface(Src: PSDL_Surface; out Buf: TPixels);
 var
   X, Y: Integer;
+  Row: PByte;
+  Pix: PLongWord;
 begin
-  SetLength(Buf, Bmp.Width * Bmp.Height);
-  for Y := 0 to Bmp.Height - 1 do
-    for X := 0 to Bmp.Width - 1 do
-      Buf[Y * Bmp.Width + X] := LongWord(Bmp.Canvas.Pixels[X, Y]);
+  SetLength(Buf, 0);
+  if Src = nil then
+    Exit;
+  SetLength(Buf, Src^.w * Src^.h);
+  for Y := 0 to Src^.h - 1 do
+  begin
+    Row := PByte(Src^.pixels) + Y * Src^.pitch;
+    Pix := PLongWord(Row);
+    for X := 0 to Src^.w - 1 do
+    begin
+      Buf[Y * Src^.w + X] := ((Pix^ and $FF) shl 16) or (Pix^ and $0000FF00)
+                             or ((Pix^ shr 16) and $FF);
+      Inc(Pix);
+    end;
+  end;
 end;
 
 { Order-sensitive fold, with the position mixed in.
@@ -118,21 +131,18 @@ const
     rather than blitted from a sheet, so it is the one scene an SDL target
     reproduces with a different rasteriser entirely. }
   BASELINE_OUTLINED = $47FFC7E9;
-  { SCALING, which is the one primitive where the two targets disagree, so it
-    is pinned once per target rather than compared between them.
+  { SCALING. Pinned on its own because it is the one primitive the LCL
+    renderer and this one did NOT agree on. Both drop pixels rather than
+    filtering, and both land on the same sampling grid - no shift fitted
+    better than none - but they round the boundaries differently, so which
+    source row gets duplicated moves. Over a 240x180 destination that was
+    1278 pixels of 43200, and the two were indistinguishable to look at.
 
-    GDI's StretchBlt and SDL's BlitScaled both drop pixels rather than
-    filtering, but they do not choose the same ones: over an 80x60 corner
-    they picked differently 84 times. Neither is more faithful than the
-    other, because the original did not scale at blit time at all - DelphiX
-    loaded the ending pictures INTO a surface of the final size, and
-    Ending_Update then blits them 1:1. The scaling here is this
-    reconstruction's own, and the ending slides are the only place it runs.
-
-    Two pins rather than one, so that both are held while both targets exist
-    and the LCL one can be deleted with the target it describes. }
-  BASELINE_STRETCH_LCL = $5C111297;
-  BASELINE_STRETCH_SDL = $72D38A09;
+    Neither was more faithful. The original did not scale at blit time at
+    all: DelphiX loaded the ending pictures INTO a surface of the final size
+    and Ending_Update blits them 1:1. The scaling is this reconstruction's
+    own, and the ending slides are the only place it runs. }
+  BASELINE_STRETCH = $72D38A09;
 
 { Compare one measured checksum against its pinned value. A zero pin means
   the thing has not been pinned yet: it reports what it measured and does not
@@ -164,32 +174,30 @@ var
   Map: TTileMap;
   Font: TGameFont;
   Stages: TStageTable;
-  Bmp: TBitmap;
+  Screen: PSDL_Surface;
+  MapTarget: TSDLRenderTarget;
   Scenes: array[0..4] of TScene;
   Expected: array[0..4] of LongWord;
   Prev, Cur: TPixels;
-  I, Tileset, MapId, TargetDiff, PromptW, PromptNeed: Integer;
-  DirectBmp, TargetBmp, Glyph: TBitmap;
-  Target, MapTarget: TLCLRenderTarget;
-  SheetImage, GlyphImage: TRenderImage;
-  KeyBmp: TBitmap;
-  KeyTarget: TLCLRenderTarget;
+  I, Tileset, MapId, PromptW, PromptNeed: Integer;
+  KeySurf: PSDL_Surface;
+  KeyTarget: TSDLRenderTarget;
   KeyRef: TPixels;
   KeyKept, KeyDiff, KeyStep: Integer;
-  SdlSurf, StretchSurf, PresentSurf, DecSurf, DecConv: PSDL_Surface;
+  StretchSurf, PresentSurf, DecSurf, DecConv: PSDL_Surface;
   DecBmp: TBitmap;
   DecBad, DecChecked, DecEntry: Integer;
   PresentBmp: TBitmap;
   PresentImg: TLazIntfImage;
   PresentBad: Integer;
   SdlTarget: TSDLRenderTarget;
-  SdlDiff, PX, PY, DiffL, DiffT, DiffR, DiffB: Integer;
+  PX, PY: Integer;
   SdlRow: PByte;
   SdlPix: PLongWord;
 
   procedure Snap(Index: Integer; const AName: string);
   begin
-    ReadSurface(Bmp, Cur);
+    ReadSurface(Screen, Cur);
     Scenes[Index].Name := AName;
     Scenes[Index].Sum := Checksum(Cur);
     if Length(Prev) = Length(Cur) then
@@ -256,16 +264,20 @@ var
   procedure KeyedSprite(Index, X, Y: Integer);
   var
     Frame: TSpriteFrame;
-    Sheet: TBitmap;
+    Sheet: TRenderImage;
+    Pixels: PSDL_Surface;
     SX, SY, DX, DY: Integer;
     C: TColor;
   begin
     Frame := Sprite[Index];
     if Frame.Surface < 0 then
       Exit;
-    Sheet := Surf[Frame.Surface];
+    Sheet := Surf.Images[Frame.Surface];
     if Sheet = nil then
       Exit;
+    { The sheet's own pixels, read rather than blitted - which is what makes
+      this a reference and not a second copy of the renderer. }
+    Pixels := Sheet.SDLSurface(False);
 
     for SY := Frame.Src.Top to Frame.Src.Bottom - 1 do
       for SX := Frame.Src.Left to Frame.Src.Right - 1 do
@@ -277,7 +289,7 @@ var
         DY := Y + (SY - Frame.Src.Top);
         if (DX < 0) or (DY < 0) or (DX >= SCREEN_W) or (DY >= SCREEN_H) then
           Continue;
-        C := Sheet.Canvas.Pixels[SX, SY];
+        C := SurfacePixel(Pixels, SX, SY);
         if ColorToRGB(C) = ColorToRGB(IMAGE_KEY_COLOR) then
           { The background: whatever is already there stays. }
           Inc(KeyKept)
@@ -285,7 +297,7 @@ var
           KeyRef[DY * SCREEN_W + DX] := LongWord(C);
       end;
 
-    KeyTarget.BlitRectKeyed(Surf.Images[Frame.Surface], Frame.Src, X, Y);
+    KeyTarget.BlitRectKeyed(Sheet, Frame.Src, X, Y);
   end;
 
 begin
@@ -306,7 +318,8 @@ begin
   Sprite := TSpriteSet.Create;
   Map := TTileMap.Create;
   Stages := TStageTable.Create;
-  Bmp := TBitmap.Create;
+  Screen := SDL_CreateRGBSurface(0, SCREEN_W, SCREEN_H, 32,
+                                 $00FF0000, $0000FF00, $000000FF, 0);
   Font := nil;
   MapTarget := nil;
   try
@@ -329,16 +342,17 @@ begin
       Exit(1);
     end;
 
-    Bmp.SetSize(SCREEN_W, SCREEN_H);
-    MapTarget := TLCLRenderTarget.Create(Bmp.Canvas, SCREEN_W, SCREEN_H);
+    if Screen = nil then
+    begin
+      Log.Add('FAILED: no SDL surface to draw the scenes into: ' + SDL_GetError);
+      Exit(1);
+    end;
+    MapTarget := TSDLRenderTarget.Create(Screen);
     if Surf.Images[0] <> nil then
       Font := TGameFont.Create(Surf.Images[0])
     else
       Log.Add('note: surface 0 is nil, so the text scene is only the sprites');
 
-    { The scenes, through the LCL target. DrawScenes is what the SDL target
-      is handed further down, so both are driven by one description of what
-      the picture is. }
     DrawScenes(MapTarget, True);
 
     { The vendored font has to be in the clone. Nothing reads it yet - the LCL
@@ -402,91 +416,8 @@ begin
       different size". }
     if ParamCount >= 3 then
     begin
-      Bmp.SaveToFile(ParamStr(3));
+      SDL_SaveBMP(Screen, PAnsiChar(AnsiString(ParamStr(3))));
       Log.Add('wrote ' + ParamStr(3));
-    end;
-
-    { THE RENDER TARGET DRAWS THE SAME PIXELS AS THE CANVAS IT REPLACES.
-
-      Job B moves every drawing routine off TCanvas and onto TRenderTarget.
-      That is only safe if the target's three primitives are exactly the calls
-      they stand in for, so both sequences are run here and the results have to
-      be identical - not close, identical.
-
-      The primitives are checked against the call each one replaces:
-
-        Fill       <- Brush.Color := c; FillRect(r)
-        BlitRect   <- CopyRect(dest, src.Canvas, srcRect)
-        DrawImage  <- Draw(x, y, bitmap)   and so honours its transparency
-
-      A glyph is used for DrawImage because it is the only image in the game
-      that carries transparency, which is the part most easily got wrong. }
-    DirectBmp := TBitmap.Create;
-    TargetBmp := TBitmap.Create;
-    Glyph := TBitmap.Create;
-    Target := nil;
-    SheetImage := nil;
-    GlyphImage := nil;
-    try
-      DirectBmp.SetSize(SCREEN_W, SCREEN_H);
-      TargetBmp.SetSize(SCREEN_W, SCREEN_H);
-
-      { A transparent image, cut the way the font cuts a glyph. }
-      Glyph.SetSize(32, 32);
-      if Surf[0] <> nil then
-        Glyph.Canvas.CopyRect(Rect(0, 0, 32, 32), Surf[0].Canvas,
-                              Rect(0, 0, 32, 32));
-      Glyph.TransparentColor := clBlack;
-      Glyph.Transparent := True;
-
-      { --- the canvas calls, made directly --- }
-      DirectBmp.Canvas.Brush.Color := clNavy;
-      DirectBmp.Canvas.FillRect(Rect(0, 0, SCREEN_W, SCREEN_H));
-      DirectBmp.Canvas.Brush.Color := clMaroon;
-      DirectBmp.Canvas.FillRect(Rect(20, 20, 140, 90));
-      if Surf[Tileset] <> nil then
-        DirectBmp.Canvas.CopyRect(Rect(64, 100, 64 + 48, 100 + 48),
-                                  Surf[Tileset].Canvas, Rect(0, 0, 48, 48));
-      DirectBmp.Canvas.Draw(160, 120, Glyph);
-
-      { --- the same, through the target --- }
-      Target := TLCLRenderTarget.Create(TargetBmp.Canvas, SCREEN_W, SCREEN_H);
-      GlyphImage := TRenderImage.Create(Glyph);
-      Target.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clNavy);
-      Target.Fill(Rect(20, 20, 140, 90), clMaroon);
-      if Surf[Tileset] <> nil then
-      begin
-        SheetImage := TRenderImage.Create(Surf[Tileset]);
-        Target.BlitRect(SheetImage, Rect(0, 0, 48, 48), 64, 100);
-      end;
-      Target.DrawImage(GlyphImage, 160, 120);
-
-      ReadSurface(DirectBmp, Prev);
-      ReadSurface(TargetBmp, Cur);
-      TargetDiff := CountChanged(Prev, Cur);
-      Log.Add('');
-      Log.Add(Format('render target vs raw canvas: %d pixels differ of %d',
-        [TargetDiff, Length(Prev)]));
-      if TargetDiff <> 0 then
-      begin
-        Log.Add('FAILED: TLCLRenderTarget does not reproduce the canvas calls '
-          + 'it replaces');
-        Inc(Result);
-      end;
-      { And it has to have drawn something, or two blank surfaces would agree. }
-      if Checksum(Cur) = Checksum(Prev) then
-        if Prev[0] = 0 then
-        begin
-          Log.Add('FAILED: neither sequence drew anything');
-          Inc(Result);
-        end;
-    finally
-      SheetImage.Free;
-      GlyphImage.Free;
-      Target.Free;
-      Glyph.Free;
-      TargetBmp.Free;
-      DirectBmp.Free;
     end;
 
     { A KEYED BLIT PUTS THE SPRITE DOWN AND LEAVES THE SHEET BEHIND.
@@ -505,11 +436,17 @@ begin
       overlap each other, and two of them hang off the edge of the screen
       where the blit has to clip. Three frames of one character would all
       have looked alike and told us nothing. }
-    KeyBmp := TBitmap.Create;
+    KeySurf := SDL_CreateRGBSurface(0, SCREEN_W, SCREEN_H, 32,
+                                    $00FF0000, $0000FF00, $000000FF, 0);
     KeyTarget := nil;
     try
-      KeyBmp.SetSize(SCREEN_W, SCREEN_H);
-      KeyTarget := TLCLRenderTarget.Create(KeyBmp.Canvas, SCREEN_W, SCREEN_H);
+      if KeySurf = nil then
+      begin
+        Log.Add('FAILED: no SDL surface for the keyed blit check');
+        Inc(Result);
+        Exit(Result);
+      end;
+      KeyTarget := TSDLRenderTarget.Create(KeySurf);
 
       { Two backgrounds, neither of them black. A sprite that arrives opaque
         paints its own black over whichever it lands on, and a mask that is
@@ -519,8 +456,8 @@ begin
 
       { The reference starts as whatever is actually on the surface rather
         than as the colours just asked for, so the comparison is not also a
-        test of how TColor round-trips through a bitmap. }
-      ReadSurface(KeyBmp, KeyRef);
+        test of how a TColor round-trips. }
+      ReadSurface(KeySurf, KeyRef);
       KeyKept := 0;
 
       if Sprite.Count > 0 then
@@ -540,7 +477,7 @@ begin
                     SCREEN_H - 11);
       end;
 
-      ReadSurface(KeyBmp, Cur);
+      ReadSurface(KeySurf, Cur);
       KeyDiff := CountChanged(KeyRef, Cur);
       Log.Add('');
       Log.Add(Format('keyed blit: %d pixels differ from a software colour '
@@ -561,86 +498,8 @@ begin
       end;
     finally
       KeyTarget.Free;
-      KeyBmp.Free;
-    end;
-
-    { THE SDL TARGET DRAWS THE SAME PIXELS AS THE LCL ONE.
-
-      This is what makes the renderer replaceable rather than merely
-      replaced. Both targets are handed the SAME scenes, by the same routine,
-      and the result has to be identical - not close, identical - because the
-      checksums below were recorded from the LCL one and the game is supposed
-      to look no different when the drawing underneath changes.
-
-      It also covers the two places where SDL and the LCL express the same
-      idea differently, and where a mistake is silent: the colour key, which
-      SDL keeps on the source surface rather than in the blit, and blend
-      mode, which has to be off for the sheets and on for the outlined text. }
-    SdlSurf := SDL_CreateRGBSurface(0, SCREEN_W, SCREEN_H, 32,
-                                    $00FF0000, $0000FF00, $000000FF, 0);
-    if SdlSurf = nil then
-    begin
-      Log.Add('FAILED: no SDL surface to draw into: ' + SDL_GetError);
-      Inc(Result);
-    end
-    else
-    begin
-      SdlTarget := TSDLRenderTarget.Create(SdlSurf);
-      try
-        DrawScenes(SdlTarget, False);
-      finally
-        SdlTarget.Free;
-      end;
-
-      { Bmp still holds what the LCL target drew, the stretched corner
-        included - nothing since has touched it. }
-      ReadSurface(Bmp, Prev);
-      SetLength(Cur, SCREEN_W * SCREEN_H);
-      for PY := 0 to SCREEN_H - 1 do
-      begin
-        SdlRow := PByte(SdlSurf^.pixels) + PY * SdlSurf^.pitch;
-        SdlPix := PLongWord(SdlRow);
-        for PX := 0 to SCREEN_W - 1 do
-        begin
-          { ARGB8888 to the $00BBGGRR that Canvas.Pixels reports. }
-          Cur[PY * SCREEN_W + PX] := ((SdlPix^ and $FF) shl 16)
-                                     or (SdlPix^ and $0000FF00)
-                                     or ((SdlPix^ shr 16) and $FF);
-          Inc(SdlPix);
-        end;
-      end;
-      SDL_FreeSurface(SdlSurf);
-
-      SdlDiff := CountChanged(Prev, Cur);
-      Log.Add('');
-      Log.Add(Format('SDL target vs LCL target: %d pixels differ of %d',
-        [SdlDiff, Length(Prev)]));
-      if SdlDiff <> 0 then
-      begin
-        { Where, not just how many. A count says the two disagree; the region
-          says which primitive to look at. }
-        DiffL := SCREEN_W; DiffT := SCREEN_H; DiffR := -1; DiffB := -1;
-        for PY := 0 to SCREEN_H - 1 do
-          for PX := 0 to SCREEN_W - 1 do
-            if Prev[PY * SCREEN_W + PX] <> Cur[PY * SCREEN_W + PX] then
-            begin
-              if PX < DiffL then DiffL := PX;
-              if PX > DiffR then DiffR := PX;
-              if PY < DiffT then DiffT := PY;
-              if PY > DiffB then DiffB := PY;
-            end;
-        for PY := 0 to SCREEN_H * SCREEN_W - 1 do
-          if Prev[PY] <> Cur[PY] then
-          begin
-            Log.Add(Format('  they differ inside (%d,%d)-(%d,%d); the first '
-              + 'is at (%d,%d), LCL %.6x SDL %.6x',
-              [DiffL, DiffT, DiffR, DiffB, PY mod SCREEN_W, PY div SCREEN_W,
-               Prev[PY], Cur[PY]]));
-            Break;
-          end;
-        Log.Add('FAILED: the SDL target does not draw what the LCL one does');
-        Inc(Result);
-      end;
+      if KeySurf <> nil then
+        SDL_FreeSurface(KeySurf);
     end;
 
     { THE TWO BMP DECODERS HAVE TO AGREE.
@@ -833,17 +692,12 @@ begin
           Inc(SdlPix);
         end;
       end;
-      DrawStretched(MapTarget);
-      ReadSurface(Bmp, Prev);
+      SDL_FreeSurface(StretchSurf);
 
       Log.Add('');
-      Log.Add(Format('scaling: LCL %8.8x, SDL %8.8x, %d pixels apart',
-        [Checksum(Prev), Checksum(Cur), CountChanged(Prev, Cur)]));
-      Inc(Result, Pinned('stretch/LCL', Checksum(Prev), BASELINE_STRETCH_LCL,
-                         'BASELINE_STRETCH_LCL', Log));
-      Inc(Result, Pinned('stretch/SDL', Checksum(Cur), BASELINE_STRETCH_SDL,
-                         'BASELINE_STRETCH_SDL', Log));
-      SDL_FreeSurface(StretchSurf);
+      Log.Add(Format('scaling: %8.8x', [Checksum(Cur)]));
+      Inc(Result, Pinned('stretch', Checksum(Cur), BASELINE_STRETCH,
+                         'BASELINE_STRETCH', Log));
     end;
 
     Log.Add('scene      changed   checksum   expected');
@@ -882,7 +736,8 @@ begin
   finally
     MapTarget.Free;
     Font.Free;
-    Bmp.Free;
+    if Screen <> nil then
+      SDL_FreeSurface(Screen);
     Stages.Free;
     Map.Free;
     Sprite.Free;

@@ -34,7 +34,6 @@ const
   FONT_CELL_H     = 9;
   FONT_ADVANCE    = 8;     { one pixel less than the cell, so glyphs overlap }
   FONT_VARIANTS   = 3;
-  FONT_KEY_COLOR  = clBlack;
 
 type
   TGameFont = class

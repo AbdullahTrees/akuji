@@ -994,7 +994,7 @@ end;
 { Phase 2 of the game-over screen: surface slot 3, whole screen, no HUD. }
 procedure TFrm_main.DrawGameOver;
 begin
-  if FSurfaces[GAMEOVER_SURFACE] <> nil then
+  if FSurfaces.Images[GAMEOVER_SURFACE] <> nil then
     DDDD1.Target.DrawImage(FSurfaces.Images[GAMEOVER_SURFACE], 0, 0);
 end;
 

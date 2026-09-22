@@ -9,7 +9,7 @@ unit Surfaces;
 interface
 
 uses
-  Classes, SysUtils, Graphics, QdaArchive, RenderTarget;
+  Classes, SysUtils, QdaArchive, RenderTarget;
 
 const
   MAX_SURFACES = 32;
@@ -19,10 +19,9 @@ type
     Name: string;
     Width: Integer;
     Height: Integer;
-    Bitmap: TBitmap;
-    { The same sheet, as the renderer sees it. Built once when the set loads
-      rather than wrapped per blit, because the frame loop draws from these
-      hundreds of times a frame. }
+    { The sheet, decoded and converted once when the set loads rather than
+      per blit, because the frame loop draws from these hundreds of times a
+      frame. }
     Image: TRenderImage;
   end;
 
@@ -31,7 +30,6 @@ type
     FSlots: array[0..MAX_SURFACES - 1] of TSurfaceSlot;
     FCount: Integer;
     FArchive: TQdaArchive;
-    function GetBitmap(Index: Integer): TBitmap;
     function GetImage(Index: Integer): TRenderImage;
     function GetSlot(Index: Integer): TSurfaceSlot;
     procedure Clear;
@@ -40,13 +38,12 @@ type
     destructor Destroy; override;
 
     { Loads data\surf%.03d.dat relative to ADataDir. Returns how many slots
-      were filled. Missing bitmaps leave the slot's Bitmap nil rather than
+      were filled. A missing picture leaves the slot's Image nil rather than
       raising. }
     function LoadSet(const ADataDir: string; SetIndex: Integer): Integer;
 
     property Count: Integer read FCount;
-    property Bitmaps[Index: Integer]: TBitmap read GetBitmap; default;
-    property Images[Index: Integer]: TRenderImage read GetImage;
+    property Images[Index: Integer]: TRenderImage read GetImage; default;
     property Slots[Index: Integer]: TSurfaceSlot read GetSlot;
   end;
 
@@ -70,21 +67,12 @@ var
 begin
   for Slot := 0 to MAX_SURFACES - 1 do
   begin
-    { The image borrows the bitmap, so it goes first. }
     FreeAndNil(FSlots[Slot].Image);
-    FreeAndNil(FSlots[Slot].Bitmap);
     FSlots[Slot].Name := '';
     FSlots[Slot].Width := 0;
     FSlots[Slot].Height := 0;
   end;
   FCount := 0;
-end;
-
-function TSurfaceSet.GetBitmap(Index: Integer): TBitmap;
-begin
-  if (Index < 0) or (Index >= MAX_SURFACES) then
-    Exit(nil);
-  Result := FSlots[Index].Bitmap;
 end;
 
 function TSurfaceSet.GetImage(Index: Integer): TRenderImage;
@@ -101,7 +89,6 @@ begin
     Result.Name := '';
     Result.Width := 0;
     Result.Height := 0;
-    Result.Bitmap := nil;
     Result.Image := nil;
     Exit;
   end;
@@ -141,9 +128,8 @@ begin
       FSlots[Slot].Height := StrToIntDef(Trim(Fields[2]), 0);
 
       if (FArchive <> nil) and (FArchive.IndexOf(FSlots[Slot].Name) >= 0) then
-        FSlots[Slot].Bitmap := FArchive.LoadBitmapByName(FSlots[Slot].Name);
-      if FSlots[Slot].Bitmap <> nil then
-        FSlots[Slot].Image := TRenderImage.Create(FSlots[Slot].Bitmap);
+        FSlots[Slot].Image := TRenderImage.Create(
+          FArchive.LoadSurfaceByName(FSlots[Slot].Name));
 
       Inc(FCount);
     end;

@@ -57,6 +57,7 @@ unit TextRender;
 interface
 
 uses
+  { Graphics for TColor, which is how the game says what colour it means. }
   Classes, SysUtils, Graphics, SDL2;
 
 { Where assets/fonts lives. Called once the data directory is known; until it
@@ -67,19 +68,13 @@ procedure SetFontDirectory(const ADir: string);
 function TextRenderReady: Boolean;
 
 { The string drawn five times - four offsets in Outline, then Fill - as one
-  bitmap with a colour key. The caller draws it at (X - 1, Y - 1), because the
-  outline extends one pixel above and to the left of where the text itself
-  starts.
+  surface with an alpha channel. The caller draws it at (X - 1, Y - 1),
+  because the outline extends one pixel above and to the left of where the
+  text itself starts.
 
   Returns nil if there is no font, which is not fatal: the game simply has no
-  narration rather than failing to start. The bitmap belongs to the cache and
+  narration rather than failing to start. The surface belongs to the cache and
   must not be freed. }
-function OutlinedText(const S: string; Outline, Fill: TColor;
-                      Face: Integer): TBitmap;
-
-{ The same thing one step earlier: the composed surface, before it is turned
-  into an LCL bitmap. An SDL target blits this directly and never pays for the
-  conversion. Same cache, same lifetime - do not free it. }
 function OutlinedTextSurface(const S: string; Outline, Fill: TColor;
                              Face: Integer): PSDL_Surface;
 
@@ -91,17 +86,12 @@ procedure ShutdownTextRender;
 implementation
 
 uses
-  ctypes, SDL2_ttf, RenderTarget, IntfGraphics, FPImage, GraphType;
+  ctypes, SDL2_ttf, RenderTarget;
 
 type
-  { Both forms of the same rendered string. The surface is what SDL_ttf
-    produced and the bitmap is that surface converted for the LCL target;
-    whichever is asked for first builds, and the other is built only if
-    something asks. }
   TCacheEntry = record
     Key: string;
     Surface: PSDL_Surface;
-    Bmp: TBitmap;
   end;
 
 var
@@ -248,46 +238,6 @@ begin
   end;
 end;
 
-{ The surface as an LCL bitmap, built through TLazIntfImage because a
-  TBitmap's Canvas has no way to write an alpha channel and the alpha is the
-  whole point. Only the LCL target needs this. }
-function ToBitmap(Sheet: PSDL_Surface): TBitmap;
-var
-  Img: TLazIntfImage;
-  Col: TFPColor;
-  X, Y: Integer;
-  Pixels: PUInt32;
-  Pixel: LongWord;
-  Row: PByte;
-begin
-  Result := nil;
-  if Sheet = nil then
-    Exit;
-  Img := TLazIntfImage.Create(Sheet^.w, Sheet^.h, [riqfRGB, riqfAlpha]);
-  try
-    for Y := 0 to Sheet^.h - 1 do
-    begin
-      Row := PByte(Sheet^.pixels) + Y * Sheet^.pitch;
-      Pixels := PUInt32(Row);
-      for X := 0 to Sheet^.w - 1 do
-      begin
-        Pixel := Pixels^;
-        Inc(Pixels);
-        Col.red   := ((Pixel shr 16) and $FF) * 257;
-        Col.green := ((Pixel shr 8)  and $FF) * 257;
-        Col.blue  := ( Pixel         and $FF) * 257;
-        Col.alpha := ((Pixel shr 24) and $FF) * 257;
-        Img.Colors[X, Y] := Col;
-      end;
-    end;
-    Result := TBitmap.Create;
-    Result.PixelFormat := pf32bit;
-    Result.LoadFromIntfImage(Img);
-  finally
-    Img.Free;
-  end;
-end;
-
 { The cache slot for this string, composing it if this is the first ask.
   -1 if there is no font or nothing to draw. }
 function Slot(const S: string; Outline, Fill: TColor; Face: Integer): Integer;
@@ -308,7 +258,6 @@ begin
   Result := High(Cache);
   Cache[Result].Key := Key;
   Cache[Result].Surface := Sheet;
-  Cache[Result].Bmp := nil;
 end;
 
 function OutlinedTextSurface(const S: string; Outline, Fill: TColor;
@@ -322,29 +271,13 @@ begin
   Result := Cache[I].Surface;
 end;
 
-function OutlinedText(const S: string; Outline, Fill: TColor;
-                      Face: Integer): TBitmap;
-var
-  I: Integer;
-begin
-  I := Slot(S, Outline, Fill, Face);
-  if I < 0 then
-    Exit(nil);
-  if Cache[I].Bmp = nil then
-    Cache[I].Bmp := ToBitmap(Cache[I].Surface);
-  Result := Cache[I].Bmp;
-end;
-
 procedure ShutdownTextRender;
 var
   I: Integer;
 begin
   for I := 0 to High(Cache) do
-  begin
-    Cache[I].Bmp.Free;
     if Cache[I].Surface <> nil then
       SDL_FreeSurface(Cache[I].Surface);
-  end;
   SetLength(Cache, 0);
   if Font <> nil then
   begin

@@ -14,7 +14,7 @@ uses
   Stages, Camera, TileMaps, Player, EntityHandlers, EntityMonsters, EntityEffects, EntityProjectiles, EntityTerrain, EntityPickups, EventRunner, GameSession,
   SpritePool, Sprites, Dialogue, BgAnime, UnitInit, Title, Ending, Opening,
   GameFont, DDDDComponent, Surfaces,
-  Graphics, RenderTarget;
+  Graphics, Types, SDL2, RenderTarget, SDLTarget;
 
 function EmuDiff(Log: TStringList): Integer;
 function SelfTestMapProbe(Log: TStringList): Integer;
@@ -562,8 +562,8 @@ var
   Map: TTileMap;
   Arch: TQdaArchive;
   Surf: TSurfaceSet;
-  Bmp: TBitmap;
-  MapTarget: TLCLRenderTarget;
+  Screen: PSDL_Surface;
+  MapTarget: TSDLRenderTarget;
   L: TLayerInfo;
   MapId, Tileset, Terrain, Stage, Painted, PX, PY: Integer;
 begin
@@ -614,23 +614,28 @@ begin
     { --- and now actually DRAW it, which is where black comes from ------- }
     Arch := TQdaArchive.Create(GameDir + 'bmp.qda');
     Surf := TSurfaceSet.Create(Arch);
-    Bmp := TBitmap.Create;
+    Screen := SDL_CreateRGBSurface(0, SCREEN_W, SCREEN_H, 32,
+                                   $00FF0000, $0000FF00, $000000FF, 0);
+    MapTarget := nil;
     try
+      if Screen = nil then
+      begin
+        Log.Add('FAILED: no SDL surface to draw the map into');
+        Exit(1);
+      end;
       Surf.LoadSet(GameDir, Stages.SurfaceSet[Stage]);
       Log.Add(Format('surface set %d loaded; slot %d is %s',
         [Stages.SurfaceSet[Stage], Tileset,
-         BoolToStr(Surf[Tileset] <> nil, 'present', 'NIL')]));
+         BoolToStr(Surf.Images[Tileset] <> nil, 'present', 'NIL')]));
 
-      Bmp.SetSize(SCREEN_W, SCREEN_H);
-      MapTarget := TLCLRenderTarget.Create(Bmp.Canvas, SCREEN_W, SCREEN_H);
-      Bmp.Canvas.Brush.Color := clBlack;
-      Bmp.Canvas.FillRect(0, 0, SCREEN_W, SCREEN_H);
+      MapTarget := TSDLRenderTarget.Create(Screen);
+      MapTarget.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
       Map.Draw(MapTarget, Surf, Tileset, 0, 0, SCREEN_W, SCREEN_H);
 
       Painted := 0;
       for PY := 0 to SCREEN_H - 1 do
         for PX := 0 to SCREEN_W - 1 do
-          if Bmp.Canvas.Pixels[PX, PY] <> clBlack then
+          if SurfacePixel(Screen, PX, PY) <> clBlack then
             Inc(Painted);
       Log.Add(Format('pixels painted at origin 0,0: %d of %d',
         [Painted, SCREEN_W * SCREEN_H]));
@@ -647,13 +652,13 @@ begin
       { AND at the camera a NEW GAME actually starts with. Stage_Begin sets
         the origin straight from PlayerState.ScrollX/ScrollY and nothing
         clamps it, so this is the view the player really gets. }
-      Bmp.Canvas.FillRect(0, 0, SCREEN_W, SCREEN_H);
+      MapTarget.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
       Map.Draw(MapTarget, Surf, Tileset, 0, DEFAULT_SCROLL_Y,
                SCREEN_W, SCREEN_H);
       Painted := 0;
       for PY := 0 to SCREEN_H - 1 do
         for PX := 0 to SCREEN_W - 1 do
-          if Bmp.Canvas.Pixels[PX, PY] <> clBlack then
+          if SurfacePixel(Screen, PX, PY) <> clBlack then
             Inc(Painted);
       Log.Add(Format('pixels painted at the NEW GAME camera (0,%d): %d',
         [DEFAULT_SCROLL_Y, Painted]));
@@ -663,13 +668,13 @@ begin
         Exit(1);
       end;
 
-      Bmp.Canvas.FillRect(0, 0, SCREEN_W, SCREEN_H);
+      MapTarget.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
       Map.Draw(MapTarget, Surf, Tileset,
                Camera.MaxScrollX(L), Camera.MaxScrollY(L), SCREEN_W, SCREEN_H);
       Painted := 0;
       for PY := 0 to SCREEN_H - 1 do
         for PX := 0 to SCREEN_W - 1 do
-          if Bmp.Canvas.Pixels[PX, PY] <> clBlack then
+          if SurfacePixel(Screen, PX, PY) <> clBlack then
             Inc(Painted);
       Log.Add(Format('pixels painted at the clamped corner: %d', [Painted]));
 
@@ -677,13 +682,13 @@ begin
         modulo the map's pixel size - so one whole map height down must show
         the top of the map again, not blackness. This is the regression test
         for the clamp-versus-wrap bug. }
-      Bmp.Canvas.FillRect(0, 0, SCREEN_W, SCREEN_H);
+      MapTarget.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
       Map.Draw(MapTarget, Surf, Tileset,
                0, Map.MapHeight * Map.TileHeight, SCREEN_W, SCREEN_H);
       Painted := 0;
       for PY := 0 to SCREEN_H - 1 do
         for PX := 0 to SCREEN_W - 1 do
-          if Bmp.Canvas.Pixels[PX, PY] <> clBlack then
+          if SurfacePixel(Screen, PX, PY) <> clBlack then
             Inc(Painted);
       Log.Add(Format('pixels painted one map-height down (must wrap): %d',
         [Painted]));
@@ -699,7 +704,8 @@ begin
       end;
     finally
       MapTarget.Free;
-      Bmp.Free;
+      if Screen <> nil then
+        SDL_FreeSurface(Screen);
       Surf.Free;
       Arch.Free;
     end;

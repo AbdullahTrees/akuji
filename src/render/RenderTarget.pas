@@ -2,38 +2,30 @@
 
   WHY THIS EXISTS
 
-  Every routine that draws takes a `Dest: TCanvas` and reads from a `TBitmap`.
-  Both are LCL types, so the renderer cannot be changed without touching all
-  twelve units that draw. This puts one seam between the game and whatever is
-  underneath it: the game asks for a rectangle to be filled or an image to be
-  blitted, and the target decides how.
+  Every routine that drew used to take a `Dest: TCanvas` and read from a
+  `TBitmap`, both LCL types, so the renderer could not be changed without
+  touching all twelve units that draw. This is the one seam between the game
+  and whatever is underneath it: the game asks for a rectangle to be filled or
+  an image to be blitted, and the target decides how.
 
-  Nothing uses it yet. It arrives on its own, with a test that it produces the
-  same pixels as the canvas calls it replaces, so that the units that move onto
-  it afterwards are each a small change against a tree that already works.
+  The only target now is SDLTarget's, which draws with SDL surface blits. The
+  LCL one it replaced is in the history, along with the test that ran both
+  over the same scenes and required the pixels to be identical; what survives
+  of that proof is the pinned checksums in --selftest-render, which were
+  recorded from the LCL renderer and still hold.
 
-  THE TWO BLITS, AND WHY THEY ARE SEPARATE
+  THE TWO RECTANGLE BLITS, AND WHY THEY ARE SEPARATE
 
-  This is not a tidy abstraction of one operation; it reproduces an asymmetry
-  the LCL has and the game depends on:
+    BlitRect        copies a source RECTANGLE, background and all
+    BlitRectKeyed   the same rectangle, with IMAGE_KEY_COLOR left behind
+    DrawImage       a WHOLE image, opaquely
+    StretchImage    a whole image scaled into a rectangle
 
-    BlitRect   copies a source RECTANGLE, background and all. TCanvas.CopyRect.
-    DrawImage  draws a WHOLE image and honours the transparency it carries.
-               TCanvas.Draw.
-
-    BlitRectKeyed
-               a source RECTANGLE, with the sheet's background treated as
-               transparent. Two raster operations rather than one call,
-               because the LCL has no such primitive - see below.
-
-  There is no single LCL call that copies a sub-rectangle and honours a colour
-  key, which is why the font cuts every glyph into its own bitmap and sprites
-  did not. BlitRectKeyed closes that gap without cutting anything: see
-  TRenderImage.KeyMask.
-
-  TRenderImage currently wraps a TBitmap and exposes it. That escape hatch is
-  what lets units move across one at a time; it is also the thing that has to
-  be gone before an SDL target can exist. }
+  The split is not tidiness. It is what the original binary distinguished:
+  TDDDD_DrawSprite passes its caller's flag word to BltFast as dwTrans, and
+  every call site in the game picks whether it wanted a colour key - sprites,
+  HUD icons and the dialogue box's icons did, the dialogue frame and the tile
+  layer did not. See notes/divergences.md, DIV-002. }
 
 unit RenderTarget;
 
@@ -42,6 +34,8 @@ unit RenderTarget;
 interface
 
 uses
+  { Graphics for TColor and the clXxx names the game uses to say what
+    colour it means. Nothing here draws with the LCL. }
   Classes, SysUtils, Graphics, Types, ctypes, SDL2;
 
 const
@@ -49,10 +43,10 @@ const
 
     Every sheet in bmp.qda paints its background pure black and the artwork
     never touches it: the darkest colour in the character sheets is (3,5,17),
-    a near-black chosen to stay clear of the key. The bitmap font already
-    keys on the same value - GameFont.FONT_KEY_COLOR - and the original set
-    this colour on its DirectDraw surfaces, which is what made its sprites
-    transparent on the machines it was written for. }
+    a near-black chosen to stay clear of the key. The bitmap font sheet is
+    painted the same way, and the original set this colour on its DirectDraw
+    surfaces, which is what made its sprites transparent on the machines it
+    was written for. }
   IMAGE_KEY_COLOR = clBlack;
 
   { The system font the opening narration is drawn in. It lives here rather
@@ -104,70 +98,31 @@ const
 
 type
   { Something that can be blitted from: a sheet, a glyph, a full-screen
-    picture. }
+    picture. One SDL surface, in one fixed format, owned by the image. }
   TRenderImage = class
   private
-    FBitmap: TBitmap;
-    FOwnsBitmap: Boolean;
-    FKeyMask: TBitmap;
-    FKeyMaskBuilt: Boolean;
-    FSDLSurface: PSDL_Surface;
-    FSDLBuilt: Boolean;
-    FSDLKeyed: Boolean;
+    FSurface: PSDL_Surface;
+    FKeyed: Boolean;
     function GetWidth: Integer;
     function GetHeight: Integer;
-    function GetKeyMask: TBitmap;
   public
-    { AOwns transfers ownership: the surface set keeps its own bitmaps, while a
-      glyph cut for one image does not outlive it. }
-    constructor Create(ABitmap: TBitmap; AOwns: Boolean = False);
+    { TAKES OWNERSHIP of the surface, and converts it to the renderer's format
+      once so that no blit has to. A surface that cannot be converted leaves
+      the image empty rather than raising: a sheet that fails to load should
+      cost its own picture and not the run. }
+    constructor Create(ASurface: PSDL_Surface);
     destructor Destroy; override;
 
-    { The LCL bitmap underneath. Present so units can move across one at a
-      time; every remaining use of it is work still to do before the renderer
-      can be anything other than the LCL. }
-    property Bitmap: TBitmap read FBitmap;
+    { The surface to blit from, with the colour key set or cleared to match
+      the blit about to happen.
 
-    { This image with every pixel reduced to one of two values: WHITE where
-      the image is IMAGE_KEY_COLOR, BLACK everywhere else. It is what makes a
-      keyed blit possible from a sub-rectangle:
+      In SDL the key belongs to the SOURCE SURFACE rather than to the blit, so
+      it has to be set beforehand - and setting it throws away SDL's cached
+      blit function, so it is only written when it actually changes. Sheets
+      really are drawn both ways: sys.bmp carries the HUD icons, which are
+      keyed, and the dialogue frame, which is not.
 
-          dest := (dest AND mask) OR source
-
-      Where the source is background the mask is white, so the destination
-      survives the AND and the OR adds black to it - nothing happens. Where
-      the source is artwork the mask is black, so the AND clears the
-      destination to zero and the OR writes the source pixel exactly. Both
-      steps take a source rectangle, which is the property a colour-keyed
-      Draw() does not have.
-
-      Built once per image, the first time it is asked for, and held for as
-      long as the image lives. That is deliberate: an earlier attempt at keyed
-      sprites shared ONE scratch bitmap between every blit and produced sprites
-      with pieces of other sprites' silhouettes cut out of them. A mask that
-      belongs to the image it describes cannot be contaminated by another
-      image, whatever the order of drawing. See notes/transparent-blit-fix.md.
-
-      nil if the image has no bitmap. }
-    property KeyMask: TBitmap read GetKeyMask;
-
-    { The same picture as an SDL surface, in one fixed format, built once on
-      first use and owned by this image.
-
-      It is here so the renderer underneath can change without the units that
-      draw knowing: an SDL target reads this, the LCL target reads the bitmap,
-      and both are the same pixels. While both targets exist an image may hold
-      both; when the LCL one goes, the bitmap goes with it and this is all
-      that is left.
-
-      Want says whether the blit about to happen is keyed. In SDL the key is a
-      property of the SOURCE SURFACE, not of the blit, so it has to be set
-      beforehand - and setting it throws away SDL's cached blit function, so
-      it is only written when it actually changes. Sheets really are drawn
-      both ways: sys.bmp carries the HUD icons, which are keyed, and the
-      dialogue frame, which is not.
-
-      nil if there is nothing to build from. }
+      nil if the image is empty. }
     function SDLSurface(Want: Boolean): PSDL_Surface;
 
     property Width: Integer read GetWidth;
@@ -196,13 +151,13 @@ type
     procedure BlitRectKeyed(Src: TRenderImage; const SrcRect: TRect;
                             X, Y: Integer); virtual; abstract;
 
-    { A whole image, honouring any transparency it carries. }
+    { A whole image, opaquely. }
     procedure DrawImage(Src: TRenderImage; X, Y: Integer); virtual; abstract;
 
     { A whole image scaled into a rectangle. The ending slides are the only
       thing the game scales, and they are the reason this exists rather than
       being folded into DrawImage: the scaling filter is a visible choice, and
-      an SDL target picks it explicitly. }
+      the target picks it explicitly. }
     procedure StretchImage(Src: TRenderImage;
                            const DestRect: TRect); virtual; abstract;
 
@@ -210,10 +165,8 @@ type
 
       The odd one out, and deliberately part of the seam rather than left to
       callers. Everything else the game draws is pixels it already owns; the
-      opening narration is the one place that asks the platform for glyphs,
-      because the bitmap font only covers $20..$5F and the narration has
-      lowercase in it. An SDL target has to answer this with SDL_ttf or with a
-      prerendered sheet - it is the one primitive with no direct equivalent. }
+      opening narration is the one place that needs a rasteriser, because the
+      bitmap font only covers $20..$5F and the narration has lowercase in it. }
     procedure DrawOutlinedText(X, Y: Integer; const S: string;
                                Outline, Fill: TColor;
                                Size: Integer); virtual; abstract;
@@ -222,178 +175,54 @@ type
     property Height: Integer read GetHeight;
   end;
 
-  { The target the game has always had: an LCL canvas. }
-  TLCLRenderTarget = class(TRenderTarget)
-  private
-    FCanvas: TCanvas;
-    FWidth: Integer;
-    FHeight: Integer;
-  protected
-    function GetWidth: Integer; override;
-    function GetHeight: Integer; override;
-  public
-    { The canvas is borrowed, not owned - it belongs to the bitmap or form
-      behind it, which outlives any target wrapped around it. }
-    constructor Create(ACanvas: TCanvas; AWidth, AHeight: Integer);
-
-    procedure Fill(const R: TRect; AColor: TColor); override;
-    procedure BlitRect(Src: TRenderImage; const SrcRect: TRect;
-                       X, Y: Integer); override;
-    procedure BlitRectKeyed(Src: TRenderImage; const SrcRect: TRect;
-                            X, Y: Integer); override;
-    procedure DrawImage(Src: TRenderImage; X, Y: Integer); override;
-    procedure StretchImage(Src: TRenderImage; const DestRect: TRect); override;
-    procedure DrawOutlinedText(X, Y: Integer; const S: string;
-                               Outline, Fill: TColor; Size: Integer); override;
-
-    property Canvas: TCanvas read FCanvas;
-  end;
-
 implementation
-
-uses
-  { In the implementation, because TextRender names this unit's font
-    constants in turn. Pascal permits the cycle only from here. }
-  TextRender, IntfGraphics, FPImage, GraphType;
 
 { TRenderImage }
 
-constructor TRenderImage.Create(ABitmap: TBitmap; AOwns: Boolean);
+constructor TRenderImage.Create(ASurface: PSDL_Surface);
 begin
   inherited Create;
-  FBitmap := ABitmap;
-  FOwnsBitmap := AOwns;
+  if ASurface = nil then
+    Exit;
+  { Once, here, rather than inside every blit. The archive's pictures are
+    8-bit paletted and the back buffer is 32-bit, so without this SDL would
+    convert on the fly several hundred times a frame. }
+  FSurface := SDL_ConvertSurfaceFormat(ASurface, SDL_PIXELFORMAT_ARGB8888, 0);
+  SDL_FreeSurface(ASurface);
+  if FSurface <> nil then
+    { The sheets carry no alpha, so blending them would only cost time. }
+    SDL_SetSurfaceBlendMode(FSurface, SDL_BLENDMODE_NONE);
 end;
 
 destructor TRenderImage.Destroy;
 begin
-  if FSDLSurface <> nil then
-    SDL_FreeSurface(FSDLSurface);
-  FKeyMask.Free;
-  if FOwnsBitmap then
-    FBitmap.Free;
+  if FSurface <> nil then
+    SDL_FreeSurface(FSurface);
   inherited Destroy;
-end;
-
-{ Built through TLazIntfImage rather than Canvas.Pixels because the latter is
-  a round trip into the widgetset per pixel, and a sheet is a hundred thousand
-  of them. The image is edited in place and loaded back, so the mask ends up
-  in exactly the same pixel format as the sheet it describes - which is what
-  keeps the two raster operations in step. }
-function TRenderImage.GetKeyMask: TBitmap;
-var
-  Img: TLazIntfImage;
-  Key, White, Black: TFPColor;
-  C: TFPColor;
-  X, Y: Integer;
-begin
-  Result := FKeyMask;
-  if FKeyMaskBuilt or (FBitmap = nil) then
-    Exit;
-
-  { Set before the work, not after: a sheet that cannot be read must not be
-    retried on every blit for the rest of the run. }
-  FKeyMaskBuilt := True;
-  if (FBitmap.Width <= 0) or (FBitmap.Height <= 0) then
-    Exit;
-
-  Key := TColorToFPColor(ColorToRGB(IMAGE_KEY_COLOR));
-  { Opaque white and opaque black. The alpha byte matters: a mask with alpha 0
-    would AND the destination's own alpha away, and while nothing reads it
-    today, a target that later blends would find the buffer transparent. }
-  White := FPColor($FFFF, $FFFF, $FFFF, $FFFF);
-  Black := FPColor(0, 0, 0, $FFFF);
-
-  Img := FBitmap.CreateIntfImage;
-  try
-    for Y := 0 to Img.Height - 1 do
-      for X := 0 to Img.Width - 1 do
-      begin
-        C := Img.Colors[X, Y];
-        { Alpha is ignored: the sheets carry none, and where a format leaves
-          the byte uninitialised it would otherwise decide the comparison. }
-        if (C.red = Key.red) and (C.green = Key.green)
-        and (C.blue = Key.blue) then
-          Img.Colors[X, Y] := White
-        else
-          Img.Colors[X, Y] := Black;
-      end;
-    FKeyMask := TBitmap.Create;
-    FKeyMask.LoadFromIntfImage(Img);
-  finally
-    Img.Free;
-  end;
-  Result := FKeyMask;
 end;
 
 function TRenderImage.GetWidth: Integer;
 begin
-  if FBitmap = nil then
+  if FSurface = nil then
     Exit(0);
-  Result := FBitmap.Width;
+  Result := FSurface^.w;
 end;
 
 function TRenderImage.GetHeight: Integer;
 begin
-  if FBitmap = nil then
+  if FSurface = nil then
     Exit(0);
-  Result := FBitmap.Height;
+  Result := FSurface^.h;
 end;
 
-{ Built by handing SDL the bitmap's own pixels, in whatever layout the
-  platform gave them, and letting SDL convert once. The masks come from the
-  LCL's description of its own buffer rather than being assumed, because a
-  24-bit and a 32-bit bitmap differ and both turn up here.
-
-  The alpha mask is deliberately 0. A 32-bit LCL bitmap has an alpha byte that
-  nothing in this game ever writes, so reading it would make sheets vanish by
-  accident; 0 tells SDL every pixel is opaque. }
 function TRenderImage.SDLSurface(Want: Boolean): PSDL_Surface;
 var
-  Raw: TRawImage;
-  Src: PSDL_Surface;
   Key: LongWord;
-
-  function Mask(Shift, Prec: Byte): cuint32;
-  begin
-    if Prec = 0 then
-      Exit(0);
-    Result := ((cuint32(1) shl Prec) - 1) shl Shift;
-  end;
-
 begin
-  if not FSDLBuilt then
-  begin
-    { Set first: a bitmap that cannot be read must not be retried per blit. }
-    FSDLBuilt := True;
-    if (FBitmap <> nil) and (FBitmap.Width > 0) and (FBitmap.Height > 0) then
-    begin
-      Raw := FBitmap.RawImage;
-      Src := SDL_CreateRGBSurfaceFrom(Raw.Data,
-               FBitmap.Width, FBitmap.Height,
-               Raw.Description.BitsPerPixel, Raw.Description.BytesPerLine,
-               Mask(Raw.Description.RedShift, Raw.Description.RedPrec),
-               Mask(Raw.Description.GreenShift, Raw.Description.GreenPrec),
-               Mask(Raw.Description.BlueShift, Raw.Description.BluePrec),
-               0);
-      if Src <> nil then
-      begin
-        { Converting COPIES, which is what makes it safe to let the raw image
-          go again: from here the surface owns its own pixels. }
-        FSDLSurface := SDL_ConvertSurfaceFormat(Src,
-                                                SDL_PIXELFORMAT_ARGB8888, 0);
-        SDL_FreeSurface(Src);
-      end;
-      if FSDLSurface <> nil then
-        { The sheets carry no alpha, so blending them would only cost time. }
-        SDL_SetSurfaceBlendMode(FSDLSurface, SDL_BLENDMODE_NONE);
-    end;
-  end;
-
-  Result := FSDLSurface;
-  if (Result = nil) or (Want = FSDLKeyed) then
+  Result := FSurface;
+  if (Result = nil) or (Want = FKeyed) then
     Exit;
-  FSDLKeyed := Want;
+  FKeyed := Want;
   if Want then
   begin
     Key := LongWord(ColorToRGB(IMAGE_KEY_COLOR));
@@ -402,130 +231,6 @@ begin
   end
   else
     SDL_SetColorKey(Result, 0, 0);
-end;
-
-{ TLCLRenderTarget }
-
-constructor TLCLRenderTarget.Create(ACanvas: TCanvas; AWidth, AHeight: Integer);
-begin
-  inherited Create;
-  FCanvas := ACanvas;
-  FWidth := AWidth;
-  FHeight := AHeight;
-end;
-
-function TLCLRenderTarget.GetWidth: Integer;
-begin
-  Result := FWidth;
-end;
-
-function TLCLRenderTarget.GetHeight: Integer;
-begin
-  Result := FHeight;
-end;
-
-procedure TLCLRenderTarget.Fill(const R: TRect; AColor: TColor);
-begin
-  { Brush colour is set per call rather than cached. The callers being replaced
-    set it immediately before every FillRect, and a target that remembered it
-    would paint a different colour the first time one of them stopped. }
-  FCanvas.Brush.Color := AColor;
-  FCanvas.FillRect(R);
-end;
-
-procedure TLCLRenderTarget.BlitRect(Src: TRenderImage; const SrcRect: TRect;
-  X, Y: Integer);
-begin
-  if (Src = nil) or (Src.Bitmap = nil) then
-    Exit;
-  FCanvas.CopyRect(
-    Rect(X, Y,
-         X + (SrcRect.Right - SrcRect.Left),
-         Y + (SrcRect.Bottom - SrcRect.Top)),
-    Src.Bitmap.Canvas, SrcRect);
-end;
-
-procedure TLCLRenderTarget.BlitRectKeyed(Src: TRenderImage;
-  const SrcRect: TRect; X, Y: Integer);
-var
-  Mask: TBitmap;
-  Dest: TRect;
-  Saved: TCopyMode;
-begin
-  if (Src = nil) or (Src.Bitmap = nil) then
-    Exit;
-  Mask := Src.KeyMask;
-  if Mask = nil then
-  begin
-    { No mask could be built. An opaque sprite is wrong, but it is the picture
-      the game has drawn all along and it is better than an invisible one. }
-    BlitRect(Src, SrcRect, X, Y);
-    Exit;
-  end;
-
-  Dest := Rect(X, Y,
-               X + (SrcRect.Right - SrcRect.Left),
-               Y + (SrcRect.Bottom - SrcRect.Top));
-  Saved := FCanvas.CopyMode;
-  try
-    { Punch the silhouette black, then OR the artwork into the hole. The
-      source's own background is black and OR leaves the destination alone. }
-    FCanvas.CopyMode := cmSrcAnd;
-    FCanvas.CopyRect(Dest, Mask.Canvas, SrcRect);
-    FCanvas.CopyMode := cmSrcPaint;
-    FCanvas.CopyRect(Dest, Src.Bitmap.Canvas, SrcRect);
-  finally
-    FCanvas.CopyMode := Saved;
-  end;
-end;
-
-procedure TLCLRenderTarget.DrawImage(Src: TRenderImage; X, Y: Integer);
-begin
-  if (Src = nil) or (Src.Bitmap = nil) then
-    Exit;
-  FCanvas.Draw(X, Y, Src.Bitmap);
-end;
-
-procedure TLCLRenderTarget.StretchImage(Src: TRenderImage;
-  const DestRect: TRect);
-begin
-  if (Src = nil) or (Src.Bitmap = nil) then
-    Exit;
-  FCanvas.StretchDraw(DestRect, Src.Bitmap);
-end;
-
-procedure TLCLRenderTarget.DrawOutlinedText(X, Y: Integer; const S: string;
-  Outline, Fill: TColor; Size: Integer);
-var
-  Sheet: TBitmap;
-begin
-  if S = '' then
-    Exit;
-
-  { SDL_ttf from the font the game carries, not GDI from whatever the host
-    calls "MS Sans Serif". Size is ignored: it is 10 POINTS, and a bitmap face
-    is selected by strike rather than sized - see OUTLINED_FONT_FACE. }
-  Sheet := OutlinedText(S, Outline, Fill, OUTLINED_FONT_FACE);
-  if Sheet <> nil then
-  begin
-    { The composed sheet carries its outline, so its top-left is one pixel up
-      and left of where the text itself begins. }
-    FCanvas.Draw(X - 1, Y - 1, Sheet);
-    Exit;
-  end;
-
-  { No font to render with - fall back to asking the platform, which is what
-    the game did before and is better than silence. }
-  FCanvas.Font.Name := OUTLINED_FONT_NAME;
-  FCanvas.Font.Size := Size;
-  FCanvas.Font.Color := Outline;
-  FCanvas.Brush.Style := bsClear;
-  FCanvas.TextOut(X - 1, Y, S);
-  FCanvas.TextOut(X + 1, Y, S);
-  FCanvas.TextOut(X, Y - 1, S);
-  FCanvas.TextOut(X, Y + 1, S);
-  FCanvas.Font.Color := Fill;
-  FCanvas.TextOut(X, Y, S);
 end;
 
 end.
