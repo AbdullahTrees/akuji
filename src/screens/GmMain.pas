@@ -52,7 +52,6 @@ type
     FLastFrame: DWord;
     FShakeOffset: Integer; // this frame's Random(0x10) - 8
     FArchive: TQdaArchive;
-    FTitle: TBitmap;
     FTitleScreen: TTitleScreen;
     FFont: TGameFont;
     FSurfaces: TSurfaceSet;
@@ -199,7 +198,7 @@ end;
 procedure TFrm_main.DDDD1Init(Sender: TObject);
 var
   DataDir: string;
-  Sheet: TBitmap;
+  Sheet: TRenderImage;
   Ini: TIniFile;
   I: Integer;
 begin
@@ -270,11 +269,10 @@ begin
     FPowerBmp := FArchive.LoadImageByName('power.bmp');
     FSession.EventHost := FDialogue;
 
-    Sheet := FSurfaces[0];
+    Sheet := FSurfaces.Images[0];
     if Sheet <> nil then
       FFont := TGameFont.Create(Sheet);
 
-    FTitle := FSurfaces[1];   { menu background - owned by FSurfaces }
 
     { Effects are loaded up front. Audio initialization failures remain
       non-fatal so the game can run without a sound device. }
@@ -531,8 +529,8 @@ begin
     { The font lives in slot 0 of whichever set is current, so it is rebuilt
       when the set changes. }
     FreeAndNil(FFont);
-    if FSurfaces[0] <> nil then
-      FFont := TGameFont.Create(FSurfaces[0]);
+    if FSurfaces.Images[0] <> nil then
+      FFont := TGameFont.Create(FSurfaces.Images[0]);
   end;
   if SpriteSetId >= 0 then
     FSprites.LoadSet(FDataDir, SpriteSetId);
@@ -1273,7 +1271,7 @@ begin
   FMap.Free;
   FStages.Free;
   FSprites.Free;
-  FSurfaces.Free;   { owns FTitle }
+  FSurfaces.Free;
   FArchive.Free;
   { Stop the audio device before the component tree is torn down - the feed
     thread holds a pointer to the mixer. }

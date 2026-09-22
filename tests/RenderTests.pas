@@ -256,9 +256,9 @@ begin
     Snap(2, 'sprites');
 
     { 4. text, which is the other transparent path and has its own key colour }
-    if Surf[0] <> nil then
+    if Surf.Images[0] <> nil then
     begin
-      Font := TGameFont.Create(Surf[0]);
+      Font := TGameFont.Create(Surf.Images[0]);
       Font.TextOut(MapTarget, 8, 8, 'AKUJI 0123');
       Font.TextOutCentered(MapTarget, 200, 'THE DEMON');
     end
