@@ -51,15 +51,18 @@ report worth having. The release build passes the same tests.
 
 ### SDL
 
-SDL2 and SDL2_mixer are loaded at run time and have to sit beside the binary.
-`tools/build.sh` copies the vendored Windows DLLs into `bin/` for you. On Linux
-and macOS install them from your package manager instead - there is nothing to
-copy:
+SDL2, SDL2_mixer and SDL2_ttf are loaded at run time and have to sit beside the
+binary. `tools/build.sh` copies the vendored Windows DLLs into `bin/` for you.
+On Linux and macOS install them from your package manager instead - there is
+nothing to copy:
 
 ```sh
-sudo apt install libsdl2-2.0-0 libsdl2-mixer-2.0-0      # Debian, Ubuntu
-brew install sdl2 sdl2_mixer                            # macOS
+sudo apt install libsdl2-2.0-0 libsdl2-mixer-2.0-0 libsdl2-ttf-2.0-0   # Debian
+brew install sdl2 sdl2_mixer sdl2_ttf                                  # macOS
 ```
+
+SDL2_ttf is what draws the opening narration and the dialogue box, out of the
+font in `assets/fonts/` rather than one the host happens to have installed.
 
 ### Where the data comes from
 
@@ -103,19 +106,25 @@ tools/                    build and test scripts
 ## Portability
 
 The goal is the same outward behaviour on every target Free Pascal supports.
-The game logic, the decoders and the renderer are already portable: they are
-plain Object Pascal over the LCL.
+Nothing in the game calls a Windows API any more:
 
-Three units are not, and they are the whole of the remaining work:
-
-| unit | why |
+| what | how |
 |---|---|
-| `src/media/AudioOut.pas` | `waveOut*` via `MMSystem` |
-| `src/media/MidiOut.pas` | `midiOut*` via `MMSystem` |
-| `src/MsClock.pas` | `timeGetTime` via `MMSystem` |
+| drawing | SDL surface blits, through one seam - `src/render/RenderTarget.pas` |
+| pictures | decoded by SDL from `bmp.qda` |
+| text | SDL_ttf, from a font carried in `assets/fonts/` |
+| sound and music | SDL_mixer |
+| the frame clock | SDL's timer |
 
-Each is a small surface behind an interface the rest of the code already uses,
-so a backend per platform is the shape of the fix rather than a rewrite.
+What is left is the window. The game is still an LCL form: it owns the window,
+the keyboard and the message loop, and once a frame `TDDDD.Present` copies the
+SDL back buffer into a bitmap and stretches it over the client area. That copy
+and that form are the whole of the remaining work - an SDL window replaces
+both, and nothing that draws would notice.
+
+Two things belong to that same change and are not done yet: scaling the
+picture by a whole number in windowed mode instead of stretching it to
+whatever shape the window is, and fullscreen.
 
 ## Relationship to the reverse-engineering project
 
