@@ -3,6 +3,10 @@
 #
 #     tools/test.sh                  build and test against assets/
 #     tools/test.sh <data dir>       test against a different copy of the data
+#     AKUJI_EXE=bin/other.exe tools/test.sh
+#
+# AKUJI_EXE builds and tests a binary other than bin/akuji.exe - see
+# tools/build.sh. The log stays beside whichever binary wrote it.
 #
 # The tests live in tests/ and are linked into the binary itself, so they run
 # the same code the game runs rather than a copy of it. Each mode is a separate
@@ -16,8 +20,13 @@ set -u
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA="${1:-$REPO/assets}"
-EXE="$REPO/bin/akuji.exe"
-LOG="$REPO/bin/selftest.log"
+case "${AKUJI_EXE:-}" in
+    "")  EXE="$REPO/bin/akuji.exe" ;;
+    /*)  EXE="$AKUJI_EXE" ;;
+    ?:*) EXE="$AKUJI_EXE" ;;
+    *)   EXE="$REPO/$AKUJI_EXE" ;;
+esac
+LOG="$(dirname "$EXE")/selftest.log"
 
 if [ ! -d "$DATA/data" ]; then
     echo "FAIL: no game data at: $DATA" >&2

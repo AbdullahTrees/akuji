@@ -3,6 +3,12 @@
 #
 #     tools/build.sh                 build with the lazbuild on PATH
 #     LAZBUILD=/path/to/lazbuild tools/build.sh
+#     AKUJI_EXE=bin/other.exe tools/build.sh
+#
+# AKUJI_EXE builds somewhere other than bin/akuji.exe, as a path relative to
+# the repository. Windows locks a running executable, so without it a build
+# fails for as long as the game is open - which is exactly when you want to
+# build the next one.
 #
 # The binary lands in bin/. It finds assets/ by walking up from its own
 # directory, so it runs straight out of the source tree.
@@ -39,8 +45,20 @@ if [ "${RELEASE:-0}" != "0" ]; then
     OPTS="-O3 -g- -Xs -CX -XX"
 fi
 
+EXE="$REPO/bin/akuji.exe"
+PROJECT="$REPO/akuji.lpi"
+
 log="$(mktemp)"
-trap 'rm -f "$log"' EXIT
+trap 'rm -f "$log" "$REPO/akuji-alt.lpi"' EXIT
+
+# The target lives in the .lpi and lazbuild appends its own -o after any we
+# pass, so an alternate build is a copy of the project with one line changed.
+# It has to sit beside akuji.lpi because every path in it is relative to that.
+if [ -n "${AKUJI_EXE:-}" ]; then
+    EXE="$REPO/$AKUJI_EXE"
+    sed 's|<Filename Value="bin/akuji"/>|<Filename Value="'"${AKUJI_EXE%.exe}"'"/>|'         "$REPO/akuji.lpi" > "$REPO/akuji-alt.lpi"
+    PROJECT="$REPO/akuji-alt.lpi"
+fi
 
 if [ -n "$OPTS" ]; then
     set -- --opt="$OPTS"
@@ -48,7 +66,7 @@ else
     set --
 fi
 
-if ! "$LAZBUILD" "$@" "$REPO/akuji.lpi" > "$log" 2>&1; then
+if ! "$LAZBUILD" "$@" "$PROJECT" > "$log" 2>&1; then
     echo "BUILD FAILED" >&2
     grep -iE "error|fatal" "$log" | head -20 >&2
     exit 1
@@ -73,4 +91,4 @@ case "$(uname -s)" in
         ;;
 esac
 
-echo "built: $REPO/bin/akuji.exe"
+echo "built: $EXE"

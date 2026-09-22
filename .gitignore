@@ -8,6 +8,10 @@ lib/
 *.res
 *.or
 
+# The alternate project tools/build.sh writes for AKUJI_EXE. Its trap
+# removes it; this is in case a build is interrupted before that runs.
+akuji-alt.lpi
+
 # Lazarus session state, which is per-developer and not part of the project
 *.lps
 backup/
