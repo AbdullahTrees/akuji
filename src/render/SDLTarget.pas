@@ -108,15 +108,26 @@ begin
   if (Src = nil) or (Dst = nil) or (Img = nil) then
     Exit;
   Raw.Init;
-  { B8G8R8A8 is the byte order an SDL_PIXELFORMAT_ARGB8888 surface has in
-    memory on a little-endian machine, which is every machine this runs on.
-    TTB because an SDL surface is always top row first.
+  { B8G8R8 and NOT B8G8R8A8, even though the surface is 32 bits per pixel.
+
+    THE FOURTH BYTE IS NOT ALPHA HERE. The back buffer is created with an
+    alpha mask of 0, so SDL never writes that byte: a fill leaves it 0 and a
+    blit copies whatever the source had, which after conversion is also 0.
+    Describing it as alpha would tell the LCL that the entire frame is
+    transparent, and it would draw almost nothing - only the outlined text,
+    which is blended and so is the one thing in the buffer with a non-zero
+    fourth byte. That was a real bug: the back buffer was correct and the
+    window showed the text alone.
+
+    The byte order is what an SDL_PIXELFORMAT_ARGB8888 surface has in memory
+    on a little-endian machine, which is every machine this runs on. TTB
+    because an SDL surface is always top row first.
 
     The stride is not passed because the description computes it, and
     for a 32-bit surface SDL's own pitch is the same width times four:
     both are already aligned. A surface with padding would need the row
     copy this deliberately does not do. }
-  Raw.Description.Init_BPP32_B8G8R8A8_BIO_TTB(Src^.w, Src^.h);
+  Raw.Description.Init_BPP32_B8G8R8_BIO_TTB(Src^.w, Src^.h);
   Raw.Data := PByte(Src^.pixels);
   Raw.DataSize := PtrUInt(Src^.pitch) * PtrUInt(Src^.h);
   Img.SetRawImage(Raw, False);

@@ -661,6 +661,47 @@ begin
           Log.Add('FAILED: what Present shows is not what the game drew');
           Inc(Result);
         end;
+
+        { AND IT MUST NOT CLAIM AN ALPHA CHANNEL.
+
+          Having the right bytes is not enough. The LCL draws the bitmap onto
+          the window, and what it does there depends on what the bitmap SAYS
+          about itself - so a buffer whose pixels are perfect can still reach
+          the screen as nothing at all.
+
+          It did, for the length of one morning. The back buffer is created
+          with an alpha MASK OF ZERO, so SDL never writes the fourth byte: a
+          fill leaves it 0 and a blit copies a 0 through. Describing that to
+          the LCL as B8G8R8A8 therefore declared every pixel fully
+          transparent, and the window showed only the outlined text - the one
+          thing in the buffer that is blended, and so the only thing with a
+          non-zero fourth byte - over whatever had last been painted. The
+          dialogue box, the opening slides and the ending stills all
+          disappeared while the back buffer behind them was perfect.
+
+          The check above stayed green through all of it, because
+          Canvas.Pixels reads the bytes and ignores what they are said to
+          mean. Nor can it be caught by drawing: bitmap to bitmap, at any
+          scale and either pixel format, the LCL copies the pixels and the
+          claim costs nothing. It is only on a window that it bites, and a
+          self-test has no window.
+
+          So the two halves of the contract are asserted instead: the buffer
+          genuinely has no alpha, and the bitmap does not say it has. }
+        if (PresentSurf^.format^.Amask <> 0) then
+        begin
+          Log.Add('FAILED: the back buffer now HAS an alpha mask - the '
+            + 'present path assumes it does not, and must be revisited');
+          Inc(Result);
+        end;
+        Log.Add(Format('present: alpha bits claimed by the presented bitmap: '
+          + '%d (must be 0)', [PresentBmp.RawImage.Description.AlphaPrec]));
+        if PresentBmp.RawImage.Description.AlphaPrec <> 0 then
+        begin
+          Log.Add('FAILED: the presented bitmap claims an alpha channel it '
+            + 'does not have, so the window will draw it as transparent');
+          Inc(Result);
+        end;
       finally
         PresentImg.Free;
         PresentBmp.Free;
