@@ -57,7 +57,7 @@ unit TextRender;
 interface
 
 uses
-  Classes, SysUtils, Graphics;
+  Classes, SysUtils, Graphics, SDL2;
 
 { Where assets/fonts lives. Called once the data directory is known; until it
   is, text renders nothing rather than guessing at a path. }
@@ -77,6 +77,12 @@ function TextRenderReady: Boolean;
 function OutlinedText(const S: string; Outline, Fill: TColor;
                       Face: Integer): TBitmap;
 
+{ The same thing one step earlier: the composed surface, before it is turned
+  into an LCL bitmap. An SDL target blits this directly and never pays for the
+  conversion. Same cache, same lifetime - do not free it. }
+function OutlinedTextSurface(const S: string; Outline, Fill: TColor;
+                             Face: Integer): PSDL_Surface;
+
 { How wide the string is, in pixels, at this size. Zero if there is no font. }
 function OutlinedTextWidth(const S: string; Face: Integer): Integer;
 
@@ -85,11 +91,16 @@ procedure ShutdownTextRender;
 implementation
 
 uses
-  ctypes, SDL2, SDL2_ttf, RenderTarget, IntfGraphics, FPImage, GraphType;
+  ctypes, SDL2_ttf, RenderTarget, IntfGraphics, FPImage, GraphType;
 
 type
+  { Both forms of the same rendered string. The surface is what SDL_ttf
+    produced and the bitmap is that surface converted for the LCL target;
+    whichever is asked for first builds, and the other is built only if
+    something asks. }
   TCacheEntry = record
     Key: string;
+    Surface: PSDL_Surface;
     Bmp: TBitmap;
   end;
 
@@ -166,9 +177,9 @@ begin
   Result.a := 255;
 end;
 
-{ Builds the five-pass surface, then copies it into an LCL bitmap once. }
+{ The five passes, as one surface with an alpha channel. }
 function Compose(const S: string; Outline, Fill: TColor;
-                 Face: Integer): TBitmap;
+                 Face: Integer): PSDL_Surface;
 const
   DX: array[0..3] of Integer = (-1, 1, 0, 0);
   DY: array[0..3] of Integer = ( 0, 0,-1, 1);
@@ -176,13 +187,8 @@ var
   I: Integer;
   Text: PSDL_Surface;
   Sheet: PSDL_Surface;
-  Img: TLazIntfImage;
-  Col: TFPColor;
   Dst: TSDL_Rect;
-  X, Y, W, H: Integer;
-  Pixels: PUInt32;
-  Pixel: LongWord;
-  Row: PByte;
+  W, H: Integer;
   TW, TH: cint;
 begin
   Result := nil;
@@ -205,7 +211,8 @@ begin
                                 $00FF0000, $0000FF00, $000000FF, $FF000000);
   if Sheet = nil then
     Exit;
-  try
+  Result := Sheet;
+  begin
     { Fully transparent, so only what the glyphs cover ends up composited. }
     SDL_FillRect(Sheet, nil, SDL_MapRGBA(Sheet^.format, 0, 0, 0, 0));
     SDL_SetSurfaceBlendMode(Sheet, SDL_BLENDMODE_BLEND);
@@ -238,54 +245,94 @@ begin
       SDL_BlitSurface(Text, nil, Sheet, @Dst);
       SDL_FreeSurface(Text);
     end;
-
-    { Built through TLazIntfImage because a TBitmap's Canvas has no way to
-      write an alpha channel, and the alpha is the whole point. }
-    Img := TLazIntfImage.Create(W, H, [riqfRGB, riqfAlpha]);
-    try
-      for Y := 0 to H - 1 do
-      begin
-        Row := PByte(Sheet^.pixels) + Y * Sheet^.pitch;
-        Pixels := PUInt32(Row);
-        for X := 0 to W - 1 do
-        begin
-          Pixel := Pixels^;
-          Inc(Pixels);
-          Col.red   := ((Pixel shr 16) and $FF) * 257;
-          Col.green := ((Pixel shr 8)  and $FF) * 257;
-          Col.blue  := ( Pixel         and $FF) * 257;
-          Col.alpha := ((Pixel shr 24) and $FF) * 257;
-          Img.Colors[X, Y] := Col;
-        end;
-      end;
-      Result := TBitmap.Create;
-      Result.PixelFormat := pf32bit;
-      Result.LoadFromIntfImage(Img);
-    finally
-      Img.Free;
-    end;
-  finally
-    SDL_FreeSurface(Sheet);
   end;
 end;
 
-function OutlinedText(const S: string; Outline, Fill: TColor;
-                      Face: Integer): TBitmap;
+{ The surface as an LCL bitmap, built through TLazIntfImage because a
+  TBitmap's Canvas has no way to write an alpha channel and the alpha is the
+  whole point. Only the LCL target needs this. }
+function ToBitmap(Sheet: PSDL_Surface): TBitmap;
+var
+  Img: TLazIntfImage;
+  Col: TFPColor;
+  X, Y: Integer;
+  Pixels: PUInt32;
+  Pixel: LongWord;
+  Row: PByte;
+begin
+  Result := nil;
+  if Sheet = nil then
+    Exit;
+  Img := TLazIntfImage.Create(Sheet^.w, Sheet^.h, [riqfRGB, riqfAlpha]);
+  try
+    for Y := 0 to Sheet^.h - 1 do
+    begin
+      Row := PByte(Sheet^.pixels) + Y * Sheet^.pitch;
+      Pixels := PUInt32(Row);
+      for X := 0 to Sheet^.w - 1 do
+      begin
+        Pixel := Pixels^;
+        Inc(Pixels);
+        Col.red   := ((Pixel shr 16) and $FF) * 257;
+        Col.green := ((Pixel shr 8)  and $FF) * 257;
+        Col.blue  := ( Pixel         and $FF) * 257;
+        Col.alpha := ((Pixel shr 24) and $FF) * 257;
+        Img.Colors[X, Y] := Col;
+      end;
+    end;
+    Result := TBitmap.Create;
+    Result.PixelFormat := pf32bit;
+    Result.LoadFromIntfImage(Img);
+  finally
+    Img.Free;
+  end;
+end;
+
+{ The cache slot for this string, composing it if this is the first ask.
+  -1 if there is no font or nothing to draw. }
+function Slot(const S: string; Outline, Fill: TColor; Face: Integer): Integer;
 var
   Key: string;
+  Sheet: PSDL_Surface;
   I: Integer;
 begin
   Key := Format('%d|%.8x|%.8x|%s', [Face, Outline, Fill, S]);
   for I := 0 to High(Cache) do
     if Cache[I].Key = Key then
-      Exit(Cache[I].Bmp);
+      Exit(I);
 
-  Result := Compose(S, Outline, Fill, Face);
-  if Result = nil then
-    Exit;
+  Sheet := Compose(S, Outline, Fill, Face);
+  if Sheet = nil then
+    Exit(-1);
   SetLength(Cache, Length(Cache) + 1);
-  Cache[High(Cache)].Key := Key;
-  Cache[High(Cache)].Bmp := Result;
+  Result := High(Cache);
+  Cache[Result].Key := Key;
+  Cache[Result].Surface := Sheet;
+  Cache[Result].Bmp := nil;
+end;
+
+function OutlinedTextSurface(const S: string; Outline, Fill: TColor;
+                             Face: Integer): PSDL_Surface;
+var
+  I: Integer;
+begin
+  I := Slot(S, Outline, Fill, Face);
+  if I < 0 then
+    Exit(nil);
+  Result := Cache[I].Surface;
+end;
+
+function OutlinedText(const S: string; Outline, Fill: TColor;
+                      Face: Integer): TBitmap;
+var
+  I: Integer;
+begin
+  I := Slot(S, Outline, Fill, Face);
+  if I < 0 then
+    Exit(nil);
+  if Cache[I].Bmp = nil then
+    Cache[I].Bmp := ToBitmap(Cache[I].Surface);
+  Result := Cache[I].Bmp;
 end;
 
 procedure ShutdownTextRender;
@@ -293,7 +340,11 @@ var
   I: Integer;
 begin
   for I := 0 to High(Cache) do
+  begin
     Cache[I].Bmp.Free;
+    if Cache[I].Surface <> nil then
+      SDL_FreeSurface(Cache[I].Surface);
+  end;
   SetLength(Cache, 0);
   if Font <> nil then
   begin

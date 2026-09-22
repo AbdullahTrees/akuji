@@ -42,7 +42,7 @@ unit RenderTarget;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Types;
+  Classes, SysUtils, Graphics, Types, ctypes, SDL2;
 
 const
   { What the sheets use for "nothing here".
@@ -111,6 +111,9 @@ type
     FOwnsBitmap: Boolean;
     FKeyMask: TBitmap;
     FKeyMaskBuilt: Boolean;
+    FSDLSurface: PSDL_Surface;
+    FSDLBuilt: Boolean;
+    FSDLKeyed: Boolean;
     function GetWidth: Integer;
     function GetHeight: Integer;
     function GetKeyMask: TBitmap;
@@ -147,6 +150,25 @@ type
 
       nil if the image has no bitmap. }
     property KeyMask: TBitmap read GetKeyMask;
+
+    { The same picture as an SDL surface, in one fixed format, built once on
+      first use and owned by this image.
+
+      It is here so the renderer underneath can change without the units that
+      draw knowing: an SDL target reads this, the LCL target reads the bitmap,
+      and both are the same pixels. While both targets exist an image may hold
+      both; when the LCL one goes, the bitmap goes with it and this is all
+      that is left.
+
+      Want says whether the blit about to happen is keyed. In SDL the key is a
+      property of the SOURCE SURFACE, not of the blit, so it has to be set
+      beforehand - and setting it throws away SDL's cached blit function, so
+      it is only written when it actually changes. Sheets really are drawn
+      both ways: sys.bmp carries the HUD icons, which are keyed, and the
+      dialogue frame, which is not.
+
+      nil if there is nothing to build from. }
+    function SDLSurface(Want: Boolean): PSDL_Surface;
 
     property Width: Integer read GetWidth;
     property Height: Integer read GetHeight;
@@ -232,7 +254,7 @@ implementation
 uses
   { In the implementation, because TextRender names this unit's font
     constants in turn. Pascal permits the cycle only from here. }
-  TextRender, IntfGraphics, FPImage;
+  TextRender, IntfGraphics, FPImage, GraphType;
 
 { TRenderImage }
 
@@ -245,6 +267,8 @@ end;
 
 destructor TRenderImage.Destroy;
 begin
+  if FSDLSurface <> nil then
+    SDL_FreeSurface(FSDLSurface);
   FKeyMask.Free;
   if FOwnsBitmap then
     FBitmap.Free;
@@ -314,6 +338,70 @@ begin
   if FBitmap = nil then
     Exit(0);
   Result := FBitmap.Height;
+end;
+
+{ Built by handing SDL the bitmap's own pixels, in whatever layout the
+  platform gave them, and letting SDL convert once. The masks come from the
+  LCL's description of its own buffer rather than being assumed, because a
+  24-bit and a 32-bit bitmap differ and both turn up here.
+
+  The alpha mask is deliberately 0. A 32-bit LCL bitmap has an alpha byte that
+  nothing in this game ever writes, so reading it would make sheets vanish by
+  accident; 0 tells SDL every pixel is opaque. }
+function TRenderImage.SDLSurface(Want: Boolean): PSDL_Surface;
+var
+  Raw: TRawImage;
+  Src: PSDL_Surface;
+  Key: LongWord;
+
+  function Mask(Shift, Prec: Byte): cuint32;
+  begin
+    if Prec = 0 then
+      Exit(0);
+    Result := ((cuint32(1) shl Prec) - 1) shl Shift;
+  end;
+
+begin
+  if not FSDLBuilt then
+  begin
+    { Set first: a bitmap that cannot be read must not be retried per blit. }
+    FSDLBuilt := True;
+    if (FBitmap <> nil) and (FBitmap.Width > 0) and (FBitmap.Height > 0) then
+    begin
+      Raw := FBitmap.RawImage;
+      Src := SDL_CreateRGBSurfaceFrom(Raw.Data,
+               FBitmap.Width, FBitmap.Height,
+               Raw.Description.BitsPerPixel, Raw.Description.BytesPerLine,
+               Mask(Raw.Description.RedShift, Raw.Description.RedPrec),
+               Mask(Raw.Description.GreenShift, Raw.Description.GreenPrec),
+               Mask(Raw.Description.BlueShift, Raw.Description.BluePrec),
+               0);
+      if Src <> nil then
+      begin
+        { Converting COPIES, which is what makes it safe to let the raw image
+          go again: from here the surface owns its own pixels. }
+        FSDLSurface := SDL_ConvertSurfaceFormat(Src,
+                                                SDL_PIXELFORMAT_ARGB8888, 0);
+        SDL_FreeSurface(Src);
+      end;
+      if FSDLSurface <> nil then
+        { The sheets carry no alpha, so blending them would only cost time. }
+        SDL_SetSurfaceBlendMode(FSDLSurface, SDL_BLENDMODE_NONE);
+    end;
+  end;
+
+  Result := FSDLSurface;
+  if (Result = nil) or (Want = FSDLKeyed) then
+    Exit;
+  FSDLKeyed := Want;
+  if Want then
+  begin
+    Key := LongWord(ColorToRGB(IMAGE_KEY_COLOR));
+    SDL_SetColorKey(Result, 1,
+      SDL_MapRGB(Result^.format, Byte(Key), Byte(Key shr 8), Byte(Key shr 16)));
+  end
+  else
+    SDL_SetColorKey(Result, 0, 0);
 end;
 
 { TLCLRenderTarget }
