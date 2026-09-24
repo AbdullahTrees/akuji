@@ -522,6 +522,58 @@ to the unit. Putting the -45 dB floor back fails the run.
 
 ---
 
+## DIV-024 - the music is synthesised here, not by the operating system
+
+**What the original does.** It hands each MIDI track to `kbgm32.dll`, which
+passes it to the Windows MIDI synthesiser. That synthesiser plays the notes on
+the instruments in `C:\Windows\System32\drivers\gm.dls`, Roland's GS set.
+
+**What this did until now.** The same thing through SDL_mixer's native MIDI:
+right on Windows, and nowhere else. It had a worse problem: the only volume
+control SDL_mixer has for the Windows synthesiser is `midiOutSetVolume`, which
+did nothing audible to the music. Measured from outside the process, it drove
+the whole program's Windows volume slider instead, and left it at zero - so
+turning the music down could silence the sound effects too.
+
+**What this does instead.** FluidSynth renders the music in software, from
+`assets/soundfonts/gm.dls` - the same instrument set the Windows synthesiser
+plays - and the result goes out through an SDL audio device of its own at
+44100 Hz, the slot SDL_mixer's device used to occupy. The effects mixer is
+untouched. Nothing calls into the operating system's MIDI any more, so the
+volume is a plain gain, and the music is the same on every platform.
+
+**What might sound different, and what does not.** The instruments are the
+same file. What can differ is the synthesiser around them - envelopes, and
+effects. FluidSynth adds reverb and chorus by default and the game never had
+them: renders with them on were judged by ear to sound noticeably wetter than
+the game. They are off unless `system.ini` says `[music] effects=on`.
+
+**The level.** FluidSynth's default gain is far quieter than the Windows
+synthesiser. Matching the Windows synthesiser's measured average would have
+needed about 1.1, and at 1.0 eleven of the fourteen tracks clip. 0.5 is the
+loudest setting at which none does - end01 is the loudest track - so the music
+sits somewhat below the original's level rather than distorting on its peaks.
+MUSIC VOLUME takes it down from there.
+
+**The fallback.** `soundfont=gs` selects GeneralUser GS, a free GS-style bank
+shipped beside it, and the player falls back to it if `gm.dls` will not load.
+Where each bank comes from, and the licence question `gm.dls` raises, is in
+NOTICE.md.
+
+**How it is held.** `--selftest-music` renders with no audio device and
+measures the output: both banks load, a track makes sound without clipping,
+the same input from a fresh synthesiser renders the same output, a
+once-through track ends and a looping one does not, a fade out ends in silence
+and stops, a fade in is a straight ramp - measured half-way through a 2 s fade
+at 0.489 of the unfaded level - effects change the sound, and all 15 tracks
+play. What it cannot hold is whether it sounds like the Windows synthesiser;
+that was compared by ear.
+
+**Sites.** `src/media/FluidSynth.pas`, `src/media/MusicSynth.pas`,
+`src/components/KbgmPlayer.pas`, `[music]` in `assets/system.ini`.
+
+---
+
 ## Numbers 001 to 015
 
 Those belong to the reconstruction and are recorded in `akuji-re`'s own ledger,

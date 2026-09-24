@@ -265,6 +265,13 @@ begin
         Ord(Ini.ReadString('disp', 'fullscreen', '') = 'on');
       Settings.InputDevice :=
         StrToInt(Ini.ReadString('device', 'input', ''));
+      { Ours, not the original's: which instrument bank the music uses, and
+        whether FluidSynth adds its reverb and chorus. The defaults are the
+        sound the game has always had. }
+      KbgmPlayer1.SoundFont :=
+        Trim(Ini.ReadString('music', 'soundfont', SOUNDFONT_GM));
+      KbgmPlayer1.Effects :=
+        SameText(Trim(Ini.ReadString('music', 'effects', 'off')), 'on');
     finally
       Ini.Free;
     end;

@@ -79,6 +79,7 @@ run --selftest-settings "$DATA" "$SCRATCH"
 run --selftest-mapprobe "$DATA"
 run --selftest-render   "$DATA"
 run --selftest-input
+run --selftest-music    "$DATA"
 run --selftest-log
 
 echo

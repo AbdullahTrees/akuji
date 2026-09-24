@@ -165,6 +165,14 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src/media/FluidSynth.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/media/MusicSynth.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src/render/GameColors.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
@@ -218,6 +226,10 @@
       </Unit>
       <Unit>
         <Filename Value="tests/InputTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="tests/MusicTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>

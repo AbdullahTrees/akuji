@@ -74,6 +74,42 @@ default when the repository is pushed. The options:
   stores its own bitmap font. Smaller, no font program redistributed, and the
   glyph shapes are still Microsoft's design.
 
+## The music
+
+The tracks in `midi/` are MIDI, which holds notes and no sound. The sound comes
+from an instrument bank, and two are shipped in `assets/soundfonts/`:
+
+| | |
+|---|---|
+| `gm.dls` | the Windows GS sound set - the default |
+| `GeneralUser-GS.sf2` | GeneralUser GS 2.0.3, the alternative and the fallback |
+
+`system.ini` chooses between them (`[music] soundfont=gm` or `gs`).
+
+**`gm.dls` is copied from a Windows installation**, and it is the Roland GS
+sound set that Roland licensed to Microsoft for use in Windows. It is here
+because it is what the game has always played through: the original handed its
+MIDI to the Windows synthesiser, and that synthesiser plays this file. A
+different bank plays the same notes on audibly different instruments. **Its
+licence does not permit redistribution** - the same open question as the font
+above, decided the same way for the same reason, and recorded so that it stays
+a decision. The options are the font's: ship it, as now; or ship only the free
+bank and let a player on Windows point the game at their own copy, which every
+Windows machine has at `C:\Windows\System32\drivers\gm.dls`.
+
+**GeneralUser GS** is S. Christian Collins' free bank, modelled on the same
+Roland GS set. Its licence, shipped beside it as `GeneralUser-GS-LICENSE.txt`,
+invites use in software projects and repackaging. It also says, honestly, that
+the origin of every sample cannot be guaranteed.
+
+The banks are played by **FluidSynth** (`libfluidsynth-3.dll`) and the
+**libsndfile** it depends on (`sndfile.dll`), both LGPL-2.1, both vendored
+unmodified from FluidSynth's v2.6.1 Windows release in `third_party/fluidsynth/`
+with their licence texts. They are loaded at run time rather than linked, so
+they can be replaced - which is what the LGPL asks of a program using a library
+whose source it does not include. Elsewhere than Windows the system's own
+package provides them.
+
 ## What is deliberately absent
 
 The original `akuji.exe` is **not** distributed here. It is not needed to build
@@ -81,8 +117,11 @@ or play, and the self-tests that read it skip cleanly without it. It belongs to
 the reverse-engineering project, not to this one.
 
 `d3drm.dll` and `kbgm32.dll` shipped with the original release and are **not**
-needed either: this build reimplements the display and music components in
-Pascal and loads no third-party DLL. Nothing from Microsoft is redistributed.
+needed either: this build reimplements the display and music components on
+SDL and FluidSynth, and loads neither. What it does load beside the executable
+is SDL (zlib licence), FluidSynth and libsndfile (LGPL-2.1) - see above. Two
+files are Microsoft's: the font and `gm.dls`, both recorded above as open
+questions.
 
 ## The shipped save file
 
