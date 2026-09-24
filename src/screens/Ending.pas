@@ -433,6 +433,17 @@ begin
     begin
       if not (Assigned(FOnFadeBusy) and FOnFadeBusy()) then
       begin
+        { The original frees the slide picture here, before it changes phase
+          - and then jumps to the end of Ending_Update, so this frame draws
+          nothing and the screen stays black. The host draws the NEW phase
+          straight after this returns, and phase 2 does not load its sheet
+          until the next frame; with the last slide still loaded, the staff
+          roll's drawer cut its seventeen crops out of that slide at stale
+          positions, and a scrap of the picture flashed for one frame between
+          the story and the credits. Releasing it leaves the drawer nothing
+          to draw from, which is the black frame the original shows. }
+        if Assigned(FOnPicture) then
+          FOnPicture(-1);
         if Assigned(FOnStopMusic) then
           FOnStopMusic(MUSIC_STOP_HARD);
         ScreenPhase := 2;

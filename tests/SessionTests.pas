@@ -1513,6 +1513,117 @@ end;
   compared against Counter div 4, because the whole point is that the original
   is not Counter div 4 at two values - `python tools/x87_sim.py ending` is the
   independent reader that says which two, and it is run by tools/check.sh. }
+{ Stands in for the host across the slide-to-credits switch: which picture
+  the ending holds, and which named sheet it asked for. }
+type
+  TEndingProbe = class
+  public
+    Picture: Integer;        { -2 = never set; -1 = released }
+    Named: string;
+    Busy: Boolean;
+    procedure OnPicture(Index: Integer);
+    procedure OnPictureNamed(const Name: string);
+    function OnFadeBusy: Boolean;
+    procedure OnStopMusic(FadeSeconds: Integer);
+    procedure OnMusic(Track: Integer; Loop: Boolean);
+  end;
+
+procedure TEndingProbe.OnPicture(Index: Integer);
+begin
+  Picture := Index;
+end;
+
+procedure TEndingProbe.OnPictureNamed(const Name: string);
+begin
+  Named := Name;
+  Picture := 999;   { a sheet is loaded again }
+end;
+
+function TEndingProbe.OnFadeBusy: Boolean;
+begin
+  Result := Busy;
+end;
+
+procedure TEndingProbe.OnStopMusic(FadeSeconds: Integer);
+begin
+end;
+
+procedure TEndingProbe.OnMusic(Track: Integer; Loop: Boolean);
+begin
+end;
+
+{ THE FRAME BETWEEN THE STORY AND THE CREDITS.
+
+  The host draws whichever phase is current after Update returns, so on the
+  frame the last slide's fade finishes it draws the credits - before the
+  credits have loaded their sheet, which happens a frame later. The original
+  freed the slide picture at that moment and drew nothing; this port kept it,
+  and the staff roll's drawer cut crops out of the last slide for one frame.
+  Seen in play as a flicker the original does not have. }
+function TestEndingSwitchFrame(Log: TStrings): Integer;
+var
+  S: TGameSettings;
+  P: TPlayerState;
+  E: TEndingScreen;
+  Probe: TEndingProbe;
+  State, Bad: Integer;
+
+  procedure Want(Cond: Boolean; const What: string);
+  begin
+    if not Cond then begin Log.Add('  ' + What); Inc(Bad); end;
+  end;
+
+begin
+  Bad := 0;
+  Log.Add('');
+  Log.Add('--- the frame between the story and the credits ---');
+  FillChar(S, SizeOf(S), 0);
+  FillChar(P, SizeOf(P), 0);
+  State := GS_ENDING;
+  E := TEndingScreen.Create;
+  Probe := TEndingProbe.Create;
+  try
+    E.OnPicture := Probe.OnPicture;
+    E.OnPictureNamed := Probe.OnPictureNamed;
+    E.OnFadeBusy := Probe.OnFadeBusy;
+    E.OnStopMusic := Probe.OnStopMusic;
+    E.OnMusic := Probe.OnMusic;
+
+    { On the last slide, waiting for its fade out, with the slide loaded. }
+    ScreenPhase := 1;
+    E.Step := ENDING_SLIDES;
+    E.Timer := ENDING_WAIT_FADE;
+    Probe.Picture := 5;
+
+    { While the fade runs, nothing changes and the slide stays. }
+    Probe.Busy := True;
+    E.Update(S, P, State);
+    Want(ScreenPhase = 1, 'the ending left the slides while the fade was running');
+    Want(Probe.Picture = 5, 'the slide was released while it was still fading');
+
+    { The frame the fade finishes: phase 2 begins, and the slide is gone -
+      so the credits drawer, which runs straight after, has nothing to cut. }
+    Probe.Busy := False;
+    E.Update(S, P, State);
+    Want(ScreenPhase = 2, 'the ending did not move on when the fade finished');
+    Want(Probe.Picture = -1,
+      'the last slide is still loaded on the frame the credits are first drawn');
+    Want(Probe.Named = '', 'the credits sheet loaded a frame early');
+
+    { And on the next frame the credits load their own sheet. }
+    E.Update(S, P, State);
+    Want(Probe.Named <> '', 'the credits never loaded their sheet');
+  finally
+    Probe.Free;
+    E.Free;
+    ScreenPhase := 0;
+  end;
+
+  Result := Bad;
+  if Bad = 0 then
+    Log.Add('the switch frame holds no picture, as the original''s draws nothing');
+end;
+
 function TestEnding(Log: TStrings): Integer;
 var
   S: TGameSettings;
@@ -2238,6 +2349,7 @@ begin
   Inc(Bad, TestDialogue(Log, GameDir));
   Inc(Bad, TestConfirmAndGameOver(Log));
   Inc(Bad, TestEnding(Log));
+  Inc(Bad, TestEndingSwitchFrame(Log));
   Inc(Bad, TestContinueLoadsSave(Log, GetTempDir));
   Inc(Bad, TestPauseFlow(Log));
   Inc(Bad, TestTypewriter(Log, GameDir));
