@@ -126,6 +126,21 @@ Two things belong to that same change and are not done yet: scaling the
 picture by a whole number in windowed mode instead of stretching it to
 whatever shape the window is, and fullscreen.
 
+## Versioning
+
+The port's version is `APP_VERSION` in `src/Version.pas`, and it is written at
+the top of `akuji.log`. It started at **2.0.0** and moves by two rules:
+
+- **patch, +0.0.1, with every commit.** The bump goes in the commit it numbers.
+- **minor, +0.1.0, at a milestone**, which is the developer's call; patch goes
+  back to 0.
+
+Change it only with the script, which refuses anything but three plain numbers:
+
+    tools/bump-version.sh patch
+    tools/bump-version.sh minor
+    tools/bump-version.sh           # prints the current version
+
 ## Relationship to the reverse-engineering project
 
 This repository is the game. The work of recovering it — the disassembly notes,

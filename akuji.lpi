@@ -161,6 +161,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="src/Version.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="src/GameLog.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

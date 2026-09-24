@@ -15,7 +15,7 @@ unit GmMain;
 interface
 
 uses
-  Classes, SysUtils, Types, GameColors, SDL2, GameLog,
+  Classes, SysUtils, Types, GameColors, SDL2, GameLog, Version,
   DDDDComponent, DDIDComponent, DDSDComponent, KbgmPlayer, GameState,
   IniFiles, QdaArchive, Title, Ending, Opening, GameFont, Surfaces, Sprites, Stages, TileMaps, PlayerState,
   Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender;
@@ -1500,8 +1500,8 @@ begin
     Exit;
 
   StartLog(ExtractFilePath(ParamStr(0)), Parts);
-  LogFmt(lsInit, 'Akuji the Demon, started %s',
-    [FormatDateTime('yyyy-mm-dd hh:nn:ss', Now)]);
+  LogFmt(lsInit, '%s %s, started %s',
+    [APP_NAME, APP_VERSION, FormatDateTime('yyyy-mm-dd hh:nn:ss', Now)]);
   LogFmt(lsInit, 'executable %s', [ParamStr(0)]);
   if Unknown <> '' then
     LogFmt(lsInit, 'system.ini [log] names subsystems that do not exist: %s',
