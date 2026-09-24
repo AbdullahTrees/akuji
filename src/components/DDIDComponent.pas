@@ -39,7 +39,7 @@ unit DDIDComponent;
 interface
 
 uses
-  Classes, SysUtils, ctypes, SDL2;
+  Classes, SysUtils, ctypes, SDL2, GameLog;
 
 type
   TDDIDDebugOptionItem = (dioHaltOnError);
@@ -110,6 +110,7 @@ type
     { Frames until the next look for a controller. Scanning is cheap but not
       free, and there is no event to tell us one was plugged in. }
     FPadScan: Integer;
+    FPadFailLogged: Boolean;
     { The last key the window reported, BOUND OR NOT. Rebinding is the reason
       it exists: a key that drives nothing yet is exactly the one the player
       is about to assign, and the pressed sets above only track bound keys. }
@@ -477,10 +478,15 @@ begin
       while the window is still the LCL's. }
     if SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) <> 0 then
     begin
+      { Logged once, not once a second: the retry is quiet. }
+      if not FPadFailLogged then
+        LogFmt(lsInput, 'gamepad support will not start: %s', [SDL_GetError]);
+      FPadFailLogged := True;
       FPadScan := PAD_RESCAN_FRAMES;
       Exit;
     end;
     FPadStarted := True;
+    LogLine(lsInput, 'gamepad support started');
     FPadScan := 0;
   end;
 
@@ -496,6 +502,7 @@ begin
       Exit;
     SDL_GameControllerClose(FPad);
     FPad := nil;
+    LogLine(lsInput, 'gamepad disconnected');
   end;
 
   { Looking means asking about every joystick on the machine, so it happens
@@ -511,7 +518,11 @@ begin
     begin
       FPad := SDL_GameControllerOpen(I);
       if FPad <> nil then
+      begin
+        LogFmt(lsInput, 'gamepad connected: %s',
+          [SDL_GameControllerName(FPad)]);
         Exit;
+      end;
     end;
 end;
 

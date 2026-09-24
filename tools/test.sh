@@ -79,6 +79,7 @@ run --selftest-settings "$DATA" "$SCRATCH"
 run --selftest-mapprobe "$DATA"
 run --selftest-render   "$DATA"
 run --selftest-input
+run --selftest-log
 
 echo
 [ "$skips" -gt 0 ] && echo "$skips check(s) skipped - see bin/selftest.log for why"

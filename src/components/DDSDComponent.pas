@@ -8,7 +8,7 @@ unit DDSDComponent;
 interface
 
 uses
-  Classes, SysUtils, SoundTable, AudioMixer, AudioOut;
+  Classes, SysUtils, SoundTable, AudioMixer, AudioOut, WaveFile, GameLog;
 
 type
   TDDSDDebugOptionItem = (dsoHaltOnError);
@@ -75,12 +75,24 @@ begin
 end;
 
 function TDDSD.Open(const AGameDir: string): Boolean;
+var
+  I: Integer;
 begin
   if FOpened then
     Close;
   FGameDir := AGameDir;
   FLoadedCount := FMixer.LoadAll(AGameDir);
+  LogFmt(lsAudio, '%d of %d sound effects loaded', [FLoadedCount, SOUND_COUNT]);
+  if LogOn(lsAudio) then
+    for I := 0 to SOUND_COUNT - 1 do
+      if (SoundNames[I] <> '') and not FMixer.IsLoaded(I) then
+        LogFmt(lsAudio, '  missing: %s', [SoundNames[I]]);
   Result := FOut.Start;
+  if Result then
+    LogFmt(lsAudio, 'effects device open, %d Hz', [MIX_RATE])
+  else
+    LogFmt(lsAudio, 'no effects device - the game will run without sound '
+      + 'effects: %s', [FOut.LastError]);
   FOpened := Result;
 end;
 

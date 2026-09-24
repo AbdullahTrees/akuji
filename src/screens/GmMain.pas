@@ -15,7 +15,7 @@ unit GmMain;
 interface
 
 uses
-  Classes, SysUtils, Types, GameColors, SDL2,
+  Classes, SysUtils, Types, GameColors, SDL2, GameLog,
   DDDDComponent, DDIDComponent, DDSDComponent, KbgmPlayer, GameState,
   IniFiles, QdaArchive, Title, Ending, Opening, GameFont, Surfaces, Sprites, Stages, TileMaps, PlayerState,
   Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender;
@@ -63,6 +63,10 @@ type
   private
     FWindow: PSDL_Window;
     FQuit: Boolean;
+    FFirstFrameLogged: Boolean;
+    { Reads the [log] switch and opens the log - first, before anything that
+      could fail, so a start that goes wrong still leaves a trail. }
+    procedure StartLogging;
     procedure PumpEvents;
     { One frame, when the clock says it is time for one. }
     procedure Frame;
@@ -241,7 +245,10 @@ begin
     SetFontDirectory(DataDir);
 
     { Missing or short settings data leaves the initialized defaults intact. }
-    LoadSettings(DataDir);
+    if LoadSettings(DataDir) then
+      LogLine(lsSettings, 'system.dat loaded')
+    else
+      LogLine(lsSettings, 'no usable system.dat - starting from defaults');
 
     { system.ini overrides fullscreen and input-device settings. Compatibility
       requires two parsing details:
@@ -264,6 +271,9 @@ begin
     { Zeroed after the read, so the gallery cursor never persists. }
     Settings.GallerySel := 0;
     SettingsToGlobals;
+    LogFmt(lsSettings, 'fullscreen %s, scale %dx, SE volume %d, level %d',
+      [BoolToStr(FullScreenOn, 'on', 'off'), WindowScale, Settings.Volume,
+       Settings.GameLevel]);
 
     { The bindings are the only copy from here on; FormDestroy writes them
       back into the record just before it is saved. The original kept a second
@@ -271,6 +281,7 @@ begin
     Joy.LoadKeyMap(Settings.KeyMap);
 
     FArchive := TQdaArchive.Create(DataDir + 'bmp.qda');
+    LogFmt(lsData, 'bmp.qda: %d pictures', [FArchive.Count]);
     { p_UseArchive, set by DDDD1Init the same way. }
     FUseArchive := True;
 
@@ -283,6 +294,7 @@ begin
     { Load the stage table once; stage assets are selected from it later. }
     FStages := TStageTable.Create;
     FStages.Load(DataDir);
+    LogLine(lsData, 'stage table loaded');
     FMap := TTileMap.Create;
     FStageLoaded := -1;
 
@@ -456,6 +468,11 @@ begin
   InputStep7;
   DrawDebugOverlay;
   DDDD1.Present;
+  if not FFirstFrameLogged then
+  begin
+    FFirstFrameLogged := True;
+    LogLine(lsInit, 'first frame on screen');
+  end;
 end;
 
 { Polls the configured controls. Opposing directions cancel to zero. }
@@ -610,6 +627,8 @@ begin
   SDL_SetWindowSize(FWindow, SCREEN_W * WindowScale, SCREEN_H * WindowScale);
   SDL_SetWindowPosition(FWindow, SDL_WINDOWPOS_CENTERED,
                                  SDL_WINDOWPOS_CENTERED);
+  LogFmt(lsVideo, 'window scale %dx, %dx%d', [WindowScale,
+    SCREEN_W * WindowScale, SCREEN_H * WindowScale]);
 end;
 
 { Applies fullscreen or restores the fixed-size centred window.
@@ -628,6 +647,7 @@ begin
   FullScreenOn := Enable;
   if FWindow = nil then
     Exit;
+  LogFmt(lsVideo, 'fullscreen %s', [BoolToStr(Enable, 'on', 'off')]);
   if Enable then
   begin
     SDL_SetWindowFullscreen(FWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
@@ -1332,8 +1352,12 @@ begin
   EndFrameClock;
   { Before the save, not after: SaveSettings writes the record as it stands. }
   Joy.StoreKeyMap(Settings.KeyMap);
+  LogLine(lsInit, 'shutting down');
   if FDataDir <> '' then
-    SaveSettings(FDataDir);
+    if SaveSettings(FDataDir) then
+      LogLine(lsSettings, 'system.dat saved')
+    else
+      LogLine(lsSettings, 'could not save system.dat');
   FFont.Free;
   FTitleScreen.Free;
   { FDialogue is the session's EventHost, and the session DOES own it - so it
@@ -1368,19 +1392,33 @@ const
     'midi\itemget'#10'midi\open01'#10'midi\end01'#10'midi\main02'#10 +
     'midi\open02'#10'midi\boss02'#10'midi\end02'#10'midi\soulget'#10 +
     'midi\end03'#10'midi\end04'#10'midi\end05';
+var
+  SdlVersion: TSDL_Version;
 begin
   inherited Create(AOwner);
+  StartLogging;
 
   { The video subsystem, which the renderer never needed - it draws into
     surfaces - but a window does. }
   if SDL_InitSubSystem(SDL_INIT_VIDEO) <> 0 then
+  begin
+    LogFmt(lsVideo, 'SDL video will not start: %s', [SDL_GetError]);
     raise Exception.CreateFmt('SDL video will not start: %s', [SDL_GetError]);
+  end;
+  SDL_GetVersion(@SdlVersion);
+  LogFmt(lsVideo, 'SDL %d.%d.%d, video driver %s',
+    [SdlVersion.major, SdlVersion.minor, SdlVersion.patch,
+     SDL_GetCurrentVideoDriver]);
 
   FWindow := SDL_CreateWindow(WINDOW_CAPTION,
                               SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                               SCREEN_W, SCREEN_H, SDL_WINDOW_SHOWN);
   if FWindow = nil then
+  begin
+    LogFmt(lsVideo, 'no window: %s', [SDL_GetError]);
     raise Exception.CreateFmt('no window: %s', [SDL_GetError]);
+  end;
+  LogFmt(lsVideo, 'window created, %dx%d', [SCREEN_W, SCREEN_H]);
 
   DDDD1 := TDDDD.Create(Self);
   DDDD1.InitialScreenWidth := SCREEN_W;
@@ -1401,6 +1439,53 @@ begin
   { Streaming used to do this from Loaded, once the .lfm properties were in.
     They are in, so this is the same moment. }
   DDDD1.Initialize;
+  LogLine(lsInit, 'startup complete');
+end;
+
+procedure TFrm_main.StartLogging;
+var
+  Dir, Unknown: string;
+  Ini: TIniFile;
+  Want: Boolean;
+  Parts: TLogSubsystems;
+  I: Integer;
+begin
+  Want := False;
+  Parts := LOG_ALL;
+  Unknown := '';
+  Dir := FindGameData;
+  if Dir <> '' then
+  begin
+    Ini := TIniFile.Create(Dir + 'system.ini');
+    try
+      Want := SameText(Trim(Ini.ReadString('log', 'enabled', 'off')), 'on');
+      Parts := ParseLogSubsystems(Ini.ReadString('log', 'subsystems', 'all'),
+                                  Unknown);
+    finally
+      Ini.Free;
+    end;
+  end;
+  { The switch that needs no file edited: everything, this run only. }
+  for I := 1 to ParamCount do
+    if ParamStr(I) = '--log' then
+    begin
+      Want := True;
+      Parts := LOG_ALL;
+    end;
+  if not Want then
+    Exit;
+
+  StartLog(ExtractFilePath(ParamStr(0)), Parts);
+  LogFmt(lsInit, 'Akuji the Demon, started %s',
+    [FormatDateTime('yyyy-mm-dd hh:nn:ss', Now)]);
+  LogFmt(lsInit, 'executable %s', [ParamStr(0)]);
+  if Unknown <> '' then
+    LogFmt(lsInit, 'system.ini [log] names subsystems that do not exist: %s',
+      [Unknown]);
+  if Dir = '' then
+    LogLine(lsData, 'no game data found beside the executable')
+  else
+    LogFmt(lsData, 'game data in %s', [Dir]);
 end;
 
 destructor TFrm_main.Destroy;
@@ -1454,12 +1539,24 @@ var
   Game: TFrm_main;
 begin
   Result := 0;
-  Game := TFrm_main.Create(nil);
   try
-    Game.Run;
-  finally
-    Game.Free;
+    Game := TFrm_main.Create(nil);
+    try
+      Game.Run;
+    finally
+      Game.Free;
+    end;
+  except
+    { Logged, then raised on: the log is where it will be looked for. }
+    on E: Exception do
+    begin
+      LogFmt(lsInit, 'FATAL %s: %s', [E.ClassName, E.Message]);
+      StopLog;
+      raise;
+    end;
   end;
+  LogLine(lsInit, 'exited cleanly');
+  StopLog;
 end;
 
 end.
