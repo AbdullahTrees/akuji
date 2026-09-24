@@ -859,6 +859,15 @@ var
   RevealedLines, GalleryIndex, SourceX: Integer;
   PlayerState: TPlayerState;
 begin
+  { Not until phase 5 has loaded its own picture. On the frame phase 4 hands
+    over, the loaded picture is still the staff roll's sheet, and drawing it
+    full screen flashed the whole sheet for one frame; the original draws
+    nothing on that frame. }
+  if not FEnding.ResultsShown then
+  begin
+    DDDD1.Target.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
+    Exit;
+  end;
   if FEndingBmp <> nil then
     DDDD1.Target.DrawImage(FEndingBmp, 0, 0)
   else

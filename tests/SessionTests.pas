@@ -1576,7 +1576,7 @@ var
 begin
   Bad := 0;
   Log.Add('');
-  Log.Add('--- the frame between the story and the credits ---');
+  Log.Add('--- the frames between the ending''s phases ---');
   FillChar(S, SizeOf(S), 0);
   FillChar(P, SizeOf(P), 0);
   State := GS_ENDING;
@@ -1619,9 +1619,50 @@ begin
     ScreenPhase := 0;
   end;
 
+  { Phase 4 into the results, the same way. The still shows only while it is
+    held; from the moment the music starts falling away, and on the frame
+    that hands over, the original draws nothing - and until phase 5 has set
+    itself up, the picture loaded is still the staff roll's sheet. }
+  E := TEndingScreen.Create;
+  Probe := TEndingProbe.Create;
+  try
+    E.OnPictureNamed := Probe.OnPictureNamed;
+    E.OnFadeBusy := Probe.OnFadeBusy;
+    E.OnStopMusic := Probe.OnStopMusic;
+    E.OnMusic := Probe.OnMusic;
+    E.OnMusicPlaying := Probe.OnFadeBusy;   { Busy doubles as "music playing" }
+
+    ScreenPhase := 4;
+    E.Step := 0;
+    E.Timer := 0;
+    Want(E.StillRight >= 0, 'the held still is not drawn');
+
+    E.Step := 1;                           { the music is fading }
+    Probe.Busy := True;
+    E.Update(S, P, State);
+    Want(ScreenPhase = 4, 'phase 4 ended while the music was still playing');
+    Want(E.StillRight < 0,
+      'the still is drawn while the music fades - the original shows black');
+
+    Probe.Busy := False;                   { the music has stopped }
+    Probe.Named := '';
+    E.Update(S, P, State);
+    Want(ScreenPhase = 5, 'phase 4 did not hand over when the music stopped');
+    Want(not E.ResultsShown,
+      'the results are drawn on the hand-over frame, over the old picture');
+
+    E.Update(S, P, State);
+    Want(Probe.Named <> '', 'the results never loaded their picture');
+    Want(E.ResultsShown, 'the results are not drawn once they have set up');
+  finally
+    Probe.Free;
+    E.Free;
+    ScreenPhase := 0;
+  end;
+
   Result := Bad;
   if Bad = 0 then
-    Log.Add('the switch frame holds no picture, as the original''s draws nothing');
+    Log.Add('both switch frames hold no picture, as the original''s draw nothing');
 end;
 
 function TestEnding(Log: TStrings): Integer;

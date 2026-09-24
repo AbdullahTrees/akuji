@@ -267,6 +267,10 @@ type
 
     { Phases 3 and 4: the right edge of the crop to show, or -1 for none. }
     function StillRight: Integer;
+    { Phase 5 has set itself up - its picture loaded and its fade begun. Not
+      true on the frame phase 4 hands over, which the host draws straight
+      after this returns. }
+    function ResultsShown: Boolean;
     { Phase 5: how many result lines have been revealed, and the rank text. }
     function ResultsRevealed: Integer;
     function RankName(Counter, ElapsedSec: Integer): string;
@@ -618,10 +622,19 @@ end;
 function TEndingScreen.StillRight: Integer;
 begin
   Result := -1;
-  if (ScreenPhase = 4) then
+  { Only while phase 4 holds the picture. The original draws the crop inside
+    its Slide = 0 branch and nowhere else, so once the hold ends and the
+    music starts falling away, the screen is black until the results fade
+    in - and the frame that hands over to them is black too. }
+  if (ScreenPhase = 4) and (Step = 0) then
     Exit(STILL_SRC_RIGHT[STILL_COUNT - 1]);
   if (ScreenPhase = 3) and (Step >= 1) and (Step <= STILL_COUNT) then
     Result := STILL_SRC_RIGHT[Step - 1];
+end;
+
+function TEndingScreen.ResultsShown: Boolean;
+begin
+  Result := (ScreenPhase = 5) and (Step >= 1);
 end;
 
 function TEndingScreen.ResultsRevealed: Integer;
