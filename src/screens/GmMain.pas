@@ -175,6 +175,7 @@ type
     procedure SessionResetHost;
     procedure StageBeginFade;
     procedure TitleVolume;
+    procedure TitleMusicVolume;
     function  TitleKeyName(Row: Integer): string;
     function  TitleBindKey(Row: Integer): Boolean;
     procedure TitleResetState;
@@ -278,9 +279,9 @@ begin
     { Zeroed after the read, so the gallery cursor never persists. }
     Settings.GallerySel := 0;
     SettingsToGlobals;
-    LogFmt(lsSettings, 'fullscreen %s, scale %dx, SE volume %d, level %d',
-      [BoolToStr(FullScreenOn, 'on', 'off'), WindowScale, Settings.Volume,
-       Settings.GameLevel]);
+    LogFmt(lsSettings, 'fullscreen %s, scale %dx, SE volume %d, music volume %d, '
+      + 'level %d', [BoolToStr(FullScreenOn, 'on', 'off'), WindowScale,
+       Settings.Volume, MusicVolume, Settings.GameLevel]);
 
     { The bindings are the only copy from here on; FormDestroy writes them
       back into the record just before it is saved. The original kept a second
@@ -328,6 +329,7 @@ begin
     DDSD1.Open(DataDir);
     DDSD1.Volume := Settings.Volume;
     KbgmPlayer1.Open(DataDir);
+    KbgmPlayer1.Volume := MusicVolume;
   end;
 
   { Apply the fullscreen setting after display initialization. }
@@ -378,6 +380,7 @@ begin
   FTitleScreen.OnResetOpening := TitleResetOpening;
   FTitleScreen.OnGallery := TitleGallery;
   FTitleScreen.OnVolume := TitleVolume;
+  FTitleScreen.OnMusicVolume := TitleMusicVolume;
   FTitleScreen.OnWindowScale := ApplyWindowScale;
   FTitleScreen.OnFullScreen := ApplyFullScreen;
   FTitleScreen.OnKeyName := TitleKeyName;
@@ -1015,6 +1018,11 @@ end;
 procedure TFrm_main.TitleVolume;
 begin
   DDSD1.Volume := Settings.Volume;
+end;
+
+procedure TFrm_main.TitleMusicVolume;
+begin
+  KbgmPlayer1.Volume := MusicVolume;
 end;
 
 function TFrm_main.TitleKeyName(Row: Integer): string;

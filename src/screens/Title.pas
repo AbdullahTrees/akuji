@@ -42,17 +42,18 @@ const
   OPT_LABEL_X  = $28;
   OPT_VALUE_X  = $E8;
   OPT_CURSOR_X = $E0;
-  OPT_ROW_EXIT = 8;
+  OPT_ROW_EXIT = 9;
   OPT_TITLE    = '- OPTION -';
   OPT_TITLE_Y  = $20;
   OPT_CURSOR   = '<       >';    { brackets the value column }
 
   { Labels in cursor order.
 
-    SCALING stands where WAIT and SOFTWARE VSYNC used to. Neither of those
-    could do anything here - see notes/divergences.md, DIV-018 - and one row
-    that works is worth more than two that do not. }
-  OPT_LABELS: array[0..8] of string = (
+    SCALING and MUSIC VOLUME take the two rows WAIT and SOFTWARE VSYNC had.
+    Neither of those could do anything here - see notes/divergences.md,
+    DIV-018 and DIV-023. It is ten rows again, the original's count, so
+    GALLERY and EXIT are back where the original drew them. }
+  OPT_LABELS: array[0..9] of string = (
     'GAME LEVEL',
     'FULL SCREEN',
     'JUMP  BUTTON ASSIGN',
@@ -60,6 +61,7 @@ const
     'PAUSE BUTTON ASSIGN',
     'SCALING',
     'SE VOLUME',
+    'MUSIC VOLUME',
     'GALLERY',
     'EXIT');
 
@@ -97,7 +99,7 @@ const
 type
   { Option rows in cursor order. Rows 2..4 are the key bindings. }
   TOptionRow = (orLevel, orToggle1, orKey0, orKey1, orKey2,
-                orScale, orVolume, orOmake, orExit);
+                orScale, orVolume, orMusic, orOmake, orExit);
 
   { Callbacks keep this unit independent of the component layer. }
   TSoundEvent = procedure(Index: Integer) of object;
@@ -120,6 +122,7 @@ type
     FOnResetState: TNotifyProc;
     FOnResetOpening: TNotifyProc;
     FOnVolume: TNotifyProc;
+    FOnMusicVolume: TNotifyProc;
     FOnWindowScale: TNotifyProc;
     FOnFullScreen: TNotifyProc;
     FOnGallery: TGalleryEvent;
@@ -155,6 +158,9 @@ type
     { The 57-channel volume sweep, which belongs to the sound device rather
       than to this unit. }
     property OnVolume: TNotifyProc read FOnVolume write FOnVolume;
+    { The music player's volume, which also belongs to a component. }
+    property OnMusicVolume: TNotifyProc read FOnMusicVolume
+                                        write FOnMusicVolume;
     { Called when the scale row changes, to resize the window. }
     property OnWindowScale: TNotifyProc read FOnWindowScale
                                         write FOnWindowScale;
@@ -423,7 +429,7 @@ procedure TTitleScreen.OptionsConfirm;
 var
   Sel: Integer;
 begin
-  { Row 8 opens an unlocked gallery slot and plays a rejection sound otherwise. }
+  { GALLERY opens an unlocked slot and plays a rejection sound otherwise. }
   if MenuIndex = Ord(orOmake) then
   begin
     Sel := Settings.GallerySel;
@@ -482,6 +488,7 @@ begin
   Val(Ord(orKey2), KeyName(2));
   Val(Ord(orScale), Format('%dX', [WindowScale]));
   Val(Ord(orVolume), Format('%3d%%', [Settings.Volume * 10]));
+  Val(Ord(orMusic), Format('%3d%%', [MusicVolume * 10]));
   if (Settings.GallerySel >= OMAKE_MIN) and (Settings.GallerySel <= OMAKE_MAX) then
   begin
     Val(Ord(orOmake), OMAKE_NAMES[Settings.GallerySel], 2);
@@ -537,6 +544,17 @@ begin
         { The sweep, immediately - see the header. }
         if Assigned(FOnVolume) then
           FOnVolume;
+      end;
+    orMusic:
+      { Bounded and silent at the ends like SE VOLUME, and applied on the
+        spot so the change is heard over the title music as it is made. }
+      if (MusicVolume + Delta >= MUSIC_VOLUME_MIN) and
+         (MusicVolume + Delta <= MUSIC_VOLUME_MAX) then
+      begin
+        PlaySound(SND_OK);
+        Inc(MusicVolume, Delta);
+        if Assigned(FOnMusicVolume) then
+          FOnMusicVolume;
       end;
     orOmake:
       if (Settings.GallerySel + Delta >= OMAKE_MIN) and

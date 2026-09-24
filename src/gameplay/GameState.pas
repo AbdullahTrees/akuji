@@ -41,6 +41,9 @@ const
     before it stops fitting on an ordinary display. }
   WINDOW_SCALE_MIN = 1;
   WINDOW_SCALE_MAX = 4;
+  { MUSIC VOLUME, in the same tenths SE VOLUME uses. }
+  MUSIC_VOLUME_MIN = 0;
+  MUSIC_VOLUME_MAX = 10;
   { Maximum acceptable clock granularity for frame pacing. }
   FRAME_CLOCK_MAX_STEP_MS = 5;
 
@@ -94,7 +97,12 @@ type
       also keeps the file byte-exact through a load and save, which
       --selftest-settings requires. }
     WindowScaleByte: Byte;           // +0x1E  window scale - 1
-    Unknown1F: array[0..4] of Byte;  // +0x1F..+0x23
+    { OURS TOO, the next of those six bytes. It holds 10 MINUS the music
+      volume, for the same reason the scale is stored less one: every existing
+      system.dat has a 0 here, and 0 has to mean the music plays at the volume
+      it always has - full. }
+    MusicVolumeByte: Byte;           // +0x1F  10 - music volume
+    Unknown20: array[0..3] of Byte;  // +0x20..+0x23
     Volume: Integer;         // +0x24  0..10, SE VOLUME
     GallerySel: Integer;     // +0x28  0..6
     { One flag per omake entry: Title_MainMenu indexes it by GallerySel, and
@@ -115,6 +123,7 @@ var
     pixels two screen pixels and some three, which on art this size is
     plainly visible. }
   WindowScale: Integer = WINDOW_SCALE_MIN;
+  MusicVolume: Integer = MUSIC_VOLUME_MAX;
   DebugLog: Boolean = False;
   GameStateValue: Integer = GS_TITLE_INIT;
   SavedGameState: Integer = 0;
@@ -238,6 +247,11 @@ begin
   DebugLog      := Settings.DebugLogFlag <> 0;
   { Stored as scale - 1; anything a corrupt file might hold reads as 1x
     rather than as a window with no area. }
+  { Anything a corrupt file might hold reads as full volume rather than as
+    silence, which would look like a broken sound device. }
+  MusicVolume := MUSIC_VOLUME_MAX - Integer(Settings.MusicVolumeByte);
+  if (MusicVolume < MUSIC_VOLUME_MIN) or (MusicVolume > MUSIC_VOLUME_MAX) then
+    MusicVolume := MUSIC_VOLUME_MAX;
   WindowScale := Integer(Settings.WindowScaleByte) + 1;
   if (WindowScale < WINDOW_SCALE_MIN) or (WindowScale > WINDOW_SCALE_MAX) then
     WindowScale := WINDOW_SCALE_MIN;
@@ -250,6 +264,7 @@ begin
   Settings.FullScreenFlag    := Ord(FullScreenOn);
   Settings.DebugLogFlag      := Ord(DebugLog);
   Settings.WindowScaleByte   := Byte(WindowScale - 1);
+  Settings.MusicVolumeByte   := Byte(MUSIC_VOLUME_MAX - MusicVolume);
 end;
 
 function LoadSettings(const AGameDir: string): Boolean;

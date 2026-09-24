@@ -123,7 +123,9 @@ begin
   Off('TGameSettings.ExtraDoor2', PtrUInt(@G.ExtraDoor2) - PtrUInt(@G), $1D);
   Off('TGameSettings.WindowScaleByte',
       PtrUInt(@G.WindowScaleByte) - PtrUInt(@G), $1E);
-  Off('TGameSettings.Unknown1F', PtrUInt(@G.Unknown1F) - PtrUInt(@G), $1F);
+  Off('TGameSettings.MusicVolumeByte',
+      PtrUInt(@G.MusicVolumeByte) - PtrUInt(@G), $1F);
+  Off('TGameSettings.Unknown20', PtrUInt(@G.Unknown20) - PtrUInt(@G), $20);
   Off('TGameSettings.Volume', PtrUInt(@G.Volume) - PtrUInt(@G), $24);
   Off('TGameSettings.GallerySel', PtrUInt(@G.GallerySel) - PtrUInt(@G), $28);
   Off('TGameSettings.GalleryUnlocked', PtrUInt(@G.GalleryUnlocked) - PtrUInt(@G), $2C);

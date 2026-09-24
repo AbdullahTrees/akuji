@@ -574,6 +574,35 @@ that was compared by ear.
 
 ---
 
+## DIV-025 - MUSIC VOLUME
+
+**What the original does.** It has no music volume. The options screen had two
+rows for frame pacing, WAIT and SOFTWARE VSYNC, which DIV-018 found could do
+nothing here and replaced with one row, SCALING.
+
+**What this does instead.** MUSIC VOLUME takes the other row, below SE VOLUME,
+so the screen has the original's ten rows again and GALLERY and EXIT are back
+where the original drew them. Same range, same 4.5 dB steps and same
+silent-at-zero as SE VOLUME, applied on the spot.
+
+It only became possible with DIV-024. Before it, the music was the Windows
+synthesiser's, and the one volume call that reached it did nothing audible.
+
+**Where it is stored.** `+0x1F` of system.dat, the next of the six bytes the
+original never touches, as 10 MINUS the volume - so the 0 every existing file
+carries means full, the level the music has always played at.
+
+**How it is held.** `--selftest-music` requires volume 5 to scale the music by
+exactly SE VOLUME's gain at 5 (0.0750, -22.5 dB) and volume 0 to be silent;
+making the volume do nothing fails both. `--selftest-layouts` pins the byte's
+offset and `--selftest-settings` the byte-exact round trip.
+
+**Sites.** `OPT_LABELS` and `AdjustValue` in `src/screens/Title.pas`,
+`MusicVolume` in `src/gameplay/GameState.pas`, `TitleMusicVolume` in
+`src/screens/GmMain.pas`.
+
+---
+
 ## Numbers 001 to 015
 
 Those belong to the reconstruction and are recorded in `akuji-re`'s own ledger,
