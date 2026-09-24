@@ -41,6 +41,12 @@ const
   SOUNDFONT_GM = 'gm';
   SOUNDFONT_GS = 'gs';
 
+{ Where a track stops sounding, in milliseconds: the time of its last event
+  that is not the End-of-Track marker. That is where the Windows synthesiser
+  was finished with a track, and so where the game's waits for a jingle end -
+  see TMusicSynth.Play. -1 if the file cannot be read. }
+function MidiEndMs(const Path: string): Integer;
+
 type
   TKbgmPlayer = class(TComponent)
   private
@@ -55,6 +61,9 @@ type
     FSoundFont: string;
     FEffects: Boolean;
     FLoadedBank: string;
+    { A once-through track whose end has not been logged yet. }
+    FWatchEnd: Boolean;
+    FWatchName: string;
     procedure SetAutoLoadMidis(Value: TStrings);
     procedure SetVolumeProp(Value: Integer);
     function ResolvePath(const Name: string): string;
@@ -127,7 +136,28 @@ type
 implementation
 
 uses
-  AudioMixer, GameLog;
+  AudioMixer, GameLog, MidiFile;
+
+function MidiEndMs(const Path: string): Integer;
+var
+  Midi: TMidiFile;
+  I: Integer;
+  Last: Int64;
+begin
+  Result := -1;
+  Midi := TMidiFile.Create;
+  try
+    if not Midi.LoadFromFile(Path) then
+      Exit;
+    Last := 0;
+    for I := 0 to Midi.Count - 1 do
+      if (Midi[I].Kind in [mekShort, mekSysEx]) and (Midi[I].TimeUs > Last) then
+        Last := Midi[I].TimeUs;
+    Result := Integer(Last div 1000);
+  finally
+    Midi.Free;
+  end;
+end;
 
 constructor TKbgmPlayer.Create(AOwner: TComponent);
 begin
@@ -312,6 +342,7 @@ procedure TKbgmPlayer.PlayName(const Name: string; Loop: Boolean);
 var
   Path: string;
   Bytes: TBytes;
+  EndMs: Integer;
 begin
   if not FOpened then
     Exit;
@@ -319,15 +350,27 @@ begin
   if Path = '' then
     Exit;
   FCurrent := -1;
+  FWatchEnd := False;
   if not ReadTrack(Path, Bytes) then
     Exit;
-  if not FSynth.Play(Bytes, Loop) then
+  if Loop then
+    EndMs := -1
+  else
+    EndMs := MidiEndMs(Path);
+  if not FSynth.Play(Bytes, Loop, 0, EndMs) then
   begin
     LogFmt(lsMusic, 'could not play %s', [Path]);
     Exit;
   end;
   FCurrent := IndexOfName(Name);
-  LogFmt(lsMusic, 'play %s%s', [Name, BoolToStr(Loop, ', looping', '')]);
+  if Loop then
+    LogFmt(lsMusic, 'play %s, looping', [Name])
+  else
+  begin
+    LogFmt(lsMusic, 'play %s once, last event at %.2f s', [Name, EndMs / 1000]);
+    FWatchEnd := True;
+    FWatchName := Name;
+  end;
 end;
 
 procedure TKbgmPlayer.Play(Index: Integer; Loop: Boolean;
@@ -370,6 +413,7 @@ begin
   if FOpened then
     FSynth.Stop;
   FCurrent := -1;
+  FWatchEnd := False;
 end;
 
 procedure TKbgmPlayer.FadeOut(MilliSeconds: Integer);
@@ -380,6 +424,7 @@ begin
     LogFmt(lsMusic, 'fade out over %d ms', [MilliSeconds]);
   end;
   FCurrent := -1;
+  FWatchEnd := False;
 end;
 
 procedure TKbgmPlayer.FadeIn(Index: Integer; MilliSeconds: Integer);
@@ -395,6 +440,7 @@ begin
   if Path = '' then
     Exit;
   FCurrent := -1;
+  FWatchEnd := False;
   if not ReadTrack(Path, Bytes) then
     Exit;
   if not FSynth.Play(Bytes, True, MilliSeconds) then
@@ -423,6 +469,14 @@ end;
 function TKbgmPlayer.IsPlaying: Boolean;
 begin
   Result := FOpened and FSynth.IsPlaying;
+  { Polled every frame while something waits on it; logged once, at the
+    moment it changes, so the log shows how long the wait really was. }
+  if FWatchEnd and not Result then
+  begin
+    FWatchEnd := False;
+    LogFmt(lsMusic, '%s finished after %.2f s',
+      [FWatchName, FSynth.PlayedMs / 1000]);
+  end;
 end;
 
 end.

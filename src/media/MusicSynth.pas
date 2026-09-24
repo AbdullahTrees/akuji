@@ -50,6 +50,10 @@ type
     FFade: Single;           { where a fade has got to, 0..1 }
     FFadeStep: Single;       { per frame; 0 when no fade is running }
     FStopWhenSilent: Boolean;{ a fade OUT, which ends by stopping the track }
+    { Frames rendered since the track started, and the frame at which a
+      once-through track counts as finished - see Play. -1 for none. }
+    FPlayedFrames: Int64;
+    FEndFrame: Int64;
     FScratch: array of Single;
     FDevice: TSDL_AudioDeviceID;
     FLastError: string;
@@ -68,14 +72,27 @@ type
 
     { Starts a track from the bytes of a MIDI file, replacing whatever was
       playing - cut, not faded, as SDL_mixer's halt was. FadeInMs above zero
-      brings it up from silence over that long. }
+      brings it up from silence over that long.
+
+      EndMs is when a once-through track counts as finished, as far as
+      IsPlaying is concerned. FluidSynth's own player says a track is still
+      playing for about three and a half seconds after its last event - 6.99 s
+      for a jingle whose last note ends at 3.45 s - and a caller that waits
+      for the music to finish, as the power-up panel does, waits through all
+      of that silence. The Windows synthesiser was done at the last event, so
+      that is what EndMs is: see MidiEndMs in KbgmPlayer. Release tails still
+      sound out past it. Ignored for a looping track, which does not finish;
+      FluidSynth's loop is seamless. }
     function Play(const Midi: TBytes; Loop: Boolean;
-                  FadeInMs: Integer = 0): Boolean;
+                  FadeInMs: Integer = 0; EndMs: Integer = -1): Boolean;
     procedure Stop;
     { Fades to silence over Ms, then stops. Zero or less stops at once. }
     procedure FadeOut(Ms: Integer);
     { True while a track is sounding, including through a fade-out. }
     function IsPlaying: Boolean;
+
+    { How long the current track has played for, for the log. }
+    function PlayedMs: Integer;
 
     { 0..1 amplitude, applied after synthesis. }
     procedure SetGain(Value: Single);
@@ -219,7 +236,7 @@ begin
 end;
 
 function TMusicSynth.Play(const Midi: TBytes; Loop: Boolean;
-  FadeInMs: Integer): Boolean;
+  FadeInMs: Integer; EndMs: Integer): Boolean;
 begin
   Result := False;
   if (FSynth = nil) or (Length(Midi) = 0) then
@@ -253,6 +270,11 @@ begin
       FFadeStep := 0;
     end;
     FStopWhenSilent := False;
+    FPlayedFrames := 0;
+    if (not Loop) and (EndMs >= 0) then
+      FEndFrame := (Int64(EndMs) * MUSIC_RATE) div 1000
+    else
+      FEndFrame := -1;
 
     Result := fluid_player_play(FPlayer) = FLUID_OK;
     if not Result then
@@ -297,7 +319,18 @@ begin
   FLock.Acquire;
   try
     Result := (FPlayer <> nil)
-      and (fluid_player_get_status(FPlayer) = FLUID_PLAYER_PLAYING);
+      and (fluid_player_get_status(FPlayer) = FLUID_PLAYER_PLAYING)
+      and not ((FEndFrame >= 0) and (FPlayedFrames >= FEndFrame));
+  finally
+    FLock.Release;
+  end;
+end;
+
+function TMusicSynth.PlayedMs: Integer;
+begin
+  FLock.Acquire;
+  try
+    Result := Integer((FPlayedFrames * 1000) div MUSIC_RATE);
   finally
     FLock.Release;
   end;
@@ -337,6 +370,8 @@ begin
       it lets release tails and effects decay rather than stopping dead. }
     fluid_synth_write_float(FSynth, Frames,
       @FScratch[0], 0, MUSIC_CHANNELS, @FScratch[0], 1, MUSIC_CHANNELS);
+    if FPlayer <> nil then
+      Inc(FPlayedFrames, Frames);
 
     for I := 0 to Frames - 1 do
     begin

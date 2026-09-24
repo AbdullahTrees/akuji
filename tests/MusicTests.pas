@@ -137,6 +137,7 @@ var
   Main01, Item, Bytes: TBytes;
   Full, Half, Silent, Again, Wet, Early, Late: TRenderStats;
   Ratio, WantRatio: Double;
+  ItemEnd, SoulEnd: Integer;
   I: Integer;
   Names: TStringList;
 begin
@@ -204,11 +205,33 @@ begin
     Want(Silent.Peak = 0, 'volume 0 is not silent');
     Synth.SetGain(1.0);
 
-    { 5. A once-through track ends; a looping one does not. itemget is 7 s. }
-    Synth.Play(Item, False);
-    RenderFor(Synth, 9000);
-    Want(not Synth.IsPlaying, 'a once-through track is still playing after it ended');
-    Synth.Play(Item, True);
+    { 5. A once-through track is finished at its last event - where the
+         Windows synthesiser was - and not three and a half seconds later,
+         where FluidSynth's own player says so. The power-up panel waits for
+         exactly this, and waited through all that silence until it was
+         fixed. itemget's last note ends at 3.45 s; soulget's at 6.65 s, with
+         its End-of-Track 0.8 s after that. A looping track does not finish. }
+    ItemEnd := MidiEndMs(Midi + 'itemget.mid');
+    SoulEnd := MidiEndMs(Midi + 'soulget.mid');
+    Log.Add(Format('last events: itemget %d ms, soulget %d ms', [ItemEnd, SoulEnd]));
+    Want(Abs(ItemEnd - 3450) <= 10, 'itemget does not end where its last note does');
+    Want(Abs(SoulEnd - 6650) <= 10, 'soulget does not end at its last event');
+
+    Fresh(Synth);
+    Synth.Play(Item, False, 0, ItemEnd);
+    RenderFor(Synth, ItemEnd - 150);
+    Want(Synth.IsPlaying, 'itemget finished before its last note');
+    RenderFor(Synth, 300);
+    Want(not Synth.IsPlaying, 'itemget is still playing after its last note');
+
+    Fresh(Synth);
+    Synth.Play(ReadBytes(Midi + 'soulget.mid'), False, 0, SoulEnd);
+    RenderFor(Synth, SoulEnd - 150);
+    Want(Synth.IsPlaying, 'soulget finished before its last event');
+    RenderFor(Synth, 300);
+    Want(not Synth.IsPlaying, 'soulget is still playing after its last event');
+
+    Synth.Play(Item, True, 0, ItemEnd);
     RenderFor(Synth, 9000);
     Want(Synth.IsPlaying, 'a looping track stopped at its end');
 

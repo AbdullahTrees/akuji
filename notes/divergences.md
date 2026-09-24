@@ -548,6 +548,15 @@ effects. FluidSynth adds reverb and chorus by default and the game never had
 them: renders with them on were judged by ear to sound noticeably wetter than
 the game. They are off unless `system.ini` says `[music] effects=on`.
 
+**When a jingle is over.** FluidSynth's player keeps reporting a track as
+playing for about three and a half seconds after its last event - 6.99 s for
+the power-up jingle, whose last note ends at 3.45 s - and the power-up panel
+waits for the jingle, so it sat through all of that silence, more than twice as
+long as the original. A once-through track now counts as finished at its last
+event that is not End-of-Track, which is where the Windows synthesiser was done
+with it. Looping is unaffected; FluidSynth's loop is seamless. Found in play;
+held by `--selftest-music`, which fails if FluidSynth's own end is put back.
+
 **The level.** FluidSynth's default gain is far quieter than the Windows
 synthesiser. Matching the Windows synthesiser's measured average would have
 needed about 1.1, and at 1.0 eleven of the fourteen tracks clip. 0.5 is the
