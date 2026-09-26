@@ -41,12 +41,15 @@ const
   FLUID_INFO = 3;
   FLUID_DBG = 4;
 
-  { The shared object's name on each platform. Windows takes the copy vendored
-    beside the executable; elsewhere it is the system's package. }
-  FLUIDSYNTH_LIB =
-    {$IFDEF WINDOWS}'libfluidsynth-3.dll'
-    {$ELSE}{$IFDEF DARWIN}'libfluidsynth.3.dylib'
-    {$ELSE}'libfluidsynth.so.3'{$ENDIF}{$ENDIF};
+  { The shared object's names on each platform, tried in order. Windows takes
+    the copy vendored beside the executable; elsewhere it is the system's
+    package, which is FluidSynth 2.4 or later as .so.3 and anything from 2.0
+    as .so.2 - Ubuntu 20.04, the PortMaster build image, ships 2.1. Every call
+    bound below is in both. }
+  FLUIDSYNTH_LIBS: array[0..{$IFDEF WINDOWS}0{$ELSE}1{$ENDIF}] of string =
+    {$IFDEF WINDOWS}('libfluidsynth-3.dll')
+    {$ELSE}{$IFDEF DARWIN}('libfluidsynth.3.dylib', 'libfluidsynth.dylib')
+    {$ELSE}('libfluidsynth.so.3', 'libfluidsynth.so.2'){$ENDIF}{$ENDIF};
 
 var
   new_fluid_settings: function: PFluidSettings; cdecl;
@@ -90,26 +93,37 @@ uses
 
 var
   Lib: TLibHandle = NilHandle;
+  LibName: string = '';
   LastError: string = '';
 
 function LoadFluidSynth: Boolean;
+var
+  I: Integer;
 
   function Bind(var Entry: Pointer; const Name: string): Boolean;
   begin
     Entry := GetProcedureAddress(Lib, Name);
     Result := Entry <> nil;
     if not Result then
-      LastError := FLUIDSYNTH_LIB + ' has no entry point ' + Name;
+      LastError := LibName + ' has no entry point ' + Name;
   end;
 
 begin
   if Lib <> NilHandle then
     Exit(True);
 
-  Lib := LoadLibrary(FLUIDSYNTH_LIB);
+  for I := Low(FLUIDSYNTH_LIBS) to High(FLUIDSYNTH_LIBS) do
+  begin
+    LibName := FLUIDSYNTH_LIBS[I];
+    Lib := LoadLibrary(LibName);
+    if Lib <> NilHandle then
+      Break;
+  end;
   if Lib = NilHandle then
   begin
-    LastError := 'could not load ' + FLUIDSYNTH_LIB;
+    LastError := 'could not load ' + FLUIDSYNTH_LIBS[0];
+    for I := Succ(Low(FLUIDSYNTH_LIBS)) to High(FLUIDSYNTH_LIBS) do
+      LastError := LastError + ' or ' + FLUIDSYNTH_LIBS[I];
     Exit(False);
   end;
 

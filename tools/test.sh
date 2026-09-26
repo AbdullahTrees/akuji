@@ -21,7 +21,10 @@ set -u
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA="${1:-$REPO/assets}"
 case "${AKUJI_EXE:-}" in
-    "")  EXE="$REPO/bin/akuji.exe" ;;
+    "")  case "$(uname -s)" in
+             MINGW*|MSYS*|CYGWIN*) EXE="$REPO/bin/akuji.exe" ;;
+             *)                    EXE="$REPO/bin/akuji" ;;
+         esac ;;
     /*)  EXE="$AKUJI_EXE" ;;
     ?:*) EXE="$AKUJI_EXE" ;;
     *)   EXE="$REPO/$AKUJI_EXE" ;;

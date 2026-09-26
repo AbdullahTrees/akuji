@@ -6,6 +6,8 @@
 # kernel look for an interpreter called "bash\r", which fails with a message
 # that names neither the line endings nor the script.
 *.sh text eol=lf
+# Make likewise: a CRLF recipe line hands the shell "tools/build.sh".
+Makefile text eol=lf
 
 # Pascal sources and project files are edited in the Lazarus IDE on Windows.
 *.pas text eol=crlf
@@ -26,3 +28,5 @@
 *.dll binary
 *.ttf binary
 *.fon binary
+*.dls binary
+*.sf2 binary

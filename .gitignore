@@ -25,3 +25,6 @@ selftest.log
 *.orig
 .DS_Store
 Thumbs.db
+
+# Free Pascal fetched by tools/fetch-fpc.sh, and its download cache
+.toolchain/

@@ -5,61 +5,68 @@ around 2001. The game was written in Borland Delphi and shipped as a Windows
 binary; its source was never released. This is that source, rebuilt in Object
 Pascal, together with the data the game loads.
 
-It builds with [Lazarus](https://www.lazarus-ide.org/) and Free Pascal and
+It builds with Free Pascal, draws and plays sound through SDL2, and
 plays the real game — the same stages, entities, scripts, music and endings.
 
 ## Build and run
 
-You need [Lazarus](https://www.lazarus-ide.org/) with Free Pascal. Built and
-tested against Lazarus 4.8 and FPC 3.2.2 on 64-bit Windows.
-
 ```sh
-tools/build.sh          # builds bin/akuji.exe
-bin/akuji.exe           # plays
+make                    # builds bin/akuji (bin/akuji.exe on Windows)
+bin/akuji               # plays
 ```
 
-`tools/build.sh` finds `lazbuild` on PATH, or in the usual install locations.
-If yours is somewhere else, name it:
+On Windows run `make` from Git Bash; `tools/build.sh` does the same without
+make. Built and tested with Free Pascal 3.2.2 on 64-bit Windows and on
+aarch64 Linux (the PortMaster build image, Ubuntu 20.04).
+
+| target | what it does |
+|---|---|
+| `make` | check what the build needs, then build |
+| `make release` | the same, optimised and stripped |
+| `make test` | build, then run every self-test |
+| `make configure` | only the checks |
+| `make clean` | remove what the build produced |
+| `make distclean` | also remove the fetched Free Pascal |
+
+### What the build needs
+
+**Free Pascal 3.2.** On Linux there is nothing to install: if no 3.2 compiler
+is on PATH, the first `make` downloads the official 3.2.2 release for the
+machine's architecture (about 100 MB, once), checks it against a pinned
+SHA-256 and unpacks it into `.toolchain/` inside the checkout. Nothing goes
+outside the checkout and nothing needs root; `make distclean` removes it.
+Distribution packages are passed over on purpose - Ubuntu 20.04 ships 3.0.4.
+On Windows, install [Lazarus](https://www.lazarus-ide.org/) (4.8 carries FPC
+3.2.2); the build finds the compiler inside it. `FPC=/path/to/fpc make` names
+one explicitly.
+
+**SDL2 and SDL2_ttf.** On Windows they are vendored in `third_party/` and
+copied beside the binary. On Linux they come from the package manager, which
+needs root, so `make` checks for them and prints the line to run rather than
+running it:
 
 ```sh
-LAZBUILD=/e/lazarus/lazbuild.exe tools/build.sh
+sudo apt-get install libsdl2-dev libsdl2-ttf-dev
 ```
 
-### Without the script
-
-The script only wraps one command, so this is the whole of it:
-
-```sh
-lazbuild akuji.lpi                          # builds bin/akuji.exe
-cp third_party/sdl2/win64/*.dll bin/        # Windows only, see below
-```
-
-Or open `akuji.lpi` in the Lazarus IDE and build from there. To open
-`src/screens/GmMain.lfm` in the form designer you must first install
-`akuji_components.lpk`, which registers the four component classes the form
-uses; building does not need it.
+**FluidSynth**, for music only. Loaded at run time (`libfluidsynth.so.3` or
+`.so.2`); without it the game builds and runs, silently. On Windows it is
+vendored too.
 
 ### Release build
 
 ```sh
-RELEASE=1 tools/build.sh
+make release
 ```
 
 3 MB rather than 30 MB. Almost all of the difference is debug information, not
 code: the default build keeps symbols because they are what makes a crash
 report worth having. The release build passes the same tests.
 
-### SDL
+### Building by hand
 
-SDL2, SDL2_mixer and SDL2_ttf are loaded at run time and have to sit beside the
-binary. `tools/build.sh` copies the vendored Windows DLLs into `bin/` for you.
-On Linux and macOS install them from your package manager instead - there is
-nothing to copy:
-
-```sh
-sudo apt install libsdl2-2.0-0 libsdl2-mixer-2.0-0 libsdl2-ttf-2.0-0   # Debian
-brew install sdl2 sdl2_mixer sdl2_ttf                                  # macOS
-```
+`tools/build.sh` is one Free Pascal command; its flags are the ones in
+`akuji.lpi`, so opening that in the Lazarus IDE builds the same program.
 
 SDL2_ttf is what draws the opening narration and the dialogue box, out of the
 font in `assets/fonts/` rather than one the host happens to have installed.
@@ -73,10 +80,10 @@ same way: put the contents of `assets/` beside the executable.
 ## Tests
 
 ```sh
-tools/test.sh
+make test               # or tools/test.sh
 ```
 
-Fifteen self-test modes, linked into the game binary itself rather than into a
+Nineteen self-test modes, linked into the game binary itself rather than into a
 separate harness, so they exercise the code the game actually runs. They cover
 the archive and audio decoders, the MIDI player, the event-script grammar and
 interpreter, stage loading, the camera, the player controller, the entity
@@ -90,7 +97,6 @@ absent. Put a copy beside the game data to enable them.
 
 ```
 akuji.lpi / akuji.lpr     the project and its program block
-akuji_components.lpk      design-time package, for the form designer only
 src/
   components/             the display, input, sound and music components
   media/                  archive, WAV, MIDI and mixer decoding
@@ -100,7 +106,8 @@ src/
   screens/                title, opening, dialogue, ending, and the main form
 tests/                    the self-test modes, plus a pinned save fixture
 assets/                   the game's data - see NOTICE.md
-tools/                    build and test scripts
+tools/                    configure, build and test scripts
+Makefile                  the entry point - see Build and run
 ```
 
 ## Portability
@@ -113,18 +120,13 @@ Nothing in the game calls a Windows API any more:
 | drawing | SDL surface blits, through one seam - `src/render/RenderTarget.pas` |
 | pictures | decoded by SDL from `bmp.qda` |
 | text | SDL_ttf, from a font carried in `assets/fonts/` |
-| sound and music | SDL_mixer |
+| sound | SDL audio, mixed by the game (`src/media/AudioMixer.pas`) |
+| music | FluidSynth, with the soundfont in `assets/soundfonts/` |
+| the window, keyboard and gamepad | SDL |
 | the frame clock | SDL's timer |
 
-What is left is the window. The game is still an LCL form: it owns the window,
-the keyboard and the message loop, and once a frame `TDDDD.Present` copies the
-SDL back buffer into a bitmap and stretches it over the client area. That copy
-and that form are the whole of the remaining work - an SDL window replaces
-both, and nothing that draws would notice.
-
-Two things belong to that same change and are not done yet: scaling the
-picture by a whole number in windowed mode instead of stretching it to
-whatever shape the window is, and fullscreen.
+The render self-test pins every scene by checksum, and the same numbers hold
+from SDL 2.0.10 (the PortMaster image) to 2.32 (vendored on Windows).
 
 ## Versioning
 
