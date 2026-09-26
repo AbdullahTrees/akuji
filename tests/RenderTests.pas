@@ -131,18 +131,6 @@ const
     rather than blitted from a sheet, so it is the one scene an SDL target
     reproduces with a different rasteriser entirely. }
   BASELINE_OUTLINED = $47FFC7E9;
-  { SCALING. Pinned on its own because it is the one primitive the LCL
-    renderer and this one did NOT agree on. Both drop pixels rather than
-    filtering, and both land on the same sampling grid - no shift fitted
-    better than none - but they round the boundaries differently, so which
-    source row gets duplicated moves. Over a 240x180 destination that was
-    1278 pixels of 43200, and the two were indistinguishable to look at.
-
-    Neither was more faithful. The original did not scale at blit time at
-    all: DelphiX loaded the ending pictures INTO a surface of the final size
-    and Ending_Update blits them 1:1. The scaling is this reconstruction's
-    own, and the ending slides are the only place it runs. }
-  BASELINE_STRETCH = $72D38A09;
 
 { Compare one measured checksum against its pinned value. A zero pin means
   the thing has not been pinned yet: it reports what it measured and does not
@@ -225,7 +213,7 @@ var
   KeyTarget: TSDLRenderTarget;
   KeyRef: TPixels;
   KeyKept, KeyDiff, KeyStep: Integer;
-  StretchSurf, PresentSurf, DecSurf, DecConv: PSDL_Surface;
+  PresentSurf, DecSurf, DecConv: PSDL_Surface;
   DecBuf: TMemoryStream;
   DecPixels: TDecodedPixels;
   DecW, DecH: Integer;
@@ -239,7 +227,6 @@ var
   PresentBands: Integer;
   PresentGot, PresentWant: LongWord;
   PresentBad: Integer;
-  SdlTarget: TSDLRenderTarget;
   PX, PY: Integer;
   SdlRow: PByte;
   SdlPix: PLongWord;
@@ -297,15 +284,6 @@ var
     Game_DrawTextOutlined(8, 100, 'A demon named "Akuji" once',
                           $355B7E, $A3DFFF, OUTLINED_FONT_SIZE, T);
     if Snaps then Snap(4, 'outlined');
-  end;
-
-  { The one primitive the two targets do not agree on, so it is drawn on its
-    own rather than inside a scene both are supposed to match. }
-  procedure DrawStretched(T: TRenderTarget);
-  begin
-    T.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
-    if Surf.Images[Tileset] <> nil then
-      T.StretchImage(Surf.Images[Tileset], Rect(40, 30, 280, 210));
   end;
 
   { Draw one sprite frame through the target's keyed blit, and work out what
@@ -867,38 +845,6 @@ begin
         if PresentSurf <> nil then
           SDL_FreeSurface(PresentSurf);
       end;
-    end;
-
-    { Scaling, pinned per target - see the baselines. }
-    StretchSurf := SDL_CreateRGBSurface(0, SCREEN_W, SCREEN_H, 32,
-                                        $00FF0000, $0000FF00, $000000FF, 0);
-    if StretchSurf <> nil then
-    begin
-      SdlTarget := TSDLRenderTarget.Create(StretchSurf);
-      try
-        DrawStretched(SdlTarget);
-      finally
-        SdlTarget.Free;
-      end;
-      SetLength(Cur, SCREEN_W * SCREEN_H);
-      for PY := 0 to SCREEN_H - 1 do
-      begin
-        SdlRow := PByte(StretchSurf^.pixels) + PY * StretchSurf^.pitch;
-        SdlPix := PLongWord(SdlRow);
-        for PX := 0 to SCREEN_W - 1 do
-        begin
-          Cur[PY * SCREEN_W + PX] := ((SdlPix^ and $FF) shl 16)
-                                     or (SdlPix^ and $0000FF00)
-                                     or ((SdlPix^ shr 16) and $FF);
-          Inc(SdlPix);
-        end;
-      end;
-      SDL_FreeSurface(StretchSurf);
-
-      Log.Add('');
-      Log.Add(Format('scaling: %8.8x', [Checksum(Cur)]));
-      Inc(Result, Pinned('stretch', Checksum(Cur), BASELINE_STRETCH,
-                         'BASELINE_STRETCH', Log));
     end;
 
     Log.Add('scene      changed   checksum   expected');

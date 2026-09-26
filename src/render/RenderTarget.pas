@@ -19,7 +19,6 @@
     BlitRect        copies a source RECTANGLE, background and all
     BlitRectKeyed   the same rectangle, with IMAGE_KEY_COLOR left behind
     DrawImage       a WHOLE image, opaquely
-    StretchImage    a whole image scaled into a rectangle
 
   The split is not tidiness. It is what the original binary distinguished:
   TDDDD_DrawSprite passes its caller's flag word to BltFast as dwTrans, and
@@ -151,13 +150,6 @@ type
 
     { A whole image, opaquely. }
     procedure DrawImage(Src: TRenderImage; X, Y: Integer); virtual; abstract;
-
-    { A whole image scaled into a rectangle. The ending slides are the only
-      thing the game scales, and they are the reason this exists rather than
-      being folded into DrawImage: the scaling filter is a visible choice, and
-      the target picks it explicitly. }
-    procedure StretchImage(Src: TRenderImage;
-                           const DestRect: TRect); virtual; abstract;
 
     { Text in a SYSTEM font, outlined by drawing it five times.
 

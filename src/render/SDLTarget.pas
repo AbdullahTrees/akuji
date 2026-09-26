@@ -64,7 +64,6 @@ type
     procedure BlitRectKeyed(Src: TRenderImage; const SrcRect: TRect;
                             X, Y: Integer); override;
     procedure DrawImage(Src: TRenderImage; X, Y: Integer); override;
-    procedure StretchImage(Src: TRenderImage; const DestRect: TRect); override;
     procedure DrawOutlinedText(X, Y: Integer; const S: string;
                                Outline, Fill: TColor; Size: Integer); override;
 
@@ -182,21 +181,6 @@ begin
   if Src = nil then
     Exit;
   BlitFrom(FSurface, Src, Rect(0, 0, Src.Width, Src.Height), X, Y, False);
-end;
-
-procedure TSDLRenderTarget.StretchImage(Src: TRenderImage;
-  const DestRect: TRect);
-var
-  S: PSDL_Surface;
-  DstR: TSDL_Rect;
-begin
-  if (FSurface = nil) or (Src = nil) then
-    Exit;
-  S := Src.SDLSurface(False);
-  if S = nil then
-    Exit;
-  DstR := ToSDLRect(DestRect);
-  SDL_BlitSurfaceScaled(S, nil, FSurface, @DstR);
 end;
 
 procedure TSDLRenderTarget.DrawOutlinedText(X, Y: Integer; const S: string;

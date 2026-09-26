@@ -950,14 +950,15 @@ end;
 
 { Phase 1, the slide show: the picture at (0x28, 8) and two rows of outlined
   text under it. Ending.pas holds which slide and which words; where they go
-  is the host's. }
+  is the host's. The picture is Ending_Update's TDDDD_DrawSprite(.., 0x28, 8,
+  0x11, Rect(0, 0, 0xF0, 0xB4)): a 1:1 BltFast with SRCCOLORKEY | WAIT. The
+  slides are 240x180 already, so nothing is scaled. }
 procedure TFrm_main.DrawEndingSlide;
 begin
   DDDD1.Target.Fill(Rect(0, 0, SCREEN_W, SCREEN_H), clBlack);
   if (FEndingBmp <> nil) and (FEnding.SlideImage >= 0) then
-    DDDD1.Target.StretchImage(FEndingBmp,
-      Rect(ENDING_PIC_X, ENDING_PIC_Y,
-           ENDING_PIC_X + ENDING_PIC_W, ENDING_PIC_Y + ENDING_PIC_H));
+    DDDD1.Target.BlitRectKeyed(FEndingBmp,
+      Rect(0, 0, ENDING_PIC_W, ENDING_PIC_H), ENDING_PIC_X, ENDING_PIC_Y);
   Game_DrawTextOutlined(ENDING_LINE_X, ENDING_LINE1_Y, FEnding.SlideLine(0),
                         ENDING_TEXT_OUTLINE, ENDING_TEXT_FILL, 10,
                         DDDD1.Target);

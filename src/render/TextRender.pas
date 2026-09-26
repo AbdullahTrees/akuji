@@ -218,7 +218,10 @@ begin
                                      ToSDLColor(Fill));
       if Text = nil then
         Continue;
-      SDL_SetSurfaceBlendMode(Text, SDL_BLENDMODE_BLEND);
+      { A plain copy: the colour key already drops the background, and the
+        glyph pixels are opaque. Blending an 8-bit keyed surface onto ARGB
+        copies nothing at all under SDL 2.0.10, the PortMaster image's. }
+      SDL_SetSurfaceBlendMode(Text, SDL_BLENDMODE_NONE);
       if I < 4 then
       begin
         Dst.x := 1 + DX[I];

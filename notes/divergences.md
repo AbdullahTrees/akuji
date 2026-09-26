@@ -404,8 +404,8 @@ said in SDL's terms - so Z, space and enter still confirm a menu whatever JUMP
 is bound to. That is the last Windows-shaped input path and retiring it is a
 separate decision, because it changes how the menus feel.
 
-**How it is held.** `--selftest-render` keeps the five scene checksums and the
-scaling checksum, and its present check is now the real present path:
+**How it is held.** `--selftest-render` keeps the five scene checksums, and
+its present check is now the real present path:
 `TDDDD.PresentTo` is the whole of presentation except asking the window for a
 surface, so a test can drive it into an offscreen one. 8x4 scaled into 34x18
 is 4x at (1,1), and all 612 pixels of the result are required to be either the
