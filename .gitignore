@@ -28,3 +28,9 @@ Thumbs.db
 
 # Free Pascal fetched by tools/fetch-fpc.sh, and its download cache
 .toolchain/
+
+# The game writes these as it is played. The committed copies are the
+# fresh-install state and test data; local play changes stay local - each clone
+# also needs: git update-index --skip-worktree assets/data/save.dat assets/data/system.dat
+assets/data/save.dat
+assets/data/system.dat
