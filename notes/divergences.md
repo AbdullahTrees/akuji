@@ -631,6 +631,10 @@ the box.
   English beside it, and falls back to English when empty. `assets/lang/akuji.pot`,
   the template, is written by the game itself (`akuji --write-pot`), so it
   cannot drift from what is looked up.
+* `en.po` is English as a translation like any other, identical to the
+  built-in English it starts from - the English release's dialogue files and
+  the strings in the code, which stay the template's source and the fallback.
+  Editing it rewords the English without touching either.
 * `ja.po` is the Japanese release's own text, converted from Shift-JIS: all 65
   dialogue files and every visible string in its exe (narration, power-up names,
   the Yes/No prompt, the power-up line, the title).
@@ -664,9 +668,12 @@ has only ASCII, and are not in the template yet.
 on all 286 English pages (0 may differ); the PO reader against a sample with
 continuation lines, escapes and fuzzy entries; the template written, read back
 and compared with what is committed; and for each language file - no context
-the game never looks up, every dialogue code that steers the game kept (the
+the game never looks up, how many entries equal the built-in English (all of
+`en.po`'s, so choosing English changes nothing), every dialogue code that steers the game kept (the
 terminator, and `\w` present exactly when the English has it), every character
-in its font, every line inside the box (Japanese's widest is 180 of 204
+in its font, every page inside the box - three lines, two where the Yes/No
+prompt takes the third, and a translation may add boxes with `\k` - and every
+line within its width (Japanese's widest is 180 of 204
 pixels), the Yes/No words clear of the hand. The English checksums in
 `--selftest-render` are unchanged.
 

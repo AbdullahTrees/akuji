@@ -137,7 +137,9 @@ begin
     Out.Add('#');
     Out.Add('# In the dialogue, a line break is a line break (three lines to a');
     Out.Add('# box). \k waits for a key and starts the next box, \e ends the');
-    Out.Add('# message, \w ends it with the Yes/No prompt. Keep each one.');
+    Out.Add('# message, \w ends it with the Yes/No prompt. Keep \e and \w as');
+    Out.Add('# the English has them; add \k wherever the text needs more boxes.');
+    Out.Add('# A box ending in \w holds two lines - the prompt takes the third.');
     Out.Add('#');
     Out.Add('# An empty msgstr shows the English. To choose the language, set');
     Out.Add('# lang=<code> under [language] in system.ini. If the default font');

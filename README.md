@@ -106,6 +106,11 @@ Japanese is the original Japanese release's own text, in a free pixel font
 that keeps kanji legible at the game's 320x240. The menus and the results
 screen are still English - they are drawn from an ASCII bitmap font.
 
+English is a translation file too, `assets/lang/en.po`. It starts identical to
+the English built into the game (the English release's dialogue files and the
+strings in the code), so editing it rewords the English without touching
+either. Delete it and the built-in English shows, unchanged.
+
 ### Translating
 
 Translations are gettext PO files in `assets/lang/`, so any PO editor works -
@@ -120,8 +125,11 @@ Translations are gettext PO files in `assets/lang/`, so any PO editor works -
    line inside its box, every character in the font, the page codes kept.
 
 In the dialogue a line break is a line break, and a box holds three lines.
-Keep the codes: `\k` waits for a key and starts the next box, `\e` ends the
-message, `\w` ends it with the Yes/No prompt.
+`\k` waits for a key and starts the next box, `\e` ends the message, `\w` ends
+it with the Yes/No prompt. Keep `\e` and `\w` where the English has them, but
+use as many boxes as the text needs: a question too long for one box becomes
+`...\kWould you like to save? \w`. A box that ends in `\w` holds two lines,
+because the prompt takes the third.
 
 The default font covers ASCII. A script it lacks needs a font: put a TTF in
 `assets/fonts/` and name it in the header, as `ja.po` does -

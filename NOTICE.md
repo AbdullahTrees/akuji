@@ -26,6 +26,7 @@ an open decision, and it interacts with the next section.
 | `wav/` | the sound effects |
 | `system.ini` | display and input settings |
 | `lang/ja.po` | the Japanese release's text, converted to UTF-8 |
+| `lang/en.po` | the English release's text, as a translation file |
 
 These came from the English-translated release of the game - `lang/ja.po`
 from the original Japanese one, `akuji ver1.01`, and is its dialogue and

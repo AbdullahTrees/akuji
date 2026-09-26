@@ -40,6 +40,9 @@ const
     from the right edge of BOX_COLS + 1 tiles. }
   BOX_TEXT_RIGHT = BOX_X + BOX_COLS * BOX_TILE;
   BOX_TEXT_WIDTH = BOX_TEXT_RIGHT - BOX_TEXT_X;
+  { The Yes/No row is drawn on a text line - the third - so a page that ends
+    with \w has room for only the lines above it. }
+  PROMPT_LINE = (MB_PROMPT_TEXT_DY - BOX_FIRST_LINE) div BOX_LINE_STEP;
 
   { ja.po's preview, the same on Windows (SDL_ttf 2.24) and in the PortMaster
     image (2.0.15). It moves if the font, the renderer or ja.po's tk001:0,
@@ -130,7 +133,8 @@ begin
     Result[I] := Copy(S, I * 2 + 1, 2);
 end;
 
-{ A dialogue record's pages, as the box takes them. }
+{ A dialogue record's pages, as the box takes them. A page that ends with the
+  Yes/No prompt carries a non-nil Objects entry. }
 function PagesOf(const Text: string): TStringList;
 var
   Page, Rest, Left: string;
@@ -143,7 +147,7 @@ begin
   while (Left <> '') and (Guard < 64) do
   begin
     Page := SplitPage(Left, Rest, Prompt);
-    Result.Add(Page);
+    Result.AddObject(Page, TObject(PtrInt(Ord(Prompt))));
     Left := Rest;
     Inc(Guard);
   end;
@@ -412,6 +416,7 @@ var
     Seen: TStringList;
     Gap1, Start2, Need2: Integer;
     Sum: LongWord;
+    AsEnglish, Room: Integer;
   begin
     Log.Add('');
     Log.Add(Format('lang/%s.po:', [Code]));
@@ -426,13 +431,17 @@ var
         Want(False, 'LoadLanguage refused ' + Code);
         Exit;
       end;
-      Log.Add(Format('  font %s at %s px', [LanguageFontFile,
-        Po.Header('X-Akuji-Font-Size')]));
+      if LanguageFontFile = '' then
+        Log.Add('  default font')
+      else
+        Log.Add(Format('  font %s at %s px', [LanguageFontFile,
+          Po.Header('X-Akuji-Font-Size')]));
       if LanguageFontFile <> '' then
         Want(FileExists(GameDirArg + 'fonts' + PathDelim + LanguageFontFile),
              'font file missing: fonts/' + LanguageFontFile);
 
       Translated := 0;
+      AsEnglish := 0;
       Fuzzy := 0;
       Stale := 0;
       Widest := 0;
@@ -454,6 +463,10 @@ var
         if (E.Str = '') or E.Fuzzy then
           Continue;
         Inc(Translated);
+        { The template's msgid is the built-in English, proven by the round
+          trip above, so an equal msgstr shows exactly what no file would. }
+        if E.Str = T.Id then
+          Inc(AsEnglish);
 
         Want(IsValidUtf8(E.Str), E.Context + ' is not valid UTF-8');
 
@@ -490,8 +503,13 @@ var
               BoxLines.Text := StringReplace(Pages[K], '\n', #10,
                                              [rfReplaceAll]);
               Lines := BoxLines.Count;
-              Want(Lines <= BOX_LINES, Format('%s page %d has %d lines, the '
-                + 'box has %d', [E.Context, K + 1, Lines, BOX_LINES]));
+              if Pages.Objects[K] <> nil then
+                Room := PROMPT_LINE
+              else
+                Room := BOX_LINES;
+              Want(Lines <= Room, Format('%s page %d has %d lines and room '
+                + 'for %d - start another box with \k', [E.Context, K + 1,
+                Lines, Room]));
               for Line in BoxLines do
               begin
                 W := OutlinedTextWidth(Line, OUTLINED_FONT_FACE);
@@ -541,9 +559,10 @@ var
         Want(Sum = JA_PREVIEW, Format('the Japanese preview is %.8x, pinned '
           + '%.8x - look at it (--selftest-lang <dir> preview.bmp)',
           [Sum, JA_PREVIEW]));
-      Log.Add(Format('  %d of %d entries translated, %d fuzzy, %d stale; '
-        + 'widest dialogue line %d of %d px', [Translated, Template.Count,
-        Fuzzy, Stale, Widest, BOX_TEXT_WIDTH]));
+      Log.Add(Format('  %d of %d entries translated (%d identical to the '
+        + 'built-in English), %d fuzzy, %d stale; widest dialogue line %d of '
+        + '%d px', [Translated, Template.Count, AsEnglish, Fuzzy, Stale,
+        Widest, BOX_TEXT_WIDTH]));
       Want(Stale = 0, Format('%d entries the game never looks up', [Stale]));
       Want(Missing = '', 'not in the font: ' + Missing);
     finally

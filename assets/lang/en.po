@@ -1,0 +1,1586 @@
+# English: the game's own text, as a translation. It starts identical to
+# the built-in English; edit a msgstr to change what the game shows.
+msgid ""
+msgstr ""
+"Project-Id-Version: Akuji the Demon\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. The window's title bar.
+msgctxt "window.title"
+msgid "Akuji the Demon"
+msgstr "Akuji the Demon"
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:0"
+msgid "A demon named \"Akuji\" once  "
+msgstr "A demon named \"Akuji\" once  "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:1"
+msgid "terrorized this land. "
+msgstr "terrorized this land. "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:2"
+msgid "Akuji's mischief brought  "
+msgstr "Akuji's mischief brought  "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:3"
+msgid "misfortune upon the people. "
+msgstr "misfortune upon the people. "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:4"
+msgid "One day, a hero came to the   "
+msgstr "One day, a hero came to the   "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:5"
+msgid "kingdom to slay Akuji."
+msgstr "kingdom to slay Akuji."
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:6"
+msgid "After an amazing battle, the  "
+msgstr "After an amazing battle, the  "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:7"
+msgid "hero was victorious.          "
+msgstr "hero was victorious.          "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:8"
+msgid "The hero was praised and wed"
+msgstr "The hero was praised and wed"
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:9"
+msgid "the princess to become the king."
+msgstr "the princess to become the king."
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:10"
+msgid "But Akuji's powers were only    "
+msgstr "But Akuji's powers were only    "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:11"
+msgid "sealed in nine stones."
+msgstr "sealed in nine stones."
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:12"
+msgid "The stones were hidden in a "
+msgstr "The stones were hidden in a "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:13"
+msgid "deep labyrinth.   "
+msgstr "deep labyrinth.   "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:14"
+msgid "    And now...      "
+msgstr "    And now...      "
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:16"
+msgid "Akuji is recovering them"
+msgstr "Akuji is recovering them"
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:17"
+msgid "to seek revenge on the hero..."
+msgstr "to seek revenge on the hero..."
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:18"
+msgid "In this underground labyrinth,"
+msgstr "In this underground labyrinth,"
+
+#. Opening narration, drawn in pairs under each picture: lines 0 and 1, 2 and 3, and so on. Leading spaces move a line right.
+msgctxt "opening:19"
+msgid "the nine stones lie sealed.     "
+msgstr "the nine stones lie sealed.     "
+
+#. Ending narration, two lines under each slide.
+msgctxt "ending:0"
+msgid "    Light covered Akuji as"
+msgstr "    Light covered Akuji as"
+
+#. Ending narration, two lines under each slide.
+msgctxt "ending:1"
+msgid "    he broke the last seal... "
+msgstr "    he broke the last seal... "
+
+#. Ending narration, two lines under each slide.
+msgctxt "ending:2"
+msgid " He's transforming back!"
+msgstr " He's transforming back!"
+
+#. Ending narration, two lines under each slide.
+msgctxt "ending:4"
+msgid "What's going on?!?"
+msgstr "What's going on?!?"
+
+#. Ending narration, two lines under each slide.
+msgctxt "ending:6"
+msgid "His horns are all that grew..!"
+msgstr "His horns are all that grew..!"
+
+#. Ending narration, two lines under each slide.
+msgctxt "ending:8"
+msgid "  Akuji learned a lesson. "
+msgstr "  Akuji learned a lesson. "
+
+#. Ending narration, two lines under each slide.
+msgctxt "ending:10"
+msgid "Disgusted, he decides to  "
+msgstr "Disgusted, he decides to  "
+
+#. Ending narration, two lines under each slide.
+msgctxt "ending:11"
+msgid "not cause mischief anymore. "
+msgstr "not cause mischief anymore. "
+
+#. A power-up's name, shown in the powerup.found line.
+msgctxt "powerup:0"
+msgid "Fire    "
+msgstr "Fire    "
+
+#. A power-up's name, shown in the powerup.found line.
+msgctxt "powerup:1"
+msgid "Fire+     "
+msgstr "Fire+     "
+
+#. A power-up's name, shown in the powerup.found line.
+msgctxt "powerup:2"
+msgid "Charge  "
+msgstr "Charge  "
+
+#. A power-up's name, shown in the powerup.found line.
+msgctxt "powerup:3"
+msgid "Jump+     "
+msgstr "Jump+     "
+
+#. A power-up's name, shown in the powerup.found line.
+msgctxt "powerup:4"
+msgid "Dash    "
+msgstr "Dash    "
+
+#. A power-up's name, shown in the powerup.found line.
+msgctxt "powerup:5"
+msgid "Jump++      "
+msgstr "Jump++      "
+
+#. A power-up's name, shown in the powerup.found line.
+msgctxt "powerup:6"
+msgid "Cloud   "
+msgstr "Cloud   "
+
+#. A power-up's name, shown in the powerup.found line.
+msgctxt "powerup:7"
+msgid "Bat   "
+msgstr "Bat   "
+
+#. %s is the power-up's name. Centred in the 320-pixel panel, six pixels per column, a wide character counting as two.
+msgctxt "powerup.found"
+msgid "  %s was recovered! "
+msgstr "  %s was recovered! "
+
+#. The save prompt's two answers as ONE string, drawn at x=112. The hand cursor covers x=96..111 for the first and x=148..163 for the second, so the second word must start at least 52 pixels in. Pad with spaces; --selftest-lang checks it.
+msgctxt "prompt.yesno"
+msgid " Yes         No  "
+msgstr " Yes         No  "
+
+#: data/tk000.dat:1
+msgctxt "tk000:0"
+msgid "aaaaaaaa"
+msgstr "aaaaaaaa"
+
+#: data/tk001.dat:1
+msgctxt "tk001:0"
+msgid ""
+"It's time to search for the nine\n"
+"stones the hero sealed off! \\e"
+msgstr ""
+"It's time to search for the nine\n"
+"stones the hero sealed off! \\e"
+
+#: data/tk001.dat:2
+msgctxt "tk001:1"
+msgid ""
+"Those things are \"Mana Stones.\" \\kIf you gather enough of them, \n"
+"your LIFE will increase!  \\e"
+msgstr ""
+"Those things are \"Mana Stones.\" \\kIf you gather enough of them, \n"
+"your LIFE will increase!  \\e"
+
+#: data/tk001.dat:3
+msgctxt "tk001:2"
+msgid ""
+"Press the arrow key twice to\n"
+"perform a Dash move.\\kYou should try it right away! \\e"
+msgstr ""
+"Press the arrow key twice to\n"
+"perform a Dash move.\\kYou should try it right away! \\e"
+
+#: data/tk001.dat:4
+msgctxt "tk001:3"
+msgid ""
+"Those things are \"Mana Stones.\" \\kBut it seems they're already  \n"
+"gone... \\e"
+msgstr ""
+"Those things are \"Mana Stones.\" \\kBut it seems they're already  \n"
+"gone... \\e"
+
+#: data/tk001.dat:5
+msgctxt "tk001:4"
+msgid ""
+"Once you've achieved \"Rank S\" \n"
+"you can come here.\\kAfter clearing the game, select \n"
+"\"NEW GAME\" on the title screen\n"
+"and head over here. \\e"
+msgstr ""
+"Once you've achieved \"Rank S\" \n"
+"you can come here.\\kAfter clearing the game, select \n"
+"\"NEW GAME\" on the title screen\n"
+"and head over here. \\e"
+
+#: data/tk002.dat:1
+msgctxt "tk002:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk002.dat:2
+msgctxt "tk002:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk002.dat:3
+msgctxt "tk002:2"
+msgid ""
+"Touching a Devil Statue can \n"
+"save your game. \\kYou may want to save now since\n"
+"it's going to get pretty\n"
+"dangerous from here on out. \\e"
+msgstr ""
+"Touching a Devil Statue can \n"
+"save your game. \\kYou may want to save now since\n"
+"it's going to get pretty\n"
+"dangerous from here on out. \\e"
+
+#: data/tk003.dat:1
+msgctxt "tk003:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk003.dat:2
+msgctxt "tk003:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk003.dat:3
+msgctxt "tk003:2"
+msgid ""
+"Those green guys are Herohero.\\kYou won't be able to advance\n"
+"until you find a way to beat\n"
+"them... \\e"
+msgstr ""
+"Those green guys are Herohero.\\kYou won't be able to advance\n"
+"until you find a way to beat\n"
+"them... \\e"
+
+#: data/tk003.dat:4
+msgctxt "tk003:3"
+msgid ""
+"This fire can be used to shoot. \\kSometimes enemies may leave \n"
+"behind items when you beat\n"
+"them. \\e"
+msgstr ""
+"This fire can be used to shoot. \\kSometimes enemies may leave \n"
+"behind items when you beat\n"
+"them. \\e"
+
+#: data/tk003.dat:5
+msgctxt "tk003:4"
+msgid ""
+"You can adjust your jump height \n"
+"by how long you hold down the \n"
+"button. \\e"
+msgstr ""
+"You can adjust your jump height \n"
+"by how long you hold down the \n"
+"button. \\e"
+
+#: data/tk004.dat:1
+msgctxt "tk004:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk004.dat:2
+msgctxt "tk004:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk004.dat:3
+msgctxt "tk004:2"
+msgid ""
+"You found Gallery Book #1!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+msgstr ""
+"You found Gallery Book #1!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+
+#: data/tk005.dat:1
+msgctxt "tk005:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk005.dat:2
+msgctxt "tk005:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk005.dat:3
+msgctxt "tk005:2"
+msgid ""
+"You're getting closer and \n"
+"closer to the boss. \\kYou'll probably have to \n"
+"fight after this save!\\e"
+msgstr ""
+"You're getting closer and \n"
+"closer to the boss. \\kYou'll probably have to \n"
+"fight after this save!\\e"
+
+#: data/tk006.dat:1
+msgctxt "tk006:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk006.dat:2
+msgctxt "tk006:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk006.dat:3
+msgctxt "tk006:2"
+msgid ""
+"Your Jump height has been \n"
+"substantially increased!\\kNow you can reach places you\n"
+"couldn't before!\\e"
+msgstr ""
+"Your Jump height has been \n"
+"substantially increased!\\kNow you can reach places you\n"
+"couldn't before!\\e"
+
+#: data/tk007.dat:1
+msgctxt "tk007:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk007.dat:2
+msgctxt "tk007:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk008.dat:1
+msgctxt "tk008:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk008.dat:2
+msgctxt "tk008:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk008.dat:3
+msgctxt "tk008:2"
+msgid ""
+"Those hard guys are \n"
+"Gachigachi! \\kIt will take a much hotter\n"
+"fire to break them! \\e"
+msgstr ""
+"Those hard guys are \n"
+"Gachigachi! \\kIt will take a much hotter\n"
+"fire to break them! \\e"
+
+#: data/tk009.dat:1
+msgctxt "tk009:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk009.dat:2
+msgctxt "tk009:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk009.dat:3
+msgctxt "tk009:2"
+msgid ""
+"The door appears locked.\\kYou'll need to find a switch\n"
+"somewhere.\\e"
+msgstr ""
+"The door appears locked.\\kYou'll need to find a switch\n"
+"somewhere.\\e"
+
+#: data/tk010.dat:1
+msgctxt "tk010:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk010.dat:2
+msgctxt "tk010:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk010.dat:3
+msgctxt "tk010:2"
+msgid ""
+"You found Gallery Book #2!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+msgstr ""
+"You found Gallery Book #2!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+
+#: data/tk011.dat:1
+msgctxt "tk011:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk011.dat:2
+msgctxt "tk011:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk011.dat:3
+msgctxt "tk011:2"
+msgid ""
+"Those blue guys are Poyopoyo. \\kYou can bounce on top of\n"
+"them to reach new places. \\e"
+msgstr ""
+"Those blue guys are Poyopoyo. \\kYou can bounce on top of\n"
+"them to reach new places. \\e"
+
+#: data/tk012.dat:1
+msgctxt "tk012:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk012.dat:2
+msgctxt "tk012:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk012.dat:3
+msgctxt "tk012:2"
+msgid ""
+"Those blue guys are Poyopoyo. \\kYou can bounce on top of\n"
+"them to reach new places. \\kHold a direction while\n"
+"jumping onto them to bounce \n"
+"that way. \\e"
+msgstr ""
+"Those blue guys are Poyopoyo. \\kYou can bounce on top of\n"
+"them to reach new places. \\kHold a direction while\n"
+"jumping onto them to bounce \n"
+"that way. \\e"
+
+#: data/tk013.dat:1
+msgctxt "tk013:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk013.dat:2
+msgctxt "tk013:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk013.dat:3
+msgctxt "tk013:2"
+msgid ""
+"Your Fire has increased!\\kNow you can break the hard\n"
+"enemies and shoot two fires \n"
+"at once!\\e"
+msgstr ""
+"Your Fire has increased!\\kNow you can break the hard\n"
+"enemies and shoot two fires \n"
+"at once!\\e"
+
+#: data/tk014.dat:1
+msgctxt "tk014:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk014.dat:2
+msgctxt "tk014:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk014.dat:3
+msgctxt "tk014:2"
+msgid ""
+"Burn the lamps with your\n"
+"fire to light them. \\kSomething may happen if \n"
+"do... \\e"
+msgstr ""
+"Burn the lamps with your\n"
+"fire to light them. \\kSomething may happen if \n"
+"do... \\e"
+
+#: data/tk015.dat:1
+msgctxt "tk015:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk015.dat:2
+msgctxt "tk015:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk016.dat:1
+msgctxt "tk016:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk016.dat:2
+msgctxt "tk016:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk016.dat:3
+msgctxt "tk016:2"
+msgid ""
+"On top of this cliff there\n"
+"are two \"Golden Mana Stones.\" \\kBut you probably can't get\n"
+"up there yet... \\e"
+msgstr ""
+"On top of this cliff there\n"
+"are two \"Golden Mana Stones.\" \\kBut you probably can't get\n"
+"up there yet... \\e"
+
+#: data/tk016.dat:4
+msgctxt "tk016:3"
+msgid ""
+"Ability Review #1:\\kIf you press the cursor key \n"
+"twice you can Dash. \\kAbility Review #2:\\kWith your Fire+ ability, two\n"
+"fireballs may be shot at once.\\e"
+msgstr ""
+"Ability Review #1:\\kIf you press the cursor key \n"
+"twice you can Dash. \\kAbility Review #2:\\kWith your Fire+ ability, two\n"
+"fireballs may be shot at once.\\e"
+
+#: data/tk016.dat:5
+msgctxt "tk016:4"
+msgid ""
+"You found Gallery Book #3!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+msgstr ""
+"You found Gallery Book #3!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+
+#: data/tk017.dat:1
+msgctxt "tk017:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk017.dat:2
+msgctxt "tk017:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk017.dat:3
+msgctxt "tk017:2"
+msgid "LOOK UP!\\e"
+msgstr "LOOK UP!\\e"
+
+#: data/tk018.dat:1
+msgctxt "tk018:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk018.dat:2
+msgctxt "tk018:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk019.dat:1
+msgctxt "tk019:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk019.dat:2
+msgctxt "tk019:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk019.dat:3
+msgctxt "tk019:2"
+msgid ""
+"Falling in the water means\n"
+"a GAME OVER!\\kBe VERY careful if you cross! \\e"
+msgstr ""
+"Falling in the water means\n"
+"a GAME OVER!\\kBe VERY careful if you cross! \\e"
+
+#: data/tk020.dat:1
+msgctxt "tk020:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk020.dat:2
+msgctxt "tk020:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk020.dat:3
+msgctxt "tk020:2"
+msgid ""
+"To open the door you must \n"
+"push all the switches.\\e"
+msgstr ""
+"To open the door you must \n"
+"push all the switches.\\e"
+
+#: data/tk021.dat:1
+msgctxt "tk021:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk021.dat:2
+msgctxt "tk021:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk022.dat:1
+msgctxt "tk022:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk022.dat:2
+msgctxt "tk022:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk022.dat:3
+msgctxt "tk022:2"
+msgid ""
+"You can jump higher if you\n"
+"kick off the wall.\\kWhile jumping, jump again as\n"
+"soon as you touch the wall. \\kIt can be done with precise \n"
+"timing. \\e"
+msgstr ""
+"You can jump higher if you\n"
+"kick off the wall.\\kWhile jumping, jump again as\n"
+"soon as you touch the wall. \\kIt can be done with precise \n"
+"timing. \\e"
+
+#: data/tk023.dat:1
+msgctxt "tk023:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk023.dat:2
+msgctxt "tk023:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk023.dat:3
+msgctxt "tk023:2"
+msgid ""
+"Ahead of this room is the \n"
+"boss! \\kBe sure to taunt him on your\n"
+"way in with something like\n"
+"\"Bring it on, clown!\" \\k(This shameless Art of\n"
+"Fighting quote was added by \n"
+"the translator) \\e"
+msgstr ""
+"Ahead of this room is the \n"
+"boss! \\kBe sure to taunt him on your\n"
+"way in with something like\n"
+"\"Bring it on, clown!\" \\k(This shameless Art of\n"
+"Fighting quote was added by \n"
+"the translator) \\e"
+
+#: data/tk024.dat:1
+msgctxt "tk024:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk024.dat:2
+msgctxt "tk024:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk025.dat:1
+msgctxt "tk025:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk025.dat:2
+msgctxt "tk025:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk026.dat:1
+msgctxt "tk026:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk026.dat:2
+msgctxt "tk026:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk027.dat:1
+msgctxt "tk027:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk027.dat:2
+msgctxt "tk027:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk028.dat:1
+msgctxt "tk028:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk028.dat:2
+msgctxt "tk028:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk028.dat:3
+msgctxt "tk028:2"
+msgid ""
+"Some enemies are mimics...\\kYou should approach slowly\n"
+"until you notice a difference.\\e"
+msgstr ""
+"Some enemies are mimics...\\kYou should approach slowly\n"
+"until you notice a difference.\\e"
+
+#: data/tk029.dat:1
+msgctxt "tk029:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk029.dat:2
+msgctxt "tk029:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk030.dat:1
+msgctxt "tk030:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk030.dat:2
+msgctxt "tk030:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk031.dat:1
+msgctxt "tk031:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk031.dat:2
+msgctxt "tk031:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk031.dat:3
+msgctxt "tk031:2"
+msgid ""
+"The correct answer is \"XXO.\"\\kJust try to think about it\n"
+"for a little bit. \\e"
+msgstr ""
+"The correct answer is \"XXO.\"\\kJust try to think about it\n"
+"for a little bit. \\e"
+
+#: data/tk032.dat:1
+msgctxt "tk032:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk032.dat:2
+msgctxt "tk032:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk032.dat:3
+msgctxt "tk032:2"
+msgid ""
+"This gate can be passed by\n"
+"turning into a cloud. \\kOnce you have the Cloud \n"
+"power, press DOWN while \n"
+"jumping.\\kPressing DOWN will transform\n"
+"you into a cloud. \\e"
+msgstr ""
+"This gate can be passed by\n"
+"turning into a cloud. \\kOnce you have the Cloud \n"
+"power, press DOWN while \n"
+"jumping.\\kPressing DOWN will transform\n"
+"you into a cloud. \\e"
+
+#: data/tk033.dat:1
+msgctxt "tk033:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk033.dat:2
+msgctxt "tk033:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk034.dat:1
+msgctxt "tk034:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk034.dat:2
+msgctxt "tk034:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk035.dat:1
+msgctxt "tk035:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk035.dat:2
+msgctxt "tk035:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk036.dat:1
+msgctxt "tk036:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk036.dat:2
+msgctxt "tk036:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk036.dat:3
+msgctxt "tk036:2"
+msgid ""
+"Now you can change into an\n"
+"invincible cloud. \\kWhile jumping, press DOWN to\n"
+"transform.\\kBy transforming you can \n"
+"explore some areas you\n"
+"previously couldn't.\\e"
+msgstr ""
+"Now you can change into an\n"
+"invincible cloud. \\kWhile jumping, press DOWN to\n"
+"transform.\\kBy transforming you can \n"
+"explore some areas you\n"
+"previously couldn't.\\e"
+
+#: data/tk037.dat:1
+msgctxt "tk037:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk037.dat:2
+msgctxt "tk037:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk037.dat:3
+msgctxt "tk037:2"
+msgid ""
+"Defeating all the trembling \n"
+"Henahena will open the door.\\kHowever, they can't be beaten \n"
+"with fire...\\e"
+msgstr ""
+"Defeating all the trembling \n"
+"Henahena will open the door.\\kHowever, they can't be beaten \n"
+"with fire...\\e"
+
+#: data/tk038.dat:1
+msgctxt "tk038:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk038.dat:2
+msgctxt "tk038:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk038.dat:3
+msgctxt "tk038:2"
+msgid "Up - Labyrinth Exit \\e"
+msgstr "Up - Labyrinth Exit \\e"
+
+#: data/tk038.dat:4
+msgctxt "tk038:3"
+msgid ""
+"You found Gallery Book #4!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+msgstr ""
+"You found Gallery Book #4!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+
+#: data/tk039.dat:1
+msgctxt "tk039:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk039.dat:2
+msgctxt "tk039:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk039.dat:3
+msgctxt "tk039:2"
+msgid "Beginners should go this way. \\e"
+msgstr "Beginners should go this way. \\e"
+
+#: data/tk040.dat:1
+msgctxt "tk040:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk040.dat:2
+msgctxt "tk040:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk040.dat:3
+msgctxt "tk040:2"
+msgid ""
+"Ability Review #1 \\kBy pressing the cursor twice\n"
+"in a direction, you can Dash. \\e"
+msgstr ""
+"Ability Review #1 \\kBy pressing the cursor twice\n"
+"in a direction, you can Dash. \\e"
+
+#: data/tk040.dat:4
+msgctxt "tk040:3"
+msgid ""
+"Ability Review #2 \\kUsing the fire button, up to\n"
+"two fireballs may be shot in\n"
+"a row.\\e"
+msgstr ""
+"Ability Review #2 \\kUsing the fire button, up to\n"
+"two fireballs may be shot in\n"
+"a row.\\e"
+
+#: data/tk040.dat:5
+msgctxt "tk040:4"
+msgid ""
+"Ability Review #3 \\kYou can kick off the wall to\n"
+"jump higher.\\kWhen jumping, jump again as \n"
+"soon as you touch the wall. \\kIt can be done with precise \n"
+"timing. \\e"
+msgstr ""
+"Ability Review #3 \\kYou can kick off the wall to\n"
+"jump higher.\\kWhen jumping, jump again as \n"
+"soon as you touch the wall. \\kIt can be done with precise \n"
+"timing. \\e"
+
+#: data/tk040.dat:6
+msgctxt "tk040:5"
+msgid ""
+"Ability Review #4 \\kYou can turn into an\n"
+"invincible cloud. \\kPress DOWN while jumping to \n"
+"transform.\\kAfter transforming you'll \n"
+"return to normal. \\e"
+msgstr ""
+"Ability Review #4 \\kYou can turn into an\n"
+"invincible cloud. \\kPress DOWN while jumping to \n"
+"transform.\\kAfter transforming you'll \n"
+"return to normal. \\e"
+
+#: data/tk040.dat:7
+msgctxt "tk040:6"
+msgid ""
+"Ability Review #4 Part Deux \\kYou can pass this gate by \n"
+"turning into a cloud. \\kPress DOWN during a jump to \n"
+"transform and shoot through \n"
+"the gate. \\e"
+msgstr ""
+"Ability Review #4 Part Deux \\kYou can pass this gate by \n"
+"turning into a cloud. \\kPress DOWN during a jump to \n"
+"transform and shoot through \n"
+"the gate. \\e"
+
+#: data/tk040.dat:8
+msgctxt "tk040:7"
+msgid ""
+"You found Gallery Book #5!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+msgstr ""
+"You found Gallery Book #5!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+
+#: data/tk041.dat:1
+msgctxt "tk041:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk041.dat:2
+msgctxt "tk041:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk042.dat:1
+msgctxt "tk042:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk042.dat:2
+msgctxt "tk042:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk042.dat:3
+msgctxt "tk042:2"
+msgid ""
+"These Boyoboyo are red. \\kYou can jump on them and\n"
+"bounce off to jump higher.\\kHolding a direction will\n"
+"send your jump that way.\\kHowever, they will shoot at \n"
+"you as you get close so stay\n"
+"alert!\\e"
+msgstr ""
+"These Boyoboyo are red. \\kYou can jump on them and\n"
+"bounce off to jump higher.\\kHolding a direction will\n"
+"send your jump that way.\\kHowever, they will shoot at \n"
+"you as you get close so stay\n"
+"alert!\\e"
+
+#: data/tk043.dat:1
+msgctxt "tk043:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk043.dat:2
+msgctxt "tk043:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk043.dat:3
+msgctxt "tk043:2"
+msgid ""
+"Try using Cloud to reach the\n"
+"Mana Stones.\\e"
+msgstr ""
+"Try using Cloud to reach the\n"
+"Mana Stones.\\e"
+
+#: data/tk044.dat:1
+msgctxt "tk044:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk044.dat:2
+msgctxt "tk044:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk044.dat:3
+msgctxt "tk044:2"
+msgid "Your hint is \"Cloud.\" \\e"
+msgstr "Your hint is \"Cloud.\" \\e"
+
+#: data/tk045.dat:1
+msgctxt "tk045:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk045.dat:2
+msgctxt "tk045:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk045.dat:3
+msgctxt "tk045:2"
+msgid ""
+"Pushing the switch seems\n"
+"useless...\\e"
+msgstr ""
+"Pushing the switch seems\n"
+"useless...\\e"
+
+#: data/tk045.dat:4
+msgctxt "tk045:3"
+msgid ""
+"You found Gallery Book #6!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+msgstr ""
+"You found Gallery Book #6!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+
+#: data/tk046.dat:1
+msgctxt "tk046:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk046.dat:2
+msgctxt "tk046:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk046.dat:3
+msgctxt "tk046:2"
+msgid ""
+"About those hard Gochigochi.\\kThe only way you'll beat\n"
+"them is to use a Charge \n"
+"attack. \\e"
+msgstr ""
+"About those hard Gochigochi.\\kThe only way you'll beat\n"
+"them is to use a Charge \n"
+"attack. \\e"
+
+#: data/tk047.dat:1
+msgctxt "tk047:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk047.dat:2
+msgctxt "tk047:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk047.dat:3
+msgctxt "tk047:2"
+msgid "Your hint is \"Cloud.\" \\e"
+msgstr "Your hint is \"Cloud.\" \\e"
+
+#: data/tk048.dat:1
+msgctxt "tk048:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk048.dat:2
+msgctxt "tk048:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk048.dat:3
+msgctxt "tk048:2"
+msgid ""
+"Firing a shot causes the\n"
+"Dordor to dissappear. \\kWhen they reappear, they will \n"
+"be vulnerable for a second. \\kThat's your chance! \\e"
+msgstr ""
+"Firing a shot causes the\n"
+"Dordor to dissappear. \\kWhen they reappear, they will \n"
+"be vulnerable for a second. \\kThat's your chance! \\e"
+
+#: data/tk049.dat:1
+msgctxt "tk049:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk049.dat:2
+msgctxt "tk049:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk049.dat:3
+msgctxt "tk049:2"
+msgid "Your hint is \"Cloud.\" \\e"
+msgstr "Your hint is \"Cloud.\" \\e"
+
+#: data/tk050.dat:1
+msgctxt "tk050:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk050.dat:2
+msgctxt "tk050:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk050.dat:3
+msgctxt "tk050:2"
+msgid "Your hint is \"Cloud.\" \\e"
+msgstr "Your hint is \"Cloud.\" \\e"
+
+#: data/tk051.dat:1
+msgctxt "tk051:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk051.dat:2
+msgctxt "tk051:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk051.dat:3
+msgctxt "tk051:2"
+msgid ""
+"Firing at the round Gorogoro\n"
+"will send them rolling. \\kTouching them won't damage\n"
+"you.\\e"
+msgstr ""
+"Firing at the round Gorogoro\n"
+"will send them rolling. \\kTouching them won't damage\n"
+"you.\\e"
+
+#: data/tk052.dat:1
+msgctxt "tk052:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk052.dat:2
+msgctxt "tk052:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk052.dat:3
+msgctxt "tk052:2"
+msgid ""
+"There may be something above\n"
+"here. \\kIf you have Bat you could \n"
+"try going up. \\kOn that note... to use it,\n"
+"press UP while jumping to \n"
+"transform into a bat. \\kTo fly, repeatedly press the\n"
+"jump button.\\e"
+msgstr ""
+"There may be something above\n"
+"here. \\kIf you have Bat you could \n"
+"try going up. \\kOn that note... to use it,\n"
+"press UP while jumping to \n"
+"transform into a bat. \\kTo fly, repeatedly press the\n"
+"jump button.\\e"
+
+#: data/tk053.dat:1
+msgctxt "tk053:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk053.dat:2
+msgctxt "tk053:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk053.dat:3
+msgctxt "tk053:2"
+msgid ""
+"You can't reach the room\n"
+"above by jumping. \\kYou need to use Bat.\\kWhich, by the way...\\kIs done by jumping then \n"
+"pressing UP.\\kKeep pressing the jump button \n"
+"to fly until you hit a wall.\\e"
+msgstr ""
+"You can't reach the room\n"
+"above by jumping. \\kYou need to use Bat.\\kWhich, by the way...\\kIs done by jumping then \n"
+"pressing UP.\\kKeep pressing the jump button \n"
+"to fly until you hit a wall.\\e"
+
+#: data/tk054.dat:1
+msgctxt "tk054:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk054.dat:2
+msgctxt "tk054:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk054.dat:3
+msgctxt "tk054:2"
+msgid "Your hint is \"Cloud.\" \\e"
+msgstr "Your hint is \"Cloud.\" \\e"
+
+#: data/tk055.dat:1
+msgctxt "tk055:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk055.dat:2
+msgctxt "tk055:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk055.dat:3
+msgctxt "tk055:2"
+msgid "Your hint is \"Cloud.\" \\e"
+msgstr "Your hint is \"Cloud.\" \\e"
+
+#: data/tk056.dat:1
+msgctxt "tk056:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk056.dat:2
+msgctxt "tk056:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk056.dat:3
+msgctxt "tk056:2"
+msgid ""
+"Try using the enemies to\n"
+"advance.\\e"
+msgstr ""
+"Try using the enemies to\n"
+"advance.\\e"
+
+#: data/tk057.dat:1
+msgctxt "tk057:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk057.dat:2
+msgctxt "tk057:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk057.dat:3
+msgctxt "tk057:2"
+msgid "Your hint is \"Cloud.\" \\e"
+msgstr "Your hint is \"Cloud.\" \\e"
+
+#: data/tk057.dat:4
+msgctxt "tk057:3"
+msgid ""
+"You found Gallery Book #7!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+msgstr ""
+"You found Gallery Book #7!\\kAfter clearing the game, go to\n"
+"OPTIONS to see the extra art! \\kThere's 7 volumes in all! \n"
+"Keep on searching!\\e"
+
+#: data/tk058.dat:1
+msgctxt "tk058:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk058.dat:2
+msgctxt "tk058:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk058.dat:3
+msgctxt "tk058:2"
+msgid "Your hint is \"Cloud.\" \\e"
+msgstr "Your hint is \"Cloud.\" \\e"
+
+#: data/tk059.dat:1
+msgctxt "tk059:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk059.dat:2
+msgctxt "tk059:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk059.dat:3
+msgctxt "tk059:2"
+msgid ""
+"You can now turn into a bat \n"
+"and fly through the air.\\kTo transform, press UP while\n"
+"jumping.\\kTo fly, just keep pressing\n"
+"the jump button.\\kYou can keep flying till you\n"
+"hit a wall. \\e"
+msgstr ""
+"You can now turn into a bat \n"
+"and fly through the air.\\kTo transform, press UP while\n"
+"jumping.\\kTo fly, just keep pressing\n"
+"the jump button.\\kYou can keep flying till you\n"
+"hit a wall. \\e"
+
+#: data/tk059.dat:4
+msgctxt "tk059:3"
+msgid ""
+"Hold down the fire button to\n"
+"store up firepower. \\kWhen it becomes MAX, a more \n"
+"powerful flame can be shot. \\kA MAX flame can penetrate   \n"
+"enemies and crack through \n"
+"their defenses. \\e"
+msgstr ""
+"Hold down the fire button to\n"
+"store up firepower. \\kWhen it becomes MAX, a more \n"
+"powerful flame can be shot. \\kA MAX flame can penetrate   \n"
+"enemies and crack through \n"
+"their defenses. \\e"
+
+#: data/tk060.dat:1
+msgctxt "tk060:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk060.dat:2
+msgctxt "tk060:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk060.dat:3
+msgctxt "tk060:2"
+msgid "Your hint is \"Cloud.\" \\e"
+msgstr "Your hint is \"Cloud.\" \\e"
+
+#: data/tk061.dat:1
+msgctxt "tk061:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk061.dat:2
+msgctxt "tk061:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk061.dat:3
+msgctxt "tk061:2"
+msgid "[1] \\e"
+msgstr "[1] \\e"
+
+#: data/tk061.dat:4
+msgctxt "tk061:3"
+msgid "[2] \\e"
+msgstr "[2] \\e"
+
+#: data/tk061.dat:5
+msgctxt "tk061:4"
+msgid "[3] \\e"
+msgstr "[3] \\e"
+
+#: data/tk061.dat:6
+msgctxt "tk061:5"
+msgid "[4] \\e"
+msgstr "[4] \\e"
+
+#: data/tk061.dat:7
+msgctxt "tk061:6"
+msgid "[5] \\e"
+msgstr "[5] \\e"
+
+#: data/tk061.dat:8
+msgctxt "tk061:7"
+msgid ""
+"Defeating the enemies will\n"
+"open the door.\\kHowever, you must defeat\n"
+"them in a specific order. \\e"
+msgstr ""
+"Defeating the enemies will\n"
+"open the door.\\kHowever, you must defeat\n"
+"them in a specific order. \\e"
+
+#: data/tk062.dat:1
+msgctxt "tk062:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk062.dat:2
+msgctxt "tk062:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk062.dat:3
+msgctxt "tk062:2"
+msgid ""
+"The hero's room is just \n"
+"ahead.\\kThe time for the final\n"
+"confrontation draws near! \\e"
+msgstr ""
+"The hero's room is just \n"
+"ahead.\\kThe time for the final\n"
+"confrontation draws near! \\e"
+
+#: data/tk063.dat:1
+msgctxt "tk063:0"
+msgid ""
+"It's time to search for the 9 \n"
+"stones the hero sealed! \\e"
+msgstr ""
+"It's time to search for the 9 \n"
+"stones the hero sealed! \\e"
+
+#: data/tk063.dat:2
+msgctxt "tk063:1"
+msgid ""
+"Those things are \"Mana Stones.\" \\kIf you gather enough of them, \n"
+"your LIFE will increase!  \\e"
+msgstr ""
+"Those things are \"Mana Stones.\" \\kIf you gather enough of them, \n"
+"your LIFE will increase!  \\e"
+
+#: data/tk063.dat:3
+msgctxt "tk063:2"
+msgid ""
+"Press the arrow key twice to\n"
+"perform a Dash move.\\kYou should try it right away! \\e"
+msgstr ""
+"Press the arrow key twice to\n"
+"perform a Dash move.\\kYou should try it right away! \\e"
+
+#: data/tk063.dat:4
+msgctxt "tk063:3"
+msgid ""
+"Those things are \"Mana Stones.\" \\kBut it seems they're already  \n"
+"gone... \\e"
+msgstr ""
+"Those things are \"Mana Stones.\" \\kBut it seems they're already  \n"
+"gone... \\e"
+
+#: data/tk064.dat:1
+msgctxt "tk064:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk064.dat:2
+msgctxt "tk064:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk065.dat:1
+msgctxt "tk065:0"
+msgid "Will you save the game? \\w"
+msgstr "Will you save the game? \\w"
+
+#: data/tk065.dat:2
+msgctxt "tk065:1"
+msgid "Saving completed! \\e"
+msgstr "Saving completed! \\e"
+
+#: data/tk065.dat:3
+msgctxt "tk065:2"
+msgid ""
+"Once you've achieved \"Rank SS\"\n"
+"you can come here.\\kAfter clearing the game, select \n"
+"\"NEW GAME\" on the title screen\n"
+"and head over here. \\e"
+msgstr ""
+"Once you've achieved \"Rank SS\"\n"
+"you can come here.\\kAfter clearing the game, select \n"
+"\"NEW GAME\" on the title screen\n"
+"and head over here. \\e"
+
+#: data/tk065.dat:4
+msgctxt "tk065:3"
+msgid ""
+"Hold down the fire button to\n"
+"store up firepower. \\kWhen it becomes MAX, a more \n"
+"powerful flame can be shot. \\kA MAX flame can penetrate   \n"
+"enemies and crack through \n"
+"their defenses. \\e"
+msgstr ""
+"Hold down the fire button to\n"
+"store up firepower. \\kWhen it becomes MAX, a more \n"
+"powerful flame can be shot. \\kA MAX flame can penetrate   \n"
+"enemies and crack through \n"
+"their defenses. \\e"

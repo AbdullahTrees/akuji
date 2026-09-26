@@ -19,8 +19,11 @@
   not in the template yet.
 
   Each entry's msgctxt says where it is used - "tk006:1" is line 1 of
-  data/tk006.dat. English is not a PO file: it is the game's own data, and
-  English is what shows whenever no language is chosen or an entry is empty.
+  data/tk006.dat. The English built into the game - the English release's
+  dialogue files and the strings in the code - is the template's msgid and
+  the fallback for any empty entry. en.po is English as a translation like
+  any other: it starts identical to the built-in text, and editing it
+  changes the English the game shows without touching the data or the code.
 
   THE DIALOGUE'S CODES
 
@@ -77,8 +80,9 @@ type
     property Entries[I: Integer]: TPoEntry read GetEntry;
   end;
 
-{ Loads assets/lang/<Code>.po. 'en', '' or a missing file leave English in
-  place, which is not an error - the result says whether a file was used. }
+{ Loads assets/lang/<Code>.po. '' or a missing file leave the built-in
+  English in place, which is not an error - the result says whether a file
+  was used. }
 function LoadLanguage(const LangDir, Code: string): Boolean;
 procedure UnloadLanguage;
 
@@ -340,7 +344,7 @@ var
 begin
   UnloadLanguage;
   Result := False;
-  if (Code = '') or SameText(Code, 'en') then
+  if Code = '' then
     Exit;
   FileName := IncludeTrailingPathDelimiter(LangDir) + LowerCase(Code) + '.po';
   if not FileExists(FileName) then
