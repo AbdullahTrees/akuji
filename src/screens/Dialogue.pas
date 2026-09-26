@@ -21,7 +21,7 @@ uses
   Classes, SysUtils, Types, GameColors, GameFont, PlayerState, EventRunner,
   EventScripts,
   TileMaps,
-  GameState, Entities, SoundTable, RenderTarget;
+  GameState, Entities, SoundTable, RenderTarget, TextUnits, Translation;
 
 const
 
@@ -40,13 +40,14 @@ const
   { AutoLoadMidis[11]. }
   SOULGET_MIDI    = 11;
 
-  { The text is Shift-JIS and it is scanned a PAIR of bytes at a time, so the
+  { The original scanned Shift-JIS a PAIR of bytes at a time, so the
     character that suppresses the typewriter click is the full-width space,
-    not ASCII 0x20. }
-  MB_FULLWIDTH_SPACE = #$81#$40;
+    not ASCII 0x20. Text is UTF-8 now; this is U+3000. }
+  MB_FULLWIDTH_SPACE = #$E3#$80#$80;
 
-  { Text is revealed in two-byte Shift-JIS units. In the English build this
-    exposes two ASCII characters per step; control markers are also two bytes. }
+  { Text is revealed a unit at a time: one wide character or two narrow ones,
+    which is what the original's two-byte Shift-JIS step exposed. See
+    TextUnits. }
   MB_REVEAL_TICKS   = 2;    { counter > 2, so a step every THIRD frame }
 
   { The \k prompt follows a six-step ping-pong animation. }
@@ -192,7 +193,8 @@ type
     FChoice: Integer;         { 0 = yes, 1 = no }
     FBoxMode: Integer;        { MB_MODE_* }
     FPageText: string;        { the page being typed, markers stripped }
-    FReveal: Integer;         { In two-byte units. }
+    FUnits: TArray<string>;   { FPageText as reveal units }
+    FReveal: Integer;         { how many of FUnits are showing }
     FRevealTimer: Integer;
     FAnimFrame: Integer;
     FAnimTimer: Integer;
@@ -319,7 +321,15 @@ type
 function SplitPage(const Text: string; out Rest: string;
                    out Prompt: Boolean): string;
 
+{ MB_PROMPT_TEXT, or the chosen language's. }
+function PromptText: string;
+
 implementation
+
+function PromptText: string;
+begin
+  Result := Tr('prompt.yesno', MB_PROMPT_TEXT);
+end;
 
 procedure DialogueAnswer(var P: TPlayerState; Choice: Integer);
 begin
@@ -380,6 +390,7 @@ begin
 
   { Keep the page whole and split only the revealed prefix into visible lines. }
   FPageText := PageText;
+  FUnits := RevealUnitsOf(PageText);
   FReveal := 0;
   FRevealTimer := 0;
   FAnimFrame := 0;
@@ -389,14 +400,13 @@ begin
   BuildLines;
 end;
 
-{ How many two-byte units the page holds - see MB_REVEAL_TICKS. An odd length
-  still has a last unit, hence the round up. }
+{ How many units the page holds - see MB_REVEAL_TICKS. }
 function TDialogueBox.RevealUnits: Integer;
 begin
-  Result := (Length(FPageText) + 1) div 2;
+  Result := Length(FUnits);
 end;
 
-{ Rebuilds visible lines from the revealed two-byte units. }
+{ Rebuilds visible lines from the revealed units. }
 procedure TDialogueBox.BuildLines;
 var
   UnitIndex, LineIndex: Integer;
@@ -409,7 +419,7 @@ begin
   begin
     if LineIndex >= BOX_LINES then
       Break;
-    Pair := Copy(FPageText, UnitIndex * 2 - 1, 2);
+    Pair := FUnits[UnitIndex - 1];
     if Pair = '\n' then
       Inc(LineIndex)
     else
@@ -691,7 +701,10 @@ begin
   FMode := omPanel;
   FActive := True;
   PowerUpGrant(FPlayer^, Variant);
-  FPanelText := POWERUP_PREFIX + PowerUpName(Variant) + POWERUP_SUFFIX;
+  { Replaced rather than Formatted, so a stray % in a translation cannot
+    raise. }
+  FPanelText := StringReplace(Tr('powerup.found', POWERUP_FOUND), '%s',
+                              PowerUpName(Variant), []);
 
   { Full destruction hides and releases the collected orb's sprite. }
   if FWorld <> nil then
@@ -773,7 +786,7 @@ begin
           if FReveal < RevealUnits then
           begin
             Inc(FReveal);
-            Ch := Copy(FPageText, FReveal * 2 - 1, 2);
+            Ch := FUnits[FReveal - 1];
             if Ch <> MB_FULLWIDTH_SPACE then
               PlayBoxSound(SND_PI);
             BuildLines;
@@ -856,6 +869,7 @@ begin
   FMode := omBox;
   FBoxMode := MB_MODE_TYPING;
   FPageText := '';
+  FUnits := nil;
   FRest := '';
   FPanelText := '';
   FReveal := 0;
@@ -878,8 +892,9 @@ begin
   if FMode = omPanel then
   begin
     { The form draws the panel background; this draws its line using the
-      panel's six-pixel centering convention. }
-    Game_DrawTextOutlined((PANEL_W - Length(FPanelText) * PANEL_CHAR_W) div 2,
+      panel's six-pixel centering convention. The original counted Shift-JIS
+      bytes, which is display columns - a full-width character is two. }
+    Game_DrawTextOutlined((PANEL_W - TextColumns(FPanelText) * PANEL_CHAR_W) div 2,
                           PANEL_TEXT_Y, FPanelText,
                           PANEL_TEXT_OUTLINE, PANEL_TEXT_FILL,
                           OUTLINED_FONT_SIZE, Dest);
@@ -911,7 +926,7 @@ begin
   if FBoxMode = MB_MODE_PROMPT then
   begin
     Game_DrawTextOutlined(MB_PROMPT_TEXT_X, BoxY + MB_PROMPT_TEXT_DY,
-                          MB_PROMPT_TEXT,
+                          PromptText,
                           MB_PROMPT_OUTLINE, MB_PROMPT_FILL,
                           OUTLINED_FONT_SIZE, Dest);
     DrawIcon(Dest, FChoice * MB_HAND_ICON_STEP + MB_HAND_ICON_X,

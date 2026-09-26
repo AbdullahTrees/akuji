@@ -13,7 +13,7 @@ unit Ending;
 interface
 
 uses
-  SysUtils, GameState, PlayerState;
+  SysUtils, GameState, PlayerState, Translation;
 
 const
   { Total number of collectible mana stones. }
@@ -412,7 +412,7 @@ begin
     Exit;
   TextIndex := ENDING_TEXT_ID[Step - 1] + N;
   if (TextIndex >= 0) and (TextIndex <= High(ENDING_TEXT)) then
-    Result := ENDING_TEXT[TextIndex];
+    Result := Tr(Format('ending:%d', [TextIndex]), ENDING_TEXT[TextIndex]);
 end;
 
 procedure TEndingScreen.Update(var S: TGameSettings; const P: TPlayerState;

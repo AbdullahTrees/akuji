@@ -17,7 +17,7 @@ interface
 
 uses
   KbgmPlayer,
-  Classes, SysUtils, GameState;
+  Classes, SysUtils, GameState, Translation;
 
 { Constants and save fields used by the player controller in Player.pas. }
 
@@ -112,6 +112,8 @@ const
 
   POWERUP_PREFIX = '  ';
   POWERUP_SUFFIX = ' was recovered! ';
+  { The same line as one translatable string; %s is the name. }
+  POWERUP_FOUND = POWERUP_PREFIX + '%s' + POWERUP_SUFFIX;
 
   { Player sprite tables, right-facing then left-facing. }
   SPR_GROUND: array[0..1, 0..4] of Integer =
@@ -361,7 +363,7 @@ function PowerUpName(Variant: Integer): string;
 begin
   if (Variant < 0) or (Variant >= POWERUP_COUNT) then
     Exit('');
-  Result := POWERUP_NAMES[Variant];
+  Result := Tr(Format('powerup:%d', [Variant]), POWERUP_NAMES[Variant]);
 end;
 
 procedure PowerUpGrant(var P: TPlayerState; Variant: Integer);

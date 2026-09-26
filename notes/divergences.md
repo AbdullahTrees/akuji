@@ -610,6 +610,76 @@ offset and `--selftest-settings` the byte-exact round trip.
 `MusicVolume` in `src/gameplay/GameState.pas`, `TitleMusicVolume` in
 `src/screens/GmMain.pas`.
 
+## DIV-026 - one game, any language: UTF-8 text and PO translations
+
+**What the original does.** There were two games. The Japanese release
+(`akuji ver1.01`) and the English one are separate folders with separate
+executables: the English patch retyped the 65 `data/tk*.dat` dialogue files,
+replaced the strings compiled into the exe, and swapped the form's font from
+MS P Gothic with `SHIFTJIS_CHARSET` to MS Sans Serif - and changed no code;
+every coordinate and timing is identical. Text is Shift-JIS bytes, drawn by
+GDI in whatever font the form names. Run the Japanese data through the English
+build and every byte is read as a Western character, which is the garbage in
+the box.
+
+**What this does instead.** One binary, one data folder, a language setting.
+
+* Text is UTF-8 throughout. English is ASCII, so its data did not change.
+* A translation is a gettext PO file, `assets/lang/<code>.po`, chosen with
+  `lang=<code>` under `[language]` in system.ini. Each entry is keyed by where
+  the game uses it (`tk006:1` is line 1 of `data/tk006.dat`), carries the
+  English beside it, and falls back to English when empty. `assets/lang/akuji.pot`,
+  the template, is written by the game itself (`akuji --write-pot`), so it
+  cannot drift from what is looked up.
+* `ja.po` is the Japanese release's own text, converted from Shift-JIS: all 65
+  dialogue files and every visible string in its exe (narration, power-up names,
+  the Yes/No prompt, the power-up line, the title).
+* A language may name its own font in its PO header. Japanese uses
+  PixelMplus12 (M+ licence, JIS level 1 and 2 kanji) at 12 pixels: a 13-pixel
+  line, the height of the original's MS Gothic at 10 points, and on whole
+  pixels at 320x240.
+
+**The reveal rule, restated.** The box uncovered two BYTES per tick - one
+full-width Shift-JIS character or two half-width ones - and saw "\n" only as an
+aligned pair; the English data was padded so its escapes stay aligned. In
+UTF-8 bytes say nothing about width, so the rule is now stated in characters:
+a wide character is one unit, narrow characters pair up, "\n" is a unit
+wherever it falls. Over every English page this gives exactly the old units,
+and the Japanese data has no misaligned escape, so shipped text reveals as it
+did. What changes is only what a translator may write: no padding needed. The
+panel line is centred by display columns, which is what the byte count
+measured.
+
+**Two details that differ.**
+
+*The Japanese prompt gains a leading space.* The original's `はい　　いいえ` was
+spaced for a 13-pixel font; at 12 the hand cursor touches both words. One
+half-width space puts them 6 and 2 pixels clear - the same fix the English
+prompt already carries.
+
+*The menus and results stay English.* They are drawn from a bitmap font that
+has only ASCII, and are not in the template yet.
+
+**How it is held.** `--selftest-lang`: the unit rule against the two-byte rule
+on all 286 English pages (0 may differ); the PO reader against a sample with
+continuation lines, escapes and fuzzy entries; the template written, read back
+and compared with what is committed; and for each language file - no context
+the game never looks up, every dialogue code that steers the game kept (the
+terminator, and `\w` present exactly when the English has it), every character
+in its font, every line inside the box (Japanese's widest is 180 of 204
+pixels), the Yes/No words clear of the hand. The English checksums in
+`--selftest-render` are unchanged.
+
+**Still to come.** A LANGUAGE row in the options screen, which needs the menu
+font to draw the language's own name.
+
+**Sites.** `src/TextUnits.pas`, `src/Translation.pas`,
+`src/screens/LangTemplate.pas`, `tests/LangTests.pas`; the lookups in
+`src/events/EventScripts.pas`, `src/screens/Opening.pas`,
+`src/screens/Ending.pas`, `src/screens/Dialogue.pas`,
+`src/gameplay/PlayerState.pas` and `DDDD1Init` in `src/screens/GmMain.pas`; the
+font switch in `src/render/TextRender.pas`.
+
 ---
 
 ## Numbers 001 to 015

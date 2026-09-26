@@ -8,6 +8,9 @@
 *.sh text eol=lf
 # Make likewise: a CRLF recipe line hands the shell "tools/build.sh".
 Makefile text eol=lf
+# Translation files, for the gettext tools that read them.
+*.po text eol=lf
+*.pot text eol=lf
 
 # Pascal sources and project files are edited in the Lazarus IDE on Windows.
 *.pas text eol=crlf

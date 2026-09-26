@@ -84,6 +84,7 @@ run --selftest-render   "$DATA"
 run --selftest-input
 run --selftest-music    "$DATA"
 run --selftest-log
+run --selftest-lang     "$DATA"
 
 echo
 [ "$skips" -gt 0 ] && echo "$skips check(s) skipped - see bin/selftest.log for why"

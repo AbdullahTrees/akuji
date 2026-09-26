@@ -83,7 +83,7 @@ same way: put the contents of `assets/` beside the executable.
 make test               # or tools/test.sh
 ```
 
-Nineteen self-test modes, linked into the game binary itself rather than into a
+Twenty self-test modes, linked into the game binary itself rather than into a
 separate harness, so they exercise the code the game actually runs. They cover
 the archive and audio decoders, the MIDI player, the event-script grammar and
 interpreter, stage loading, the camera, the player controller, the entity
@@ -92,6 +92,45 @@ dispatcher and every record layout the save format depends on.
 Some checks compare against the original 2001 executable. It is not distributed
 here and is not needed to build or play; those checks report `SKIP` when it is
 absent. Put a copy beside the game data to enable them.
+
+## Languages
+
+English and Japanese are built in. Choose in `assets/system.ini`:
+
+```ini
+[language]
+lang=ja
+```
+
+Japanese is the original Japanese release's own text, in a free pixel font
+that keeps kanji legible at the game's 320x240. The menus and the results
+screen are still English - they are drawn from an ASCII bitmap font.
+
+### Translating
+
+Translations are gettext PO files in `assets/lang/`, so any PO editor works -
+[Poedit](https://poedit.net/), Weblate, Lokalize, or a text editor.
+
+1. Copy `assets/lang/akuji.pot` to `assets/lang/<code>.po` (`fr.po`, `de.po`,
+   ...) and set `"Language: <code>\n"` in its header.
+2. Fill in the `msgstr` lines. Each entry shows the English, and a comment
+   saying where it is used. Anything left empty shows the English, so a
+   partial translation is playable.
+3. Set `lang=<code>` and play. `make test` checks the file: every dialogue
+   line inside its box, every character in the font, the page codes kept.
+
+In the dialogue a line break is a line break, and a box holds three lines.
+Keep the codes: `\k` waits for a key and starts the next box, `\e` ends the
+message, `\w` ends it with the Yes/No prompt.
+
+The default font covers ASCII. A script it lacks needs a font: put a TTF in
+`assets/fonts/` and name it in the header, as `ja.po` does -
+`X-Akuji-Font: PixelMplus12-Regular.ttf` and `X-Akuji-Font-Size: 12`.
+PixelMplus12 also covers Latin-1, so most European languages can simply use it.
+
+When the English changes, `bin/akuji --write-pot assets` rewrites the
+template and `msgmerge -U <code>.po akuji.pot` brings a translation up to date,
+marking changed entries fuzzy.
 
 ## Layout
 

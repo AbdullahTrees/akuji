@@ -19,7 +19,7 @@ unit Opening;
 interface
 
 uses
-  SysUtils, GameColors, GameState, GameFont, RenderTarget;
+  SysUtils, GameColors, GameState, GameFont, RenderTarget, Translation;
 
 const
   OPENING_SLIDES = 10;
@@ -122,7 +122,15 @@ type
   slide. }
 function OpeningPictureFor(ASlide: Integer): Integer;
 
+{ OPENING_LINES[I], or the chosen language's "opening:I". }
+function OpeningLine(I: Integer): string;
+
 implementation
+
+function OpeningLine(I: Integer): string;
+begin
+  Result := Tr(Format('opening:%d', [I]), OPENING_LINES[I]);
+end;
 
 function OpeningPictureFor(ASlide: Integer): Integer;
 begin
@@ -218,11 +226,11 @@ begin
   { Narrative text uses the outlined system font so lowercase remains visible;
     the bitmap font contains only $20..$5F. }
   Game_DrawTextOutlined(OPENING_TEXT_X, OPENING_LINE1_Y,
-                        OPENING_LINES[TextIndex],
+                        OpeningLine(TextIndex),
                         OPENING_OUTLINE, OPENING_FILL, OUTLINED_FONT_SIZE, C);
   if TextIndex + 1 <= High(OPENING_LINES) then
     Game_DrawTextOutlined(OPENING_TEXT_X, OPENING_LINE2_Y,
-                          OPENING_LINES[TextIndex + 1],
+                          OpeningLine(TextIndex + 1),
                           OPENING_OUTLINE, OPENING_FILL, OUTLINED_FONT_SIZE, C);
 end;
 

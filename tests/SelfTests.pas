@@ -23,10 +23,10 @@ implementation
 uses
   MediaTests, DataTests, StageTests, PlayerTests, TraceTests,
   LayoutTests, EntityTests, RunnerTests, SessionTests,
-  EmuDiffTests, RenderTests, InputTests, MusicTests, LogTests;
+  EmuDiffTests, RenderTests, InputTests, MusicTests, LogTests, LangTests;
 
 const
-  SELFTEST_MODES: array[0..21] of string = (
+  SELFTEST_MODES: array[0..23] of string = (
     '--selftest',
     '--selftest-audio',
     '--selftest-midi',
@@ -48,6 +48,8 @@ const
     '--selftest-input',
     '--selftest-music',
     '--selftest-log',
+    '--selftest-lang',
+    '--write-pot',
     '--emudiff');
 
 function IsSelfTestMode: Boolean;
@@ -108,6 +110,10 @@ begin
         Result := SelfTestMusic(Log)
       else if ParamStr(1) = '--selftest-log' then
         Result := SelfTestLog(Log)
+      else if ParamStr(1) = '--selftest-lang' then
+        Result := SelfTestLang(Log)
+      else if ParamStr(1) = '--write-pot' then
+        Result := WritePot(Log)
       else if ParamStr(1) = '--emudiff' then
         Result := EmuDiff(Log)
       else

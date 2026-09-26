@@ -18,7 +18,13 @@ uses
   Classes, SysUtils, Types, GameColors, SDL2, GameLog, Version,
   DDDDComponent, DDIDComponent, DDSDComponent, KbgmPlayer, GameState,
   IniFiles, QdaArchive, Title, Ending, Opening, GameFont, Surfaces, Sprites, Stages, TileMaps, PlayerState,
-  Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender;
+  Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender,
+  Translation;
+
+const
+  { What GmMain.lfm used to carry as the form's caption. A translation
+    replaces it through "window.title". }
+  WINDOW_CAPTION = 'Akuji the Demon';
 
 type
   TFrm_main = class;
@@ -232,7 +238,7 @@ end;
   The title's one-time startup delay is armed after initialization. }
 procedure TFrm_main.DDDD1Init(Sender: TObject);
 var
-  DataDir: string;
+  DataDir, Language: string;
   Sheet: TRenderImage;
   Ini: TIniFile;
   I: Integer;
@@ -273,9 +279,22 @@ begin
         Trim(Ini.ReadString('music', 'soundfont', SOUNDFONT_GM));
       KbgmPlayer1.Effects :=
         SameText(Trim(Ini.ReadString('music', 'effects', 'off')), 'on');
+      { Ours too: the language, a PO file in lang/. English needs none. }
+      Language := Trim(Ini.ReadString('language', 'lang', 'en'));
     finally
       Ini.Free;
     end;
+    if LoadLanguage(DataDir + 'lang', Language) then
+      LogFmt(lsData, 'language %s (lang%s%s.po)',
+        [LanguageCode, PathDelim, LanguageCode])
+    else
+    begin
+      if not SameText(Language, 'en') then
+        LogFmt(lsData, 'no lang%s%s.po - English', [PathDelim, Language]);
+    end;
+    if FWindow <> nil then
+      SDL_SetWindowTitle(FWindow, PAnsiChar(AnsiString(
+        Tr('window.title', WINDOW_CAPTION))));
     { Zeroed after the read, so the gallery cursor never persists. }
     Settings.GallerySel := 0;
     SettingsToGlobals;
@@ -1410,7 +1429,6 @@ constructor TFrm_main.Create(AOwner: TComponent);
 const
   { What GmMain.lfm used to carry, kept together and named so that the
     correspondence with the original's form resource stays readable. }
-  WINDOW_CAPTION = 'Akuji the Demon';
   SE_CHANNELS = 57;
   AUTO_LOAD_MIDIS =
     'midi\init'#10'midi\main01'#10'midi\gameover'#10'midi\boss01'#10 +

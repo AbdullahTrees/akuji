@@ -36,7 +36,7 @@ unit EventScripts;
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils, Translation;
 
 const
   EVENT_RECORD_BYTES = $24;
@@ -254,7 +254,14 @@ begin
       (\n, \e, \k, \w) are the consumer's problem, not the loader's. }
     FileName := DataPath + Format('tk%.3d.dat', [StageIndex]);
     if FileExists(FileName) then
+    begin
       FLines.LoadFromFile(FileName);
+      { The chosen language's line, where it has one. Keyed by file and line,
+        which is what --write-pot names each entry. }
+      for LineIndex := 0 to FLines.Count - 1 do
+        FLines[LineIndex] := TrDialogue(
+          Format('tk%.3d:%d', [StageIndex, LineIndex]), FLines[LineIndex]);
+    end;
   finally
     Fields.Free;
     SourceLines.Free;

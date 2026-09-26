@@ -48,7 +48,17 @@
   A dialogue box redraws its line sixty times a second and the line changes
   when the player presses a key. Rendering five passes through FreeType every
   frame would be wasteful; the strings are few and short, so each rendered
-  bitmap is kept until something evicts it. }
+  bitmap is kept until something evicts it.
+
+  ANOTHER LANGUAGE'S FONT
+
+  The default face is Latin only. A translation names its own font in its
+  PO header (see Translation), and that font then draws everything this
+  unit draws, at the pixel size it gives, instead of the strike the face
+  index picks. The Japanese one is PixelMplus12: a TrueType font drawn on a
+  12-pixel grid, so rendered Solid at 12 it lands on whole pixels as a
+  bitmap strike would. The original used MS Gothic at 10 points, a 13-pixel
+  line, which this matches. }
 
 unit TextRender;
 
@@ -80,12 +90,16 @@ function OutlinedTextSurface(const S: string; Outline, Fill: TColor;
 { How wide the string is, in pixels, at this size. Zero if there is no font. }
 function OutlinedTextWidth(const S: string; Face: Integer): Integer;
 
+{ Whether the font this face draws with right now has a glyph for the
+  character - for the translation checks. }
+function OutlinedFontHasGlyph(CodePoint: Cardinal; Face: Integer): Boolean;
+
 procedure ShutdownTextRender;
 
 implementation
 
 uses
-  ctypes, SDL2_ttf, RenderTarget;
+  ctypes, SDL2_ttf, RenderTarget, Translation;
 
 type
   TCacheEntry = record
@@ -96,7 +110,7 @@ type
 var
   FontDir: string = '';
   Font: PTTF_Font = nil;
-  FontFace: Integer = -1;
+  FontKey: string = '';
   Started: Boolean = False;
   Cache: array of TCacheEntry;
 
@@ -105,14 +119,48 @@ begin
   FontDir := IncludeTrailingPathDelimiter(ADir);
 end;
 
+{ The language's font file, under assets/fonts/. }
+function LanguageFontPath: string;
+begin
+  Result := FontDir + 'fonts' + PathDelim + LanguageFontFile;
+end;
+
+var
+  { Whether the language's font file exists, asked once per file rather
+    than on every draw - this runs several times a frame. }
+  CheckedFontPath: string = '';
+  CheckedFontExists: Boolean = False;
+
+{ Which font this face means right now: the language's, if it names one
+  that exists, otherwise the default file's strike. }
+function WantedFont(Face: Integer): string;
+var
+  Path: string;
+begin
+  if (FontDir <> '') and (LanguageFontFile <> '') then
+  begin
+    Path := LanguageFontPath;
+    if Path <> CheckedFontPath then
+    begin
+      CheckedFontPath := Path;
+      CheckedFontExists := FileExists(Path);
+    end;
+    if CheckedFontExists then
+      Exit('lang|' + LanguageFontFile + '|' + IntToStr(LanguageFontSize));
+  end;
+  Result := 'face|' + IntToStr(Face);
+end;
+
 { Opens the font at this size, reusing the handle while the size is unchanged.
   Only one size is ever asked for, but the check costs nothing and a second
   caller with a different size would otherwise silently get the first one's. }
 function EnsureFont(Face: Integer): Boolean;
 var
-  Path: string;
+  Path, Key: string;
+  Size: Integer;
 begin
-  if (Font <> nil) and (FontFace = Face) then
+  Key := WantedFont(Face);
+  if (Font <> nil) and (FontKey = Key) then
     Exit(True);
   if FontDir = '' then
     Exit(False);
@@ -129,16 +177,32 @@ begin
     TTF_CloseFont(Font);
     Font := nil;
   end;
-  Path := FontDir + OUTLINED_FONT_FILE;
-  if not FileExists(Path) then
-    Exit(False);
-  { The ptsize argument is ignored for a bitmap face; the index is what picks
-    the strike. The 12 is a placeholder and means nothing. }
-  Font := TTF_OpenFontIndex(PAnsiChar(AnsiString(Path)), 12, Face);
+  if Copy(Key, 1, 5) = 'lang|' then
+  begin
+    Size := LanguageFontSize;
+    if Size <= 0 then
+      Size := 12;
+    Font := TTF_OpenFont(PAnsiChar(AnsiString(LanguageFontPath)), Size);
+  end
+  else
+  begin
+    Path := FontDir + OUTLINED_FONT_FILE;
+    if not FileExists(Path) then
+      Exit(False);
+    { The ptsize argument is ignored for a bitmap face; the index is what
+      picks the strike. The 12 is a placeholder and means nothing. }
+    Font := TTF_OpenFontIndex(PAnsiChar(AnsiString(Path)), 12, Face);
+  end;
   if Font = nil then
     Exit(False);
-  FontFace := Face;
+  FontKey := Key;
   Result := True;
+end;
+
+function OutlinedFontHasGlyph(CodePoint: Cardinal; Face: Integer): Boolean;
+begin
+  Result := EnsureFont(Face) and (CodePoint <= $FFFF)
+            and (TTF_GlyphIsProvided(Font, Word(CodePoint)) <> 0);
 end;
 
 function TextRenderReady: Boolean;
@@ -248,7 +312,7 @@ var
   Sheet: PSDL_Surface;
   I: Integer;
 begin
-  Key := Format('%d|%.8x|%.8x|%s', [Face, Outline, Fill, S]);
+  Key := Format('%s|%.8x|%.8x|%s', [WantedFont(Face), Outline, Fill, S]);
   for I := 0 to High(Cache) do
     if Cache[I].Key = Key then
       Exit(I);
