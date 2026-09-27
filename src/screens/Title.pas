@@ -42,7 +42,20 @@ const
   OPT_LABEL_X  = $28;
   OPT_VALUE_X  = $E8;
   OPT_CURSOR_X = $E0;
-  OPT_ROW_EXIT = 9;
+  OPT_FIRST_ROW_Y = $38;
+  OPT_ROW_STEP    = $10;
+  { EXIT's place: the original's row 9, (9*2 + 7) * 8. It stays there however
+    many rows there are above it. }
+  OPT_EXIT_Y      = 200;
+  { What fits between the heading and EXIT: rows 0..8, y 0x38..0xB8. More than
+    this scrolls - see OptionsScroll. }
+  OPT_VISIBLE_ROWS = (OPT_EXIT_Y - OPT_FIRST_ROW_Y) div OPT_ROW_STEP;
+  { The scroll markers, in the cursor's colour, left of the labels on the
+    first and last visible rows. The sheet has a caret but no down arrow, so
+    down is a V. }
+  OPT_SCROLL_X    = $18;
+  OPT_SCROLL_UP   = '^';
+  OPT_SCROLL_DOWN = 'V';
   OPT_TITLE    = '- OPTION -';
   OPT_TITLE_Y  = $20;
   OPT_CURSOR   = '<       >';    { brackets the value column }
@@ -101,6 +114,12 @@ type
   TOptionRow = (orLevel, orToggle1, orKey0, orKey1, orKey2,
                 orScale, orVolume, orMusic, orOmake, orExit);
 
+const
+  { EXIT is always the last row. }
+  OPT_ROW_EXIT = Ord(High(TOptionRow));
+
+type
+
   { Callbacks keep this unit independent of the component layer. }
   TSoundEvent = procedure(Index: Integer) of object;
   TNotifyProc = procedure of object;
@@ -128,6 +147,7 @@ type
     FOnGallery: TGalleryEvent;
     FOnKeyName: TKeyNameEvent;
     FOnBindKey: TBindKeyEvent;
+    FScroll: Integer;           { the first options row on screen }
     procedure PlaySound(Index: Integer);
     procedure MenuConfirm;
     procedure OptionsConfirm;
@@ -143,6 +163,10 @@ type
 
     function GetIndex: Integer;
     function GetSubMode: Integer;
+    { Where an options row is drawn, or -1 when it is scrolled out of view. }
+    function OptionRowY(Row: Integer): Integer;
+    { The first row on screen. }
+    property Scroll: Integer read FScroll;
     { Exposes the shared title sub-mode from GameState. }
     property SubMode: Integer read GetSubMode;
   public
@@ -229,7 +253,31 @@ type
 { Where the pause menu's cursor sound goes. GmMain hooks it up. }
 procedure SetPauseSound(E: TSoundEvent);
 
+{ The first row to show so that Cursor is on screen, given where the view
+  was: it moves only as far as it must, so the cursor walks to the edge of
+  the view before the list moves under it. Rows is the scrolling rows' count
+  (EXIT is not one of them), Visible how many fit. A cursor outside the rows
+  - on EXIT - leaves the view where it is. }
+function OptionsScroll(Cursor, Scroll, Rows, Visible: Integer): Integer;
+
 implementation
+
+function OptionsScroll(Cursor, Scroll, Rows, Visible: Integer): Integer;
+begin
+  Result := Scroll;
+  if (Cursor >= 0) and (Cursor < Rows) then
+  begin
+    if Cursor < Result then
+      Result := Cursor;
+    if Cursor >= Result + Visible then
+      Result := Cursor - Visible + 1;
+  end;
+  { Never past the end, and never negative when everything fits. }
+  if Result > Rows - Visible then
+    Result := Rows - Visible;
+  if Result < 0 then
+    Result := 0;
+end;
 
 { --- TPauseMenu ---------------------------------------------------------- }
 
@@ -385,6 +433,16 @@ procedure TTitleScreen.Reset;
 begin
   TitleSubMode := TSM_MENU;
   MenuIndex := 0;
+  FScroll := 0;
+end;
+
+function TTitleScreen.OptionRowY(Row: Integer): Integer;
+begin
+  if Row = OPT_ROW_EXIT then
+    Exit(OPT_EXIT_Y);
+  if (Row < FScroll) or (Row >= FScroll + OPT_VISIBLE_ROWS) then
+    Exit(-1);
+  Result := OPT_FIRST_ROW_Y + (Row - FScroll) * OPT_ROW_STEP;
 end;
 
 procedure TTitleScreen.PlaySound(Index: Integer);
@@ -417,6 +475,7 @@ begin
       begin
         PlaySound(SND_OK);
         MenuIndex := 0;
+        FScroll := 0;
         TitleSubMode := TSM_OPTIONS;
       end;
     3:
@@ -459,7 +518,8 @@ procedure TTitleScreen.DrawValues(C: TRenderTarget; F: TGameFont);
 
   procedure Val(Row: Integer; const S: string; Variant_: Integer = 0);
   begin
-    F.TextOut(C, OPT_VALUE_X, $38 + Row * $10, S, Variant_);
+    if OptionRowY(Row) >= 0 then
+      F.TextOut(C, OPT_VALUE_X, OptionRowY(Row), S, Variant_);
   end;
 
   { From the input component, which owns the bindings. An unbound row reads
@@ -493,10 +553,11 @@ begin
   begin
     Val(Ord(orOmake), OMAKE_NAMES[Settings.GallerySel], 2);
     { The unlock marker, at its own x and with its own variant. }
-    if Settings.GalleryUnlocked[Settings.GallerySel] = 1 then
-      F.TextOut(C, OMAKE_MARK_X, $38 + Ord(orOmake) * $10, TEXT_ON, 0)
+    if OptionRowY(Ord(orOmake)) < 0 then
+    else if Settings.GalleryUnlocked[Settings.GallerySel] = 1 then
+      F.TextOut(C, OMAKE_MARK_X, OptionRowY(Ord(orOmake)), TEXT_ON, 0)
     else
-      F.TextOut(C, OMAKE_MARK_X, $38 + Ord(orOmake) * $10, TEXT_OFF, 2);
+      F.TextOut(C, OMAKE_MARK_X, OptionRowY(Ord(orOmake)), TEXT_OFF, 2);
   end;
 end;
 
@@ -613,6 +674,8 @@ begin
           MenuIndex := MenuIndex + MoveY;
           if MenuIndex < 0 then MenuIndex := Limit;
           if MenuIndex > Limit then MenuIndex := 0;
+          FScroll := OptionsScroll(MenuIndex, FScroll, OPT_ROW_EXIT,
+                                   OPT_VISIBLE_ROWS);
         end;
         if Confirm then
           { Same again: rows 0..7 are silent on confirm, row 8 plays SND_OK
@@ -626,6 +689,8 @@ begin
       begin
         TitleSubMode := TSM_OPTIONS;
         MenuIndex := Ord(orOmake);
+        FScroll := OptionsScroll(MenuIndex, FScroll, OPT_ROW_EXIT,
+                                 OPT_VISIBLE_ROWS);
       end;
   end;
 end;
@@ -666,12 +731,19 @@ begin
         for ItemIndex := Low(OPT_LABELS) to High(OPT_LABELS) do
           { EXIT occupies the value column rather than the label column. }
           if ItemIndex = OPT_ROW_EXIT then
-            F.TextOut(C, OPT_VALUE_X, 200, OPT_LABELS[ItemIndex], 2)
-          else
-            F.TextOut(C, OPT_LABEL_X, $38 + ItemIndex * $10,
+            F.TextOut(C, OPT_VALUE_X, OPT_EXIT_Y, OPT_LABELS[ItemIndex], 2)
+          else if OptionRowY(ItemIndex) >= 0 then
+            F.TextOut(C, OPT_LABEL_X, OptionRowY(ItemIndex),
                       OPT_LABELS[ItemIndex], 2);
         DrawValues(C, F);
-        F.TextOut(C, OPT_CURSOR_X, (MenuIndex * 2 + 7) * 8, OPT_CURSOR, 1);
+        if FScroll > 0 then
+          F.TextOut(C, OPT_SCROLL_X, OPT_FIRST_ROW_Y, OPT_SCROLL_UP, 1);
+        if FScroll + OPT_VISIBLE_ROWS < OPT_ROW_EXIT then
+          F.TextOut(C, OPT_SCROLL_X,
+                    OPT_FIRST_ROW_Y + (OPT_VISIBLE_ROWS - 1) * OPT_ROW_STEP,
+                    OPT_SCROLL_DOWN, 1);
+        { With nine rows or fewer this is the original's (index*2 + 7) * 8. }
+        F.TextOut(C, OPT_CURSOR_X, OptionRowY(MenuIndex), OPT_CURSOR, 1);
       end;
   end;
 end;

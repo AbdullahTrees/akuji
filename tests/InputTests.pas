@@ -24,7 +24,7 @@ function SelfTestInput(Log: TStrings): Integer;
 implementation
 
 uses
-  SDL2, DDIDComponent, GameState, SoundTable, Title;
+  Math, SDL2, DDIDComponent, GameState, SoundTable, Title;
 
 type
   { One row of the table DDIDComponent had before bindings existed, recovered
@@ -198,6 +198,7 @@ var
   K: TSDL_KeyCode;
   Frames: Integer;
   Host: TFakeHost;
+  Rows, Scroll, Cursor, Bad0: Integer;
   Screen: TTitleScreen;
   Pads, Found: Integer;
   B: TAkujiButton;
@@ -503,12 +504,92 @@ begin
     Screen.Update(0, 0, False);
     Want(Host.Offers = 1, 'a refused row was not offered the key');
     Want(Host.Sounds = 0, 'a refused bind still played a sound');
+
+    { Where the rows are drawn. Nothing scrolled, a row sits where the
+      original's (index*2 + 7) * 8 put it, and EXIT where row 9 was. }
+    Screen.Reset;
+    TitleSubMode := TSM_OPTIONS;
+    for I := 0 to OPT_ROW_EXIT - 1 do
+      if I < OPT_VISIBLE_ROWS then
+        Want(Screen.OptionRowY(I) = (I * 2 + 7) * 8,
+          Format('row %d drawn at y=%d, the original''s is %d',
+            [I, Screen.OptionRowY(I), (I * 2 + 7) * 8]))
+      else
+        Want(Screen.OptionRowY(I) = -1,
+          Format('row %d is drawn below the ninth before any scrolling', [I]));
+    Want(Screen.OptionRowY(OPT_ROW_EXIT) = (9 * 2 + 7) * 8,
+      'EXIT is not where the original drew it');
+
+    { Walk the cursor down every row and back up with the screen's own
+      Update: whatever the scroll does, the cursor's row is always on screen
+      and EXIT always at its place. }
+    MenuIndex := 0;
+    for J := 1 to 2 * (OPT_ROW_EXIT + 1) do
+    begin
+      if J <= OPT_ROW_EXIT + 1 then
+        Screen.Update(1, 0, False)
+      else
+        Screen.Update(-1, 0, False);
+      Want(Screen.OptionRowY(MenuIndex) >= 0,
+        Format('the cursor''s row %d is scrolled out of view', [MenuIndex]));
+    end;
+    Log.Add(Format('  %d rows, %d on screen; the cursor stayed in view '
+      + 'down and back up', [OPT_ROW_EXIT, OPT_VISIBLE_ROWS]));
   finally
     Screen.Free;
     Host.Free;
     TitleSubMode := TSM_MENU;
     MenuIndex := 0;
   end;
+
+  { 8b. The scroll rule itself, for any number of rows - the screen has
+        however many it has today, and this must hold for all of them. }
+  Log.Add('');
+  Log.Add('options scrolling:');
+  Bad0 := Bad;
+  for Rows := 1 to 24 do
+  begin
+    { Straight down from the top: the view holds still until the cursor
+      reaches its last row, then moves one row per step. }
+    Scroll := 0;
+    for Cursor := 0 to Rows - 1 do
+    begin
+      Scroll := OptionsScroll(Cursor, Scroll, Rows, OPT_VISIBLE_ROWS);
+      Want(Scroll = Max(0, Cursor - OPT_VISIBLE_ROWS + 1),
+        Format('%d rows, down to %d: scroll %d', [Rows, Cursor, Scroll]));
+    end;
+    { And back up: still until the cursor reaches the view's first row. }
+    for Cursor := Rows - 1 downto 0 do
+    begin
+      Want(OptionsScroll(Cursor, Scroll, Rows, OPT_VISIBLE_ROWS)
+           = Min(Scroll, Cursor),
+        Format('%d rows, up to %d: scroll %d', [Rows, Cursor, Scroll]));
+      Scroll := OptionsScroll(Cursor, Scroll, Rows, OPT_VISIBLE_ROWS);
+    end;
+    { A cursor on EXIT - past the rows - leaves the view alone. }
+    Want(OptionsScroll(Rows, Max(0, Rows - OPT_VISIBLE_ROWS), Rows,
+                       OPT_VISIBLE_ROWS) = Max(0, Rows - OPT_VISIBLE_ROWS),
+      Format('%d rows: EXIT moved the view', [Rows]));
+    { Random walks, wrapping at both ends like the screen does: the cursor
+      is always in view and the view never runs past the last row. }
+    RandSeed := Rows;
+    Scroll := 0;
+    Cursor := 0;
+    for J := 1 to 500 do
+    begin
+      Cursor := (Cursor + Random(3) - 1 + Rows + 1) mod (Rows + 1);
+      Scroll := OptionsScroll(Cursor, Scroll, Rows, OPT_VISIBLE_ROWS);
+      Want((Scroll >= 0) and (Scroll <= Max(0, Rows - OPT_VISIBLE_ROWS)),
+        Format('%d rows: scroll %d is out of range', [Rows, Scroll]));
+      if Cursor < Rows then
+        Want((Cursor >= Scroll) and (Cursor < Scroll + OPT_VISIBLE_ROWS),
+          Format('%d rows: cursor %d off screen at scroll %d',
+            [Rows, Cursor, Scroll]));
+    end;
+  end;
+  if Bad = Bad0 then
+    Log.Add(Format('  1..24 rows, %d on screen: straight walks, EXIT and '
+      + '500-step random walks', [OPT_VISIBLE_ROWS]));
 
   { 9. The gamepad. Everything up to the device is checkable here - that the
        subsystem starts with no video subsystem and no window, that the
