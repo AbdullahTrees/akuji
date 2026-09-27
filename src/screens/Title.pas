@@ -295,6 +295,13 @@ type
 { Where the pause menu's cursor sound goes. GmMain hooks it up. }
 procedure SetPauseSound(E: TSoundEvent);
 
+{ SDL's name for a key as the value column shows it: inside the cursor's
+  brackets, so seven glyphs at most. A one-letter key reads as the original
+  showed it, "Z KEY"; longer names drop the KEY and are abbreviated - L and R
+  for left and right, KP for the keypad, the usual short forms for the long
+  ones - and cut at seven if still too long. }
+function MenuKeyName(const SdlName: string): string;
+
 { The first row to show so that Cursor is on screen, given where the view
   was: it moves only as far as it must, so the cursor walks to the edge of
   the view before the list moves under it. Rows is the scrolling rows' count
@@ -303,6 +310,56 @@ procedure SetPauseSound(E: TSoundEvent);
 function OptionsScroll(Cursor, Scroll, Rows, Visible: Integer): Integer;
 
 implementation
+
+const
+  { What fits between '<' at 0xE0 and '>' at 0x120. }
+  MENU_VALUE_CHARS = 7;
+  KEY_WORDS: array[0..12, 0..1] of string = (
+    ('BACKSPACE', 'BKSP'), ('CAPSLOCK', 'CAPS'), ('PAGEUP', 'PGUP'),
+    ('PAGEDOWN', 'PGDN'), ('PRINTSCREEN', 'PRTSC'), ('SCROLLLOCK', 'SCRLK'),
+    ('NUMLOCKCLEAR', 'NUMLK'), ('APPLICATION', 'MENU'), ('ESCAPE', 'ESC'),
+    ('RETURN', 'ENTER'), ('DELETE', 'DEL'), ('INSERT', 'INS'),
+    { The font stops at $5F, so the backquote has no glyph. }
+    ('`', 'GRAVE'));
+
+function MenuKeyName(const SdlName: string): string;
+var
+  Prefix, Rest: string;
+  I: Integer;
+begin
+  Rest := UpperCase(Trim(SdlName));
+  if Rest = '' then
+    Exit('NONE');
+  if Length(Rest) = 1 then
+  begin
+    if Rest = '`' then
+      Exit('GRAVE');
+    Exit(Rest + KEY_SUFFIX);
+  end;
+  Prefix := '';
+  if Copy(Rest, 1, 5) = 'LEFT ' then
+  begin
+    Prefix := 'L ';
+    Delete(Rest, 1, 5);
+  end
+  else if Copy(Rest, 1, 6) = 'RIGHT ' then
+  begin
+    Prefix := 'R ';
+    Delete(Rest, 1, 6);
+  end
+  else if Copy(Rest, 1, 7) = 'KEYPAD ' then
+  begin
+    Prefix := 'KP ';
+    Delete(Rest, 1, 7);
+  end;
+  for I := Low(KEY_WORDS) to High(KEY_WORDS) do
+    if Rest = KEY_WORDS[I, 0] then
+    begin
+      Rest := KEY_WORDS[I, 1];
+      Break;
+    end;
+  Result := Copy(Prefix + Rest, 1, MENU_VALUE_CHARS);
+end;
 
 function OptionsScroll(Cursor, Scroll, Rows, Visible: Integer): Integer;
 begin
@@ -605,9 +662,9 @@ end;
 function TTitleScreen.KeyName(Row: Integer): string;
 begin
   if Assigned(FOnKeyName) then
-    Result := FOnKeyName(Row) + KEY_SUFFIX
+    Result := MenuKeyName(FOnKeyName(Row))
   else
-    Result := 'NONE' + KEY_SUFFIX;
+    Result := 'NONE';
 end;
 
 { The CONTROLS page's values: the three keys and nothing else. Its own

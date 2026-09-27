@@ -586,9 +586,9 @@ var
       Names := Names + ' ' + List[I].Code + '=' + List[I].MenuName;
       Want(MenuFontCanDraw(List[I].MenuName),
         List[I].Code + '''s menu name is not drawable by the menu font');
-      { The value column starts at x=232; eleven glyphs reach the edge. }
-      Want(Length(List[I].MenuName) <= 11,
-        List[I].Code + '''s menu name runs off the screen');
+      { Inside the cursor's brackets: seven glyphs from x=232. }
+      Want(Length(List[I].MenuName) <= 7,
+        List[I].Code + '''s menu name is wider than the brackets');
     end;
     Log.Add('');
     Log.Add('options screen lists:' + Names);

@@ -681,8 +681,8 @@ pixels), the Yes/No words clear of the hand. The English checksums in
 MUSIC VOLUME and GALLERY. Left and right step through the files in `lang/`,
 English first; the change applies at once and is written back to
 `[language]` in system.ini. The row shows each file's `X-Akuji-Menu-Name` -
-ENGLISH, JAPANESE - because the menu font has only capitals, digits and
-punctuation. `--selftest-input` drives the row; `--selftest-lang` checks
+EN, JP - because the menu font has only capitals, digits and punctuation, and
+the value has to fit inside the cursor's brackets. `--selftest-input` drives the row; `--selftest-lang` checks
 every menu name is drawable. The row is also what first overflowed the
 options screen - see DIV-027.
 
@@ -716,6 +716,11 @@ while the key that confirmed CONTROLS - Return, Space or Z - is still down,
 so no row binds until every key has been let go once. The pause button does
 not open the pause menu on that page, for the same reason it does not on the
 options screen: it is a key being bound.
+
+The key names are SDL's, and many are longer than the seven glyphs between
+the cursor's brackets. A one-letter key still reads as the original's
+"Z KEY"; longer names drop KEY and are abbreviated - L and R for left and
+right, KP for the keypad, BKSP, PGDN, ESC and the like - and cut at seven.
 
 With LANGUAGE (DIV-026) and without the three rows, the options screen has
 nine rows again, so today it does not scroll; GALLERY is one row higher than

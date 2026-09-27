@@ -640,7 +640,7 @@ begin
       begin
         Alone.Glyphs.Clear;
         Font.TextOut(Alone, OPT_VALUE_X, Screen.ControlRowY(I),
-                     Host.KeyName(I) + ' KEY', 0);
+                     MenuKeyName(Host.KeyName(I)), 0);
         Want(Rec.Row(Screen.ControlRowY(I), OPT_VALUE_X)
              = Alone.Row(Screen.ControlRowY(I), OPT_VALUE_X),
           Format('CONTROLS row %d draws more than its key name', [I]));
@@ -652,6 +652,17 @@ begin
       Sheet.Free;
     end;
     Log.Add('  CONTROLS draws the three key names and nothing over them');
+
+    { Key names as the value column shows them. }
+    Want(MenuKeyName('Z') = 'Z KEY', 'a letter key is not "Z KEY"');
+    Want(MenuKeyName('RIGHT CTRL') = 'R CTRL', 'RIGHT CTRL is not R CTRL');
+    Want(MenuKeyName('LEFT SHIFT') = 'L SHIFT', 'LEFT SHIFT is not L SHIFT');
+    Want(MenuKeyName('KEYPAD 5') = 'KP 5', 'KEYPAD 5 is not KP 5');
+    Want(MenuKeyName('BACKSPACE') = 'BKSP', 'BACKSPACE is not BKSP');
+    Want(MenuKeyName('LEFT') = 'LEFT', 'the left arrow lost its name');
+    Want(MenuKeyName('`') = 'GRAVE', 'the backquote has no drawable name');
+    Want(Length(MenuKeyName('KEYPAD MEMSUBTRACT')) <= 7,
+      'a long name was not cut to fit the brackets');
 
     { The cursor wraps within the page, and EXIT goes back to CONTROLS. }
     MenuIndex := 0;

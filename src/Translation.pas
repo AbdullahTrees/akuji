@@ -38,7 +38,7 @@
 
     X-Akuji-Font: PixelMplus12-Regular.ttf    a file in assets/fonts/
     X-Akuji-Font-Size: 12                      in pixels
-    X-Akuji-Menu-Name: JAPANESE                what the options screen shows
+    X-Akuji-Menu-Name: JP                      what the options screen shows
 
   A language whose script the default font lacks names its own. }
 

@@ -13,11 +13,11 @@
 # An empty msgstr shows the English. To choose the language, set
 # lang=<code> under [language] in system.ini. If the default font
 # lacks your script, name one in assets/fonts/ below. The
-# options screen shows X-Akuji-Menu-Name, in capitals A-Z: its
-# font has nothing else.
+# options screen shows X-Akuji-Menu-Name - a short code such as
+# FR, at most seven capitals: its font has nothing else.
 msgid ""
 msgstr ""
-"Project-Id-Version: Akuji the Demon 2.0.4\n"
+"Project-Id-Version: Akuji the Demon 2.0.6\n"
 "Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"

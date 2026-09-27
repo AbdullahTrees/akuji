@@ -144,8 +144,8 @@ begin
     Out.Add('# An empty msgstr shows the English. To choose the language, set');
     Out.Add('# lang=<code> under [language] in system.ini. If the default font');
     Out.Add('# lacks your script, name one in assets/fonts/ below. The');
-    Out.Add('# options screen shows X-Akuji-Menu-Name, in capitals A-Z: its');
-    Out.Add('# font has nothing else.');
+    Out.Add('# options screen shows X-Akuji-Menu-Name - a short code such as');
+    Out.Add('# FR, at most seven capitals: its font has nothing else.');
     Out.Add('msgid ""');
     Out.Add('msgstr ""');
     Out.Add('"Project-Id-Version: ' + APP_NAME + ' ' + APP_VERSION + '\n"');

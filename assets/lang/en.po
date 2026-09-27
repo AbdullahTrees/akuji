@@ -7,7 +7,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Akuji-Menu-Name: ENGLISH\n"
+"X-Akuji-Menu-Name: EN\n"
 
 #. The window's title bar.
 msgctxt "window.title"
