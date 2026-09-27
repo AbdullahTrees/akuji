@@ -183,6 +183,8 @@ type
     procedure MenuConfirm;
     procedure OptionsConfirm;
     procedure DrawValues(C: TRenderTarget; F: TGameFont);
+    procedure DrawControlValues(C: TRenderTarget; F: TGameFont);
+    function KeyName(Row: Integer): string;
     procedure AdjustValue(Delta: Integer);
   public
     constructor Create;
@@ -597,6 +599,28 @@ begin
   end;
 end;
 
+{ From the input component, which owns the bindings. An unbound row reads
+  NONE rather than blank, so an empty value is never mistaken for a drawing
+  fault. }
+function TTitleScreen.KeyName(Row: Integer): string;
+begin
+  if Assigned(FOnKeyName) then
+    Result := FOnKeyName(Row) + KEY_SUFFIX
+  else
+    Result := 'NONE' + KEY_SUFFIX;
+end;
+
+{ The CONTROLS page's values: the three keys and nothing else. Its own
+  routine, because its rows share the options screen's places - drawn from
+  DrawValues, GAME LEVEL's EASY showed through "Z KEY" as ZAKEY. }
+procedure TTitleScreen.DrawControlValues(C: TRenderTarget; F: TGameFont);
+var
+  I: Integer;
+begin
+  for I := 0 to CTL_ROW_EXIT - 1 do
+    F.TextOut(C, OPT_VALUE_X, ControlRowY(I), KeyName(I), 0);
+end;
+
 procedure TTitleScreen.DrawValues(C: TRenderTarget; F: TGameFont);
 
   procedure Val(Row: Integer; const S: string; Variant_: Integer = 0);
@@ -605,34 +629,15 @@ procedure TTitleScreen.DrawValues(C: TRenderTarget; F: TGameFont);
       F.TextOut(C, OPT_VALUE_X, OptionRowY(Row), S, Variant_);
   end;
 
-  { From the input component, which owns the bindings. An unbound row reads
-    NONE rather than blank, so an empty value is never mistaken for a drawing
-    fault. }
-  function KeyName(Row: Integer): string;
-  begin
-    if Assigned(FOnKeyName) then
-      Result := FOnKeyName(Row) + KEY_SUFFIX
-    else
-      Result := 'NONE' + KEY_SUFFIX;
-  end;
-
   function OnOff(B: Boolean): string;
   begin
     if B then Result := TEXT_ON else Result := TEXT_OFF;
   end;
 
-var
-  I: Integer;
 begin
   if (Settings.GameLevel >= LEVEL_MIN) and (Settings.GameLevel <= LEVEL_MAX) then
     Val(0, LEVEL_NAMES[Settings.GameLevel],
         LEVEL_VARIANTS[Settings.GameLevel]);
-  if TitleSubMode = TSM_CONTROLS then
-  begin
-    for I := 0 to CTL_ROW_EXIT - 1 do
-      F.TextOut(C, OPT_VALUE_X, ControlRowY(I), KeyName(I), 0);
-    Exit;
-  end;
   Val(1, OnOff(FullScreenOn));
   Val(Ord(orScale), Format('%dX', [WindowScale]));
   Val(Ord(orVolume), Format('%3d%%', [Settings.Volume * 10]));
@@ -875,7 +880,7 @@ begin
           else
             F.TextOut(C, OPT_LABEL_X, ControlRowY(ItemIndex),
                       CTL_LABELS[ItemIndex], 2);
-        DrawValues(C, F);
+        DrawControlValues(C, F);
         F.TextOut(C, OPT_CURSOR_X, ControlRowY(MenuIndex), OPT_CURSOR, 1);
       end;
   end;

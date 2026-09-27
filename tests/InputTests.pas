@@ -24,7 +24,8 @@ function SelfTestInput(Log: TStrings): Integer;
 implementation
 
 uses
-  Math, SDL2, DDIDComponent, GameState, SoundTable, Title, Translation;
+  Math, Types, SDL2, DDIDComponent, GameState, SoundTable, Title, Translation,
+  RenderTarget, GameFont, GameColors;
 
 type
   { One row of the table DDIDComponent had before bindings existed, recovered
@@ -132,6 +133,71 @@ begin
   LastSound := Index;
 end;
 
+type
+  { Remembers every glyph drawn onto it and draws nothing, so a test can
+    ask exactly what a screen put where. }
+  TGlyphRecorder = class(TRenderTarget)
+  protected
+    function GetWidth: Integer; override;
+    function GetHeight: Integer; override;
+  public
+    Glyphs: TStringList;   { 'x,y,srcLeft,srcTop' per keyed blit }
+    constructor Create;
+    destructor Destroy; override;
+    procedure Fill(const R: TRect; AColor: TColor); override;
+    procedure BlitRect(Src: TRenderImage; const SrcRect: TRect;
+                       X, Y: Integer); override;
+    procedure BlitRectKeyed(Src: TRenderImage; const SrcRect: TRect;
+                            X, Y: Integer); override;
+    procedure DrawImage(Src: TRenderImage; X, Y: Integer); override;
+    procedure DrawOutlinedText(X, Y: Integer; const S: string;
+                               Outline, Fill: TColor;
+                               Size: Integer); override;
+    { The glyphs on one text row, at or right of X, in drawing order. }
+    function Row(Y, FromX: Integer): string;
+  end;
+
+constructor TGlyphRecorder.Create;
+begin
+  inherited Create;
+  Glyphs := TStringList.Create;
+end;
+
+destructor TGlyphRecorder.Destroy;
+begin
+  Glyphs.Free;
+  inherited Destroy;
+end;
+
+function TGlyphRecorder.GetWidth: Integer;  begin Result := 320; end;
+function TGlyphRecorder.GetHeight: Integer; begin Result := 240; end;
+procedure TGlyphRecorder.Fill(const R: TRect; AColor: TColor); begin end;
+procedure TGlyphRecorder.BlitRect(Src: TRenderImage; const SrcRect: TRect;
+  X, Y: Integer); begin end;
+procedure TGlyphRecorder.DrawImage(Src: TRenderImage; X, Y: Integer); begin end;
+procedure TGlyphRecorder.DrawOutlinedText(X, Y: Integer; const S: string;
+  Outline, Fill: TColor; Size: Integer); begin end;
+
+procedure TGlyphRecorder.BlitRectKeyed(Src: TRenderImage; const SrcRect: TRect;
+  X, Y: Integer);
+begin
+  Glyphs.Add(Format('%d,%d,%d,%d', [X, Y, SrcRect.Left, SrcRect.Top]));
+end;
+
+function TGlyphRecorder.Row(Y, FromX: Integer): string;
+var
+  I: Integer;
+  Parts: TStringArray;
+begin
+  Result := '';
+  for I := 0 to Glyphs.Count - 1 do
+  begin
+    Parts := Glyphs[I].Split([',']);
+    if (StrToInt(Parts[1]) = Y) and (StrToInt(Parts[0]) >= FromX) then
+      Result := Result + Glyphs[I] + ';';
+  end;
+end;
+
 function SetText(S: TAkujiButtons): string;
 var
   B: TAkujiButton;
@@ -216,6 +282,9 @@ var
   Host: TFakeHost;
   Rows, Scroll, Cursor, Bad0: Integer;
   Langs: TArray<TLanguageInfo>;
+  Sheet: TRenderImage;
+  Font: TGameFont;
+  Rec, Alone: TGlyphRecorder;
   Screen: TTitleScreen;
   Pads, Found: Integer;
   B: TAkujiButton;
@@ -553,6 +622,36 @@ begin
     Screen.Update(0, 0, False);
     Want(Host.Offers = 1, 'a refused row was not offered the key');
     Want(Host.Sounds = 0, 'a refused bind still played a sound');
+
+    { What the page draws in its value column is the three key names and
+      nothing else - every glyph on each row, compared with the name drawn
+      alone. GAME LEVEL's value once shared row 0 and showed through a
+      one-letter key: "Z KEY" read ZAKEY. }
+    Sheet := TRenderImage.Create(SDL_CreateRGBSurface(0, 288, 54, 32,
+      $FF0000, $FF00, $FF, 0));
+    Font := TGameFont.Create(Sheet);
+    Rec := TGlyphRecorder.Create;
+    Alone := TGlyphRecorder.Create;
+    try
+      Settings.GameLevel := 0;
+      MenuIndex := CTL_ROW_EXIT;   { the cursor out of the key rows }
+      Screen.Draw(Rec, Font, nil, nil, nil);
+      for I := 0 to CTL_ROW_EXIT - 1 do
+      begin
+        Alone.Glyphs.Clear;
+        Font.TextOut(Alone, OPT_VALUE_X, Screen.ControlRowY(I),
+                     Host.KeyName(I) + ' KEY', 0);
+        Want(Rec.Row(Screen.ControlRowY(I), OPT_VALUE_X)
+             = Alone.Row(Screen.ControlRowY(I), OPT_VALUE_X),
+          Format('CONTROLS row %d draws more than its key name', [I]));
+      end;
+    finally
+      Alone.Free;
+      Rec.Free;
+      Font.Free;
+      Sheet.Free;
+    end;
+    Log.Add('  CONTROLS draws the three key names and nothing over them');
 
     { The cursor wraps within the page, and EXIT goes back to CONTROLS. }
     MenuIndex := 0;
