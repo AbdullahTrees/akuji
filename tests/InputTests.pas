@@ -87,6 +87,8 @@ type
     Accept: Boolean;
     Language: string;
     Languages: Integer;
+    Held: Boolean;
+    function KeyHeld: Boolean;
     constructor Create;
     procedure ChooseLanguage(const Code: string);
     function BindKey(Row: Integer): Boolean;
@@ -111,6 +113,11 @@ end;
 function TFakeHost.KeyName(Row: Integer): string;
 begin
   Result := Format('R%d', [Row]);
+end;
+
+function TFakeHost.KeyHeld: Boolean;
+begin
+  Result := Held;
 end;
 
 procedure TFakeHost.ChooseLanguage(const Code: string);
@@ -482,38 +489,80 @@ begin
     Screen.OnBindKey := Host.BindKey;
     Screen.OnKeyName := Host.KeyName;
     Screen.OnSound := Host.Sound;
+    Screen.OnKeyHeld := Host.KeyHeld;
     TitleSubMode := TSM_OPTIONS;
     Host.Accept := True;
+
+    { No row of the options screen binds a key any more. }
     for I := 0 to Ord(High(TOptionRow)) do
+    begin
+      MenuIndex := I;
+      Host.Offers := 0;
+      Screen.Update(0, 0, False);
+      Want(Host.Offers = 0,
+        Format('options row %d offered a key and should not have', [I]));
+    end;
+
+    { CONTROLS opens its page with SND_OK, the cursor on JUMP. }
+    MenuIndex := Ord(orControls);
+    Host.Sounds := 0;
+    Host.Held := True;       { the key that confirmed is still down }
+    Screen.Update(0, 0, True);
+    Want((TitleSubMode = TSM_CONTROLS) and (MenuIndex = 0)
+         and (Host.LastSound = SND_OK),
+      'CONTROLS did not open its page on JUMP with SND_OK');
+
+    { Nothing binds while that key is held - it would become JUMP - nor on
+      the frame everything is let go; from the next frame the rows bind. }
+    Host.Offers := 0;
+    Screen.Update(0, 0, False);
+    Screen.Update(0, 0, False);
+    Want(Host.Offers = 0, 'the key that opened CONTROLS was offered to JUMP');
+    Host.Held := False;
+    Screen.Update(0, 0, False);
+    Want(Host.Offers = 0, 'a key was offered on the frame binding armed');
+
+    for I := 0 to Ord(High(TControlRow)) do
     begin
       MenuIndex := I;
       Host.Offers := 0;
       Host.LastRow := -1;
       Host.Sounds := 0;
       Screen.Update(0, 0, False);
-      if TOptionRow(I) in [orKey0, orKey1, orKey2] then
+      if I < CTL_ROW_EXIT then
       begin
         Want(Host.Offers = 1,
           Format('row %d offered %d times, not once', [I, Host.Offers]));
-        Want(Host.LastRow = I - Ord(orKey0),
+        Want(Host.LastRow = I,
           Format('row %d offered as row %d', [I, Host.LastRow]));
         Want((Host.Sounds = 1) and (Host.LastSound = SND_OK),
           Format('row %d did not sound once on a bind', [I]));
       end
       else
-        Want(Host.Offers = 0,
-          Format('row %d offered a key and should not have', [I]));
+        Want(Host.Offers = 0, 'CONTROLS'' EXIT offered a key');
     end;
-    Log.Add(Format('  %d rows, 3 of them bind', [Ord(High(TOptionRow)) + 1]));
+    Log.Add(Format('  %d options rows bind nothing; CONTROLS'' %d rows, 3 '
+      + 'of them bind once the confirming key is let go',
+      [Ord(High(TOptionRow)) + 1, Ord(High(TControlRow)) + 1]));
 
     { Refused: the row is still offered the key, and stays silent. }
     Host.Accept := False;
-    MenuIndex := Ord(orKey0);
+    MenuIndex := Ord(crKey0);
     Host.Offers := 0;
     Host.Sounds := 0;
     Screen.Update(0, 0, False);
     Want(Host.Offers = 1, 'a refused row was not offered the key');
     Want(Host.Sounds = 0, 'a refused bind still played a sound');
+
+    { The cursor wraps within the page, and EXIT goes back to CONTROLS. }
+    MenuIndex := 0;
+    Screen.Update(-1, 0, False);
+    Want(MenuIndex = CTL_ROW_EXIT, 'up from JUMP did not wrap to EXIT');
+    Host.Sounds := 0;
+    Screen.Update(0, 0, True);
+    Want((TitleSubMode = TSM_OPTIONS) and (MenuIndex = Ord(orControls))
+         and (Host.LastSound = SND_OK),
+      'EXIT did not return to the options screen on CONTROLS');
 
     { LANGUAGE: left and right step through what is installed, sounding
       and telling the form, and are silent and still at either end. }

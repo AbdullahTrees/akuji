@@ -17,7 +17,7 @@
 # font has nothing else.
 msgid ""
 msgstr ""
-"Project-Id-Version: Akuji the Demon 2.0.3\n"
+"Project-Id-Version: Akuji the Demon 2.0.4\n"
 "Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"

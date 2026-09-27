@@ -15,6 +15,9 @@ const
   TSM_MENU    = 0;
   TSM_OPTIONS = 1;
   TSM_OMAKE   = 2;
+  { Ours: the three key rows, moved off the options screen into their own
+    page. See notes/divergences.md, DIV-027. }
+  TSM_CONTROLS = 3;
 
   { Main menu. x=0xEE, rows at y = (index*2 + 0x11) * 8 }
   MENU_X      = $EE;
@@ -64,19 +67,27 @@ const
 
     SCALING and MUSIC VOLUME take the two rows WAIT and SOFTWARE VSYNC had.
     Neither of those could do anything here - see notes/divergences.md,
-    DIV-018 and DIV-023. LANGUAGE is ours too (DIV-026), and makes eleven,
-    which is more than fit - the list scrolls. }
-  OPT_LABELS: array[0..10] of string = (
+    DIV-018 and DIV-023. LANGUAGE is ours too (DIV-026). The three BUTTON
+    ASSIGN rows moved to their own page behind CONTROLS (DIV-027), which
+    leaves nine; more than OPT_VISIBLE_ROWS would scroll. }
+  OPT_LABELS: array[0..8] of string = (
     'GAME LEVEL',
     'FULL SCREEN',
-    'JUMP  BUTTON ASSIGN',
-    'FIRE  BUTTON ASSIGN',
-    'PAUSE BUTTON ASSIGN',
+    'CONTROLS',
     'SCALING',
     'SE VOLUME',
     'MUSIC VOLUME',
     'LANGUAGE',
     'GALLERY',
+    'EXIT');
+
+  { The CONTROLS page: the original's three rows, its labels and layout, and
+    an EXIT back, in the places the options screen uses. }
+  CTL_TITLE = '- CONTROLS -';
+  CTL_LABELS: array[0..3] of string = (
+    'JUMP  BUTTON ASSIGN',
+    'FIRE  BUTTON ASSIGN',
+    'PAUSE BUTTON ASSIGN',
     'EXIT');
 
   TEXT_ON   = 'ON';
@@ -111,13 +122,18 @@ const
   OMAKE_MIN = 0;  OMAKE_MAX = 6;    // p_Settings+0x28
 
 type
-  { Option rows in cursor order. Rows 2..4 are the key bindings. }
-  TOptionRow = (orLevel, orToggle1, orKey0, orKey1, orKey2,
-                orScale, orVolume, orMusic, orLanguage, orOmake, orExit);
+  { Option rows in cursor order. }
+  TOptionRow = (orLevel, orToggle1, orControls, orScale, orVolume, orMusic,
+                orLanguage, orOmake, orExit);
+
+  { CONTROLS rows. The first three are the key bindings, in the order the
+    input component numbers them. }
+  TControlRow = (crKey0, crKey1, crKey2, crExit);
 
 const
   { EXIT is always the last row. }
   OPT_ROW_EXIT = Ord(High(TOptionRow));
+  CTL_ROW_EXIT = Ord(High(TControlRow));
 
 type
 
@@ -138,6 +154,8 @@ type
   { The LANGUAGE row chose this code; loading and remembering it are the
     form's. }
   TLanguageEvent = procedure(const Code: string) of object;
+  { Whether any key is held at all. }
+  TKeyHeldEvent = function: Boolean of object;
 
   TTitleScreen = class
   private
@@ -155,6 +173,12 @@ type
     FOnLanguage: TLanguageEvent;
     FLanguages: TArray<TLanguageInfo>;
     FLanguageIndex: Integer;
+    FOnKeyHeld: TKeyHeldEvent;
+    { The key rows bind nothing until every key has been let go since the
+      page opened - the key that confirmed CONTROLS is still down when it
+      does, and would otherwise become JUMP. }
+    FBindArmed: Boolean;
+    procedure ControlsConfirm;
     procedure PlaySound(Index: Integer);
     procedure MenuConfirm;
     procedure OptionsConfirm;
@@ -206,6 +230,10 @@ type
                            const Current: string);
     property LanguageIndex: Integer read FLanguageIndex;
     property OnLanguage: TLanguageEvent read FOnLanguage write FOnLanguage;
+    { Asked on the CONTROLS page until it answers False once. }
+    property OnKeyHeld: TKeyHeldEvent read FOnKeyHeld write FOnKeyHeld;
+    { Where a CONTROLS row is drawn. }
+    function ControlRowY(Row: Integer): Integer;
   end;
 
   { External operations used by the game-over screen. }
@@ -460,6 +488,28 @@ begin
       FLanguageIndex := I;
 end;
 
+{ EXIT goes back to the options screen with the cursor on CONTROLS. The key
+  rows are silent on confirm, as they were on the options screen. }
+procedure TTitleScreen.ControlsConfirm;
+begin
+  if MenuIndex = CTL_ROW_EXIT then
+  begin
+    PlaySound(SND_OK);
+    TitleSubMode := TSM_OPTIONS;
+    MenuIndex := Ord(orControls);
+    FScroll := OptionsScroll(MenuIndex, FScroll, OPT_ROW_EXIT,
+                             OPT_VISIBLE_ROWS);
+  end;
+end;
+
+function TTitleScreen.ControlRowY(Row: Integer): Integer;
+begin
+  if Row = CTL_ROW_EXIT then
+    Result := OPT_EXIT_Y
+  else
+    Result := OPT_FIRST_ROW_Y + Row * OPT_ROW_STEP;
+end;
+
 function TTitleScreen.OptionRowY(Row: Integer): Integer;
 begin
   if Row = OPT_ROW_EXIT then
@@ -512,6 +562,15 @@ procedure TTitleScreen.OptionsConfirm;
 var
   Sel: Integer;
 begin
+  if MenuIndex = Ord(orControls) then
+  begin
+    PlaySound(SND_OK);
+    TitleSubMode := TSM_CONTROLS;
+    MenuIndex := 0;
+    FBindArmed := False;
+    Exit;
+  end;
+
   { GALLERY opens an unlocked slot and plays a rejection sound otherwise. }
   if MenuIndex = Ord(orOmake) then
   begin
@@ -562,14 +621,19 @@ procedure TTitleScreen.DrawValues(C: TRenderTarget; F: TGameFont);
     if B then Result := TEXT_ON else Result := TEXT_OFF;
   end;
 
+var
+  I: Integer;
 begin
   if (Settings.GameLevel >= LEVEL_MIN) and (Settings.GameLevel <= LEVEL_MAX) then
     Val(0, LEVEL_NAMES[Settings.GameLevel],
         LEVEL_VARIANTS[Settings.GameLevel]);
+  if TitleSubMode = TSM_CONTROLS then
+  begin
+    for I := 0 to CTL_ROW_EXIT - 1 do
+      F.TextOut(C, OPT_VALUE_X, ControlRowY(I), KeyName(I), 0);
+    Exit;
+  end;
   Val(1, OnOff(FullScreenOn));
-  Val(Ord(orKey0), KeyName(0));
-  Val(Ord(orKey1), KeyName(1));
-  Val(Ord(orKey2), KeyName(2));
   Val(Ord(orScale), Format('%dX', [WindowScale]));
   Val(Ord(orVolume), Format('%3d%%', [Settings.Volume * 10]));
   Val(Ord(orMusic), Format('%3d%%', [MusicVolume * 10]));
@@ -696,17 +760,6 @@ begin
     TSM_OPTIONS:
       begin
         AdjustValue(MoveX);
-        { The three key rows bind whatever is held. This screen sees only
-          directions and a confirm, so the key itself comes from the form,
-          which owns the input component; all this decides is the sound.
-
-          Left and right do nothing on these rows, so the value changing is
-          the only feedback there is, and a bind that changes nothing returns
-          False - otherwise holding a key down would chirp every frame. }
-        if TOptionRow(MenuIndex) in [orKey0, orKey1, orKey2] then
-          if Assigned(FOnBindKey) and
-             FOnBindKey(MenuIndex - Ord(orKey0)) then
-            PlaySound(SND_OK);
         if MoveY <> 0 then
         begin
           PlaySound(SND_PI);
@@ -722,6 +775,31 @@ begin
             SND_OK or SND_NG depending on whether that slot is unlocked, and
             EXIT plays SND_OK. }
           OptionsConfirm;
+      end;
+
+    TSM_CONTROLS:
+      begin
+        { The three key rows bind whatever is held. This screen sees only
+          directions and a confirm, so the key itself comes from the form,
+          which owns the input component; all this decides is the sound.
+
+          Left and right do nothing on these rows, so the value changing is
+          the only feedback there is, and a bind that changes nothing returns
+          False - otherwise holding a key down would chirp every frame. }
+        if not FBindArmed then
+          FBindArmed := not (Assigned(FOnKeyHeld) and FOnKeyHeld)
+        else if (MenuIndex < CTL_ROW_EXIT) and Assigned(FOnBindKey)
+                and FOnBindKey(MenuIndex) then
+          PlaySound(SND_OK);
+        if MoveY <> 0 then
+        begin
+          PlaySound(SND_PI);
+          MenuIndex := MenuIndex + MoveY;
+          if MenuIndex < 0 then MenuIndex := CTL_ROW_EXIT;
+          if MenuIndex > CTL_ROW_EXIT then MenuIndex := 0;
+        end;
+        if Confirm then
+          ControlsConfirm;
       end;
 
     TSM_OMAKE:
@@ -784,6 +862,21 @@ begin
                     OPT_SCROLL_DOWN, 1);
         { With nine rows or fewer this is the original's (index*2 + 7) * 8. }
         F.TextOut(C, OPT_CURSOR_X, OptionRowY(MenuIndex), OPT_CURSOR, 1);
+      end;
+
+    TSM_CONTROLS:
+      begin
+        if BgOptions <> nil then
+          C.DrawImage(BgOptions, 0, 0);
+        F.TextOutCentered(C, OPT_TITLE_Y, CTL_TITLE, TITLE_SCREEN_W, 2);
+        for ItemIndex := Low(CTL_LABELS) to High(CTL_LABELS) do
+          if ItemIndex = CTL_ROW_EXIT then
+            F.TextOut(C, OPT_VALUE_X, OPT_EXIT_Y, CTL_LABELS[ItemIndex], 2)
+          else
+            F.TextOut(C, OPT_LABEL_X, ControlRowY(ItemIndex),
+                      CTL_LABELS[ItemIndex], 2);
+        DrawValues(C, F);
+        F.TextOut(C, OPT_CURSOR_X, ControlRowY(MenuIndex), OPT_CURSOR, 1);
       end;
   end;
 end;

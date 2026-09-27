@@ -682,10 +682,9 @@ MUSIC VOLUME and GALLERY. Left and right step through the files in `lang/`,
 English first; the change applies at once and is written back to
 `[language]` in system.ini. The row shows each file's `X-Akuji-Menu-Name` -
 ENGLISH, JAPANESE - because the menu font has only capitals, digits and
-punctuation. With it the screen has eleven rows, two more than fit, so the
-list scrolls: the view follows the cursor, EXIT stays where the original drew
-it, and a red ^ or V marks rows above or below. `--selftest-input` drives the
-row and the scroll; `--selftest-lang` checks every menu name is drawable.
+punctuation. `--selftest-input` drives the row; `--selftest-lang` checks
+every menu name is drawable. The row is also what first overflowed the
+options screen - see DIV-027.
 
 **Sites.** `src/TextUnits.pas`, `src/Translation.pas`,
 `src/screens/LangTemplate.pas`, `tests/LangTests.pas`; the lookups in
@@ -693,6 +692,48 @@ row and the scroll; `--selftest-lang` checks every menu name is drawable.
 `src/screens/Ending.pas`, `src/screens/Dialogue.pas`,
 `src/gameplay/PlayerState.pas` and `DDDD1Init` in `src/screens/GmMain.pas`; the
 font switch in `src/render/TextRender.pas`.
+
+## DIV-027 - the options screen scrolls, and the key rows have their own page
+
+**What the original does.** One options screen of ten rows at fixed places,
+`(index*2 + 7) * 8`, EXIT last at y 200. Three of them - JUMP, FIRE and PAUSE
+BUTTON ASSIGN - are the key bindings.
+
+**What this does instead.**
+
+*The list scrolls.* Nine rows fit between the heading and EXIT. When there
+are more, the view follows the cursor, moving only when the cursor reaches
+its edge; EXIT stays at y 200; a red ^ or V left of the labels marks rows
+above or below (the menu font has a caret but no down arrow). With nine rows
+or fewer every row is where the original's formula puts it.
+
+*The three ASSIGN rows moved to a CONTROLS page.* The options screen has a
+CONTROLS row in their place; confirming it opens a page titled
+- CONTROLS - holding the three rows, with the original's labels and layout,
+and an EXIT back to CONTROLS. The rows bind exactly as before (DIV-020), with
+one guard the move made necessary: the page opens with the cursor on JUMP
+while the key that confirmed CONTROLS - Return, Space or Z - is still down,
+so no row binds until every key has been let go once. The pause button does
+not open the pause menu on that page, for the same reason it does not on the
+options screen: it is a key being bound.
+
+With LANGUAGE (DIV-026) and without the three rows, the options screen has
+nine rows again, so today it does not scroll; GALLERY is one row higher than
+the original drew it. The scrolling stays for whatever is added next.
+
+**How it is held.** `--selftest-input`: the scroll rule as a pure function
+for 1..24 rows - straight walks down and up, EXIT leaving the view alone, and
+500-step random walks that keep the cursor on screen (breaking the upward
+case fails 2730 checks); the screen's own Update walked down and back with
+the cursor's row always drawn; unscrolled rows at the original's y. And the
+CONTROLS page: no options row binds, CONTROLS opens the page on JUMP with
+SND_OK, nothing binds while the confirming key is held or on the frame it is
+released (opening the page armed fails both), then each key row binds as its
+own number with SND_OK, EXIT binds nothing and returns to CONTROLS.
+
+**Sites.** `OptionsScroll`, `OptionRowY`, `ControlRowY`, `ControlsConfirm`
+and the TSM_CONTROLS branches in `src/screens/Title.pas`; `TitleKeyHeld` and
+the pause check in `src/screens/GmMain.pas`.
 
 ---
 

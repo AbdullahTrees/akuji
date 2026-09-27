@@ -185,6 +185,7 @@ type
     function  TitleKeyName(Row: Integer): string;
     function  TitleBindKey(Row: Integer): Boolean;
     procedure TitleLanguage(const Code: string);
+    function  TitleKeyHeld: Boolean;
     procedure TitleResetState;
     procedure TitleResetOpening;
     procedure TitleGallery(Slot: Integer);
@@ -406,6 +407,7 @@ begin
   FTitleScreen.OnKeyName := TitleKeyName;
   FTitleScreen.OnBindKey := TitleBindKey;
   FTitleScreen.OnLanguage := TitleLanguage;
+  FTitleScreen.OnKeyHeld := TitleKeyHeld;
   if FDataDir <> '' then
     FTitleScreen.SetLanguages(ListLanguages(FDataDir + 'lang'), LanguageCode);
   FSession.OnStartFade := StageBeginFade;
@@ -485,9 +487,11 @@ begin
   if GameStateValue <> GS_PAUSE then
     DDDD1.TickFade;
 
-  { The cancel button enters pause except while paused or editing options. }
+  { The cancel button enters pause except while paused or editing options -
+    on the CONTROLS page it is a key being bound. }
   if (GameStateValue <> GS_PAUSE)
-     and not ((GameStateValue = GS_TITLE_MENU) and (TitleSubMode = TSM_OPTIONS))
+     and not ((GameStateValue = GS_TITLE_MENU)
+              and (TitleSubMode in [TSM_OPTIONS, TSM_CONTROLS]))
      and FSession.Input.Button[PAUSE_CANCEL_BUTTON]
      and not FSession.Input.ButtonLatch[PAUSE_CANCEL_BUTTON] then
     EnterPause;
@@ -1071,6 +1075,13 @@ begin
   { Which keys may be bound, and what happens to whatever held one, is the
     component's business - see TDDIDEX.BindAction. }
   Result := Joy.AnyKeyDown(Key) and Joy.BindAction(AKUJI_MAPPED[Row], Key);
+end;
+
+function TFrm_main.TitleKeyHeld: Boolean;
+var
+  Key: TSDL_KeyCode;
+begin
+  Result := Joy.AnyKeyDown(Key);
 end;
 
 { The LANGUAGE row. Loaded now, and written back to system.ini - where it is
