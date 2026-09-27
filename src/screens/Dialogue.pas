@@ -21,7 +21,8 @@ uses
   Classes, SysUtils, Types, GameColors, GameFont, PlayerState, EventRunner,
   EventScripts,
   TileMaps,
-  GameState, Entities, SoundTable, RenderTarget, TextUnits, Translation;
+  GameState, Entities, SoundTable, RenderTarget, TextUnits, Translation,
+  TextRender;
 
 const
 
@@ -136,6 +137,12 @@ const
   BOX_FRAME_DY   = $10;     { boxY + 16, not + 8 }
   BOX_SHEET_SLOT = 1;
   BOX_LINES      = 3;
+  { How wide a line may be: from BOX_TEXT_X to the frame's inner border, one
+    tile in from the right edge of BOX_COLS + 1 tiles. }
+  BOX_TEXT_W     = BOX_X + BOX_COLS * BOX_TILE - BOX_TEXT_X;
+  { The Yes/No row is drawn on a text line - the third - so a page ending in
+    \w has room for the lines above it. }
+  BOX_PROMPT_LINES = (MB_PROMPT_TEXT_DY - BOX_FIRST_LINE) div BOX_LINE_STEP;
 
   { The power-up panel uses a six-pixel centering step for its single line. }
   { TColor stores RGB components in BGR byte order. }
@@ -322,11 +329,19 @@ function SplitPage(const Text: string; out Rest: string;
 { The Yes/No line, from the language files. }
 function PromptText: string;
 
+{ How wide the box draws S, in pixels. }
+function BoxTextWidth(const S: string): Integer;
+
 implementation
 
 function PromptText: string;
 begin
   Result := Tr('prompt.yesno');
+end;
+
+function BoxTextWidth(const S: string): Integer;
+begin
+  Result := OutlinedTextWidth(S, OUTLINED_FONT_FACE);
 end;
 
 procedure DialogueAnswer(var P: TPlayerState; Choice: Integer);
@@ -723,8 +738,11 @@ begin
   end;
   FActive := True;
   FMode := omBox;
-  { Keys named now, so a key rebound a moment ago is the one shown. }
-  TakePage(ExpandKeys(FScript.Lines[Index]));
+  { Keys named now, so a key rebound a moment ago is the one shown; then
+    broken to fit the box, which the original never measured - see
+    TextUnits.WrapMessage. }
+  TakePage(WrapMessage(ExpandKeys(FScript.Lines[Index]), BOX_TEXT_W,
+                       BOX_LINES, BOX_PROMPT_LINES, BoxTextWidth));
 end;
 
 function TDialogueBox.GetVisibleLine(Index: Integer): string;

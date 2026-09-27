@@ -75,8 +75,10 @@ begin
     Out.Add('# In the dialogue, a line break is a line break (three lines to a');
     Out.Add('# box). \k waits for a key and starts the next box, \e ends the');
     Out.Add('# message, \w ends it with the Yes/No prompt. Keep \e and \w as');
-    Out.Add('# the English has them; add \k wherever the text needs more boxes.');
-    Out.Add('# A box ending in \w holds two lines - the prompt takes the third.');
+    Out.Add('# the English has them. A line too wide for the box is broken when');
+    Out.Add('# shown, and a box that runs past three lines continues in the');
+    Out.Add('# next, so line and box breaks are only needed where the sense');
+    Out.Add('# wants them.');
     Out.Add('#');
     Out.Add('# {JUMP}, {FIRE}, {PAUSE}, {UP}, {DOWN}, {LEFT} and {RIGHT} are');
     Out.Add('# replaced by the key the player has bound to that action - "Z",');

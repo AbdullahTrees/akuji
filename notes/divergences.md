@@ -789,6 +789,42 @@ a key had no keycap and a seven-glyph name - none today (Japanese's widest is
 `PlaceholderKeyName` in `src/screens/GmMain.pas`; `ShortKeyName` in
 `src/screens/Title.pas`.
 
+## DIV-029 - dialogue that does not fit the box is wrapped
+
+**What the original does.** Nothing measures text. A message's lines break
+where the writer put `\n`, its boxes where they put `\k`, and a line too long
+for the box runs past its edge. Every line of both releases was written to
+fit, so the question never came up in the original.
+
+**What this does instead.** When a message opens - after its key
+placeholders are filled in, so keycaps are measured at their real width -
+every line wider than the box's text area (204 pixels, from x 0x3C to the
+frame's inner border) is broken to fit, measured in the font that will draw
+it. Latin text breaks at a space, dropping it; between wide characters any
+gap is a break except before a character that may not start a line
+(、。」】ー, small kana and the like) or after one that may not end one (「【);
+a word with no break that is still too long is cut. A box that then has more
+lines than it holds - three, or two before `\w`, whose prompt takes the third
+- continues on a new box as if `\k` were written there, and every
+continuation leaves the last box at least one line, so a Yes/No question is
+never alone on an empty box.
+
+What fits is left byte for byte, and all shipped text fits: `--selftest-lang`
+reports 0 entries wrapped in `en.po` and `ja.po`, with the default keycaps
+and with a seven-glyph key name. So nothing in the game looks different; what
+changes is that a translation, or a key name, can no longer run off the box.
+
+**How it is held.** `--selftest-lang` checks the rules with a six-pixel test
+font - fitting text untouched, Latin at spaces, an over-long word cut, a
+fourth line continued, a Yes/No box holding two, kana between characters, no
+line starting with 。 or ending with 「, text after `\e` untouched - and, for
+every dialogue entry of every language, that what the wrapper returns fits
+the box.
+
+**Sites.** `WrapMessage` in `src/TextUnits.pas`; `BOX_TEXT_W`,
+`BOX_PROMPT_LINES`, `BoxTextWidth` and the message opening in
+`src/screens/Dialogue.pas`.
+
 ---
 
 ## Numbers 001 to 015

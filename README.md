@@ -128,10 +128,13 @@ Translations are gettext PO files in `assets/lang/`, so any PO editor works -
 
 In the dialogue a line break is a line break, and a box holds three lines.
 `\k` waits for a key and starts the next box, `\e` ends the message, `\w` ends
-it with the Yes/No prompt. Keep `\e` and `\w` where the English has them, but
-use as many boxes as the text needs: a question too long for one box becomes
-`...\kWould you like to save? \w`. A box that ends in `\w` holds two lines,
-because the prompt takes the third.
+it with the Yes/No prompt. Keep `\e` and `\w` where the English has them.
+
+You do not have to fit the box yourself. A line too wide for it is broken
+when it is shown - at spaces, or between Japanese/Chinese characters by the
+usual rules - and a box that then runs past three lines (two before a `\w`,
+whose prompt takes the third) continues in the next one. Put `\n` and `\k`
+where you want a break for the sense of it; the rest takes care of itself.
 
 `{JUMP}`, `{FIRE}`, `{PAUSE}`, `{UP}`, `{DOWN}`, `{LEFT}` and `{RIGHT}` are
 replaced, when the line is shown, by the key bound to that action - drawn

@@ -16,8 +16,10 @@
     * Each lang/*.po: no entry en.po lacks (a stale context is a
       translation that silently never shows), no key placeholder but JUMP,
       FIRE, PAUSE, UP, DOWN, LEFT and RIGHT in braces, the dialogue codes that steer the game kept,
-      every character in its font, every line inside the box with the
-      default keys named, and the Yes/No words clear of the hand cursor. }
+      every character in its font, every message fitting the box once
+      wrapped (with the default keycaps, and with a seven-glyph key name),
+      and the Yes/No words clear of the hand cursor. The wrapper's own rules
+      are checked by hand with a six-pixel font. }
 
 unit LangTests;
 
@@ -39,13 +41,6 @@ uses
   KeyIcons;
 
 const
-  { The box's text starts at BOX_TEXT_X; its inner border is one tile in
-    from the right edge of BOX_COLS + 1 tiles. }
-  BOX_TEXT_RIGHT = BOX_X + BOX_COLS * BOX_TILE;
-  BOX_TEXT_WIDTH = BOX_TEXT_RIGHT - BOX_TEXT_X;
-  { The Yes/No row is drawn on a text line - the third - so a page that ends
-    with \w has room for only the lines above it. }
-  PROMPT_LINE = (MB_PROMPT_TEXT_DY - BOX_FIRST_LINE) div BOX_LINE_STEP;
 
   { ja.po's preview, the same on Windows (SDL_ttf 2.24) and in the PortMaster
     image (2.0.15). It moves if the font, the renderer or ja.po's tk001:0,
@@ -100,6 +95,13 @@ begin
     Result := 'L SHIFT'
   else
     Result := KeyIconChar(KeyIconIndex(DEFAULTS[Index]));
+end;
+
+{ Six pixels a column - a wide character is two - so the wrapper's rules
+  can be checked without a font. }
+function FakeWidth(const S: string): Integer;
+begin
+  Result := TextColumns(S) * 6;
 end;
 
 function GameDirArg: string;
@@ -316,6 +318,27 @@ var
     Want(Length(RevealUnitsOf('éa')) = 1, 'an accented letter pairs like any');
     Want(TextColumns('【ア】x') = 7, 'columns: three wide and one narrow');
     Want(TextColumns('Fire') = 4, 'columns: ASCII');
+
+    { The wrapper, with a 6-pixel-a-column font. }
+    Want(WrapMessage('ab cd\nef\kgh\w', 30, 3, 2, FakeWidth) = 'ab cd\nef\kgh\w',
+         'text that fits changed');
+    Want(WrapMessage('aaa bbb ccc\e', 30, 3, 2, FakeWidth) = 'aaa\nbbb\nccc\e',
+         'a Latin line does not break at its spaces');
+    Want(WrapMessage('abcdefgh\e', 30, 3, 2, FakeWidth) = 'abcde\nfgh\e',
+         'a word longer than the line is not cut');
+    Want(WrapMessage('a b c d\e', 6, 3, 2, FakeWidth) = 'a\nb\nc\kd\e',
+         'a fourth line does not continue on a new page');
+    Want(WrapMessage('a b c\w', 6, 3, 2, FakeWidth) = 'a\nb\kc\w',
+         'a Yes/No page holds more than two lines, or its question is alone');
+    Want(WrapMessage('あいうえお\e', 36, 3, 2, FakeWidth) = 'あいう\nえお\e',
+         'kana do not break between characters');
+    { 。 may not start a line, so the first breaks early; the next fills. }
+    Want(WrapMessage('あいう。えお\e', 36, 3, 2, FakeWidth) = 'あい\nう。え\nお\e',
+         'a line starts with 。');
+    Want(WrapMessage('ab「cd\e', 24, 3, 2, FakeWidth) = 'ab\n「cd\e',
+         'a line ends with 「');
+    Want(WrapMessage('ab\e trailing text', 30, 3, 2, FakeWidth)
+         = 'ab\e trailing text', 'text after \e was touched');
   end;
 
   { --- 3. the PO reader ----------------------------------------------- }
@@ -387,7 +410,9 @@ var
     Seen: TStringList;
     Gap1, Start2, Need2: Integer;
     Sum: LongWord;
-    AsEnglish, Room, WidestLong: Integer;
+    AsEnglish, Room, WidestLong, WrappedCount, WrappedLong: Integer;
+    Long: Boolean;
+    Wrapped: string;
     Placeholder: string;
     Known: Boolean;
   begin
@@ -415,6 +440,8 @@ var
 
       Translated := 0;
       WidestLong := 0;
+      WrappedCount := 0;
+      WrappedLong := 0;
       AsEnglish := 0;
       Fuzzy := 0;
       Stale := 0;
@@ -477,30 +504,6 @@ var
 
         if Copy(E.Context, 1, 2) = 'tk' then
         begin
-          Names.Long := True;
-          S := PoToDialogue(ExpandKeys(E.Str));
-          Pages := PagesOf(S);
-          BoxLines := TStringList.Create;
-          try
-            for K := 0 to Pages.Count - 1 do
-            begin
-              BoxLines.Text := StringReplace(Pages[K], '\n', #10,
-                                             [rfReplaceAll]);
-              for Line in BoxLines do
-              begin
-                W := OutlinedTextWidth(Line, OUTLINED_FONT_FACE);
-                if W > WidestLong then
-                  WidestLong := W;
-                if W > BOX_TEXT_WIDTH then
-                  Log.Add(Format('  note: %s "%s" would be %d px with a '
-                    + 'seven-glyph key', [E.Context, Line, W]));
-              end;
-            end;
-          finally
-            BoxLines.Free;
-            Pages.Free;
-          end;
-          Names.Long := False;
           S := PoToDialogue(ExpandKeys(E.Str));
           { The codes that steer the game, kept. }
           Want(Terminator(S) = Terminator(PoToDialogue(T.Id)),
@@ -508,35 +511,56 @@ var
                  [E.Context, Terminator(S), Terminator(PoToDialogue(T.Id))]));
           Want((Pos('\w', S) > 0) = (Pos('\w', PoToDialogue(T.Id)) > 0),
                E.Context + ' adds or drops the Yes/No prompt (\w)');
-          { And inside the box. }
-          Pages := PagesOf(S);
-          BoxLines := TStringList.Create;
-          try
-            for K := 0 to Pages.Count - 1 do
-            begin
-              BoxLines.Text := StringReplace(Pages[K], '\n', #10,
-                                             [rfReplaceAll]);
-              Lines := BoxLines.Count;
-              if Pages.Objects[K] <> nil then
-                Room := PROMPT_LINE
+          { As the box shows it: keys named, then wrapped to fit. Once with
+            the default keycaps, once with a seven-glyph key name. What
+            comes out has to fit; what had to be wrapped is counted. }
+          for Long in [False, True] do
+          begin
+            Names.Long := Long;
+            S := PoToDialogue(ExpandKeys(E.Str));
+            Wrapped := WrapMessage(S, BOX_TEXT_W, BOX_LINES, BOX_PROMPT_LINES,
+                                   BoxTextWidth);
+            if Wrapped <> S then
+              if Long then
+                Inc(WrappedLong)
               else
-                Room := BOX_LINES;
-              Want(Lines <= Room, Format('%s page %d has %d lines and room '
-                + 'for %d - start another box with \k', [E.Context, K + 1,
-                Lines, Room]));
-              for Line in BoxLines do
               begin
-                W := OutlinedTextWidth(Line, OUTLINED_FONT_FACE);
-                if W > Widest then
-                  Widest := W;
-                Want(W <= BOX_TEXT_WIDTH, Format('%s: "%s" is %d px, the box '
-                  + 'holds %d', [E.Context, Line, W, BOX_TEXT_WIDTH]));
+                Inc(WrappedCount);
+                if WrappedCount <= 3 then
+                  Log.Add('  wrapped to fit: ' + E.Context);
               end;
+            Pages := PagesOf(Wrapped);
+            BoxLines := TStringList.Create;
+            try
+              for K := 0 to Pages.Count - 1 do
+              begin
+                BoxLines.Text := StringReplace(Pages[K], '\n', #10,
+                                               [rfReplaceAll]);
+                if Pages.Objects[K] <> nil then
+                  Room := BOX_PROMPT_LINES
+                else
+                  Room := BOX_LINES;
+                Want(BoxLines.Count <= Room, Format('%s page %d is %d lines '
+                  + 'after wrapping, room for %d', [E.Context, K + 1,
+                  BoxLines.Count, Room]));
+                for Line in BoxLines do
+                begin
+                  W := BoxTextWidth(TrimRight(Line));
+                  if Long and (W > WidestLong) then
+                    WidestLong := W;
+                  if not Long and (W > Widest) then
+                    Widest := W;
+                  Want(W <= BOX_TEXT_W, Format('%s: "%s" is %d px after '
+                    + 'wrapping, the box holds %d', [E.Context, Line, W,
+                    BOX_TEXT_W]));
+                end;
+              end;
+            finally
+              BoxLines.Free;
+              Pages.Free;
             end;
-          finally
-            BoxLines.Free;
-            Pages.Free;
           end;
+          Names.Long := False;
         end;
 
         if E.Context = 'powerup.found' then
@@ -574,9 +598,11 @@ var
           + '%.8x - look at it (--selftest-lang <dir> preview.bmp)',
           [Sum, JA_PREVIEW]));
       Log.Add(Format('  %d of %d entries translated (%d identical to en.po), '
-        + '%d fuzzy, %d stale; widest dialogue line %d of %d px (%d with a '
-        + 'seven-glyph key name)', [Translated, Template.Count, AsEnglish,
-        Fuzzy, Stale, Widest, BOX_TEXT_WIDTH, WidestLong]));
+        + '%d fuzzy, %d stale', [Translated, Template.Count, AsEnglish,
+        Fuzzy, Stale]));
+      Log.Add(Format('  dialogue: %d entries wrapped to fit (%d with a '
+        + 'seven-glyph key name); widest line %d of %d px (%d)',
+        [WrappedCount, WrappedLong, Widest, BOX_TEXT_W, WidestLong]));
       Want(Stale = 0, Format('%d entries the game never looks up', [Stale]));
       Want(Missing = '', 'not in the font: ' + Missing);
     finally

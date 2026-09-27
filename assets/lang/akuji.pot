@@ -7,8 +7,10 @@
 # In the dialogue, a line break is a line break (three lines to a
 # box). \k waits for a key and starts the next box, \e ends the
 # message, \w ends it with the Yes/No prompt. Keep \e and \w as
-# the English has them; add \k wherever the text needs more boxes.
-# A box ending in \w holds two lines - the prompt takes the third.
+# the English has them. A line too wide for the box is broken when
+# shown, and a box that runs past three lines continues in the
+# next, so line and box breaks are only needed where the sense
+# wants them.
 #
 # {JUMP}, {FIRE}, {PAUSE}, {UP}, {DOWN}, {LEFT} and {RIGHT} are
 # replaced by the key the player has bound to that action - "Z",
@@ -21,7 +23,7 @@
 # FR, at most seven capitals: its font has nothing else.
 msgid ""
 msgstr ""
-"Project-Id-Version: Akuji the Demon 2.0.9\n"
+"Project-Id-Version: Akuji the Demon 2.0.10\n"
 "Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
