@@ -1,7 +1,8 @@
 { Per-stage event and dialogue loading:
 
       data\ev%.03d.dat   the event table, CSV
-      data\tk%.03d.dat   the dialogue, one line per string
+      lang/*.po          the dialogue, "tkNNN:i" per line (the original
+                         read data\tk%.03d.dat; see Translation)
 
   CSV field order differs from the in-memory 0x24-byte record:
 
@@ -250,18 +251,11 @@ begin
       SetLength(FEvents, EventCount);
     end;
 
-    { Dialogue is stored as one unparsed string per line. Its escape codes
-      (\n, \e, \k, \w) are the consumer's problem, not the loader's. }
-    FileName := DataPath + Format('tk%.3d.dat', [StageIndex]);
-    if FileExists(FileName) then
-    begin
-      FLines.LoadFromFile(FileName);
-      { The chosen language's line, where it has one. Keyed by file and line,
-        which is what --write-pot names each entry. }
-      for LineIndex := 0 to FLines.Count - 1 do
-        FLines[LineIndex] := TrDialogue(
-          Format('tk%.3d:%d', [StageIndex, LineIndex]), FLines[LineIndex]);
-    end;
+    { Dialogue is one unparsed string per line, from the language files -
+      where the original read data\tk%.03d.dat. Its escape codes (\n, \e,
+      \k, \w) are the consumer's problem, not the loader's. }
+    for LineIndex := 0 to DialogueLineCount(StageIndex) - 1 do
+      FLines.Add(TrDialogue(Format('tk%.3d:%d', [StageIndex, LineIndex])));
   finally
     Fields.Free;
     SourceLines.Free;

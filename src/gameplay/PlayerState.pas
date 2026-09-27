@@ -101,19 +101,13 @@ const
   ABILITY_GLIDE     = 7;
 
   POWERUP_JUMP_STRENGTH = $84;   { variant 3 }
+  { Their names are "powerup:0" to "powerup:7" in the language files. }
   POWERUP_COUNT = 8;
-  POWERUP_NAMES: array[0..POWERUP_COUNT - 1] of string = (
-    'Fire    ', 'Fire+     ', 'Charge  ', 'Jump+     ',
-    'Dash    ', 'Jump++      ', 'Cloud   ', 'Bat   ');
   { Power-up presentation stops stage music, plays this sound and one-shot MIDI,
     then closes when the fanfare ends. }
   POWERUP_SOUND = $10;
   POWERUP_MIDI  = 4;      { AutoLoadMidis[4] }
 
-  POWERUP_PREFIX = '  ';
-  POWERUP_SUFFIX = ' was recovered! ';
-  { The same line as one translatable string; %s is the name. }
-  POWERUP_FOUND = POWERUP_PREFIX + '%s' + POWERUP_SUFFIX;
 
   { Player sprite tables, right-facing then left-facing. }
   SPR_GROUND: array[0..1, 0..4] of Integer =
@@ -363,7 +357,7 @@ function PowerUpName(Variant: Integer): string;
 begin
   if (Variant < 0) or (Variant >= POWERUP_COUNT) then
     Exit('');
-  Result := Tr(Format('powerup:%d', [Variant]), POWERUP_NAMES[Variant]);
+  Result := Tr(Format('powerup:%d', [Variant]));
 end;
 
 procedure PowerUpGrant(var P: TPlayerState; Variant: Integer);

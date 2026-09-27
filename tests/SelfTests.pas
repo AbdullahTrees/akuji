@@ -23,7 +23,8 @@ implementation
 uses
   MediaTests, DataTests, StageTests, PlayerTests, TraceTests,
   LayoutTests, EntityTests, RunnerTests, SessionTests,
-  EmuDiffTests, RenderTests, InputTests, MusicTests, LogTests, LangTests;
+  EmuDiffTests, RenderTests, InputTests, MusicTests, LogTests, LangTests,
+  Translation;
 
 const
   SELFTEST_MODES: array[0..23] of string = (
@@ -69,6 +70,13 @@ begin
   Result := 0;
   Log := TStringList.Create;
   try
+    { The game's text is in the language files and nowhere else, so a mode
+      given a game directory starts with English loaded, as the game does.
+      --selftest-lang loads each language itself. }
+    if (ParamStr(2) <> '') and
+       FileExists(IncludeTrailingPathDelimiter(ParamStr(2)) + 'lang'
+                  + PathDelim + 'en.po') then
+      LoadLanguage(IncludeTrailingPathDelimiter(ParamStr(2)) + 'lang', 'en');
     try
       if ParamStr(1) = '--selftest-audio' then
         Result := SelfTestAudio(Log)

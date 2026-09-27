@@ -99,13 +99,11 @@ const
   MB_PROMPT_X      = $F8;
   MB_PROMPT_DY     = $40;
 
-  { The yes/no prompt. The two words are one literal with the spacing baked
-    in, and the cursor moves 0x34 for the second. }
-  { DIVERGENCE: the original is 'Yes' + SEVEN spaces + 'No  '. See
-    notes/divergences.md - a leading space holds the cursor off "Yes", and two
-    more between the words stop it covering "No". The cursor then sits the same
-    three pixels from either word. }
-  MB_PROMPT_TEXT   = ' Yes         No  ';
+  { The yes/no prompt. The two words are one string, "prompt.yesno" in the
+    language files, with the spacing in it, and the cursor moves 0x34 for the
+    second. The original's English was 'Yes' + SEVEN spaces + 'No  '; en.po
+    carries a leading space that holds the cursor off "Yes", and two more
+    between the words that stop it covering "No" - see notes/divergences.md. }
   MB_PROMPT_TEXT_X = $70;
   MB_PROMPT_TEXT_DY = $3C;
   MB_CURSOR_X      = $60;
@@ -321,14 +319,14 @@ type
 function SplitPage(const Text: string; out Rest: string;
                    out Prompt: Boolean): string;
 
-{ MB_PROMPT_TEXT, or the chosen language's. }
+{ The Yes/No line, from the language files. }
 function PromptText: string;
 
 implementation
 
 function PromptText: string;
 begin
-  Result := Tr('prompt.yesno', MB_PROMPT_TEXT);
+  Result := Tr('prompt.yesno');
 end;
 
 procedure DialogueAnswer(var P: TPlayerState; Choice: Integer);
@@ -703,7 +701,7 @@ begin
   PowerUpGrant(FPlayer^, Variant);
   { Replaced rather than Formatted, so a stray % in a translation cannot
     raise. }
-  FPanelText := StringReplace(Tr('powerup.found', POWERUP_FOUND), '%s',
+  FPanelText := StringReplace(Tr('powerup.found'), '%s',
                               PowerUpName(Variant), []);
 
   { Full destruction hides and releases the collected orb's sprite. }
@@ -725,7 +723,8 @@ begin
   end;
   FActive := True;
   FMode := omBox;
-  TakePage(FScript.Lines[Index]);
+  { Keys named now, so a key rebound a moment ago is the one shown. }
+  TakePage(ExpandKeys(FScript.Lines[Index]));
 end;
 
 function TDialogueBox.GetVisibleLine(Index: Integer): string;

@@ -6,16 +6,18 @@
 
   WHAT IS HELD
 
-    * The UTF-8 reveal units give the ORIGINAL's units: over every English
-      record, page by page, RevealUnitsOf must equal the two-byte pairs the
-      Shift-JIS rule produced. That is what makes the switch to UTF-8 a
-      non-event for English.
-    * The template round-trips: written, read back, every entry is the
-      English it came from, and the dialogue's \n survive the trip.
-    * Each lang/*.po: no entry the game does not look up (a stale context
-      is a translation that silently never shows), the dialogue codes that
-      steer the game kept, every character in its font, every line inside
-      the box, and the Yes/No words clear of the hand cursor. }
+    * The reveal-unit rule, by hand. (That it gives the original's units
+      on the English release's text was proven against data/tk*.dat before
+      those files were retired - DIV-026.)
+    * The template round-trips: written from en.po, read back, every entry
+      is en.po's English, and the dialogue's \n survive the trip.
+    * en.po has every entry the game draws outside the dialogue; the
+      dialogue an event script names is --selftest-script's.
+    * Each lang/*.po: no entry en.po lacks (a stale context is a
+      translation that silently never shows), no key placeholder but JUMP,
+      FIRE and PAUSE in braces, the dialogue codes that steer the game kept,
+      every character in its font, every line inside the box with the
+      default keys named, and the Yes/No words clear of the hand cursor. }
 
 unit LangTests;
 
@@ -33,7 +35,7 @@ implementation
 
 uses
   SDL2, TextUnits, Translation, LangTemplate, Dialogue, TextRender,
-  RenderTarget, SDLTarget, GameFont, GameColors, PlayerState;
+  RenderTarget, SDLTarget, GameFont, GameColors, PlayerState, Opening;
 
 const
   { The box's text starts at BOX_TEXT_X; its inner border is one tile in
@@ -76,6 +78,25 @@ const
     'msgctxt "tk001:2"'#10 +
     'msgid "untranslated"'#10 +
     'msgstr ""'#10;
+
+type
+  { The default bindings' names, and the longest a name can be, for the
+    width checks: a line is measured as the player would first see it, and
+    reported as it would be with a seven-glyph key. }
+  TKeyNames = class
+    Long: Boolean;
+    function Name(Index: Integer): string;
+  end;
+
+function TKeyNames.Name(Index: Integer): string;
+const
+  DEFAULTS: array[0..2] of string = ('Z', 'X', 'C');
+begin
+  if Long then
+    Result := 'L SHIFT'
+  else
+    Result := DEFAULTS[Index];
+end;
 
 function GameDirArg: string;
 begin
@@ -225,7 +246,7 @@ begin
   try
     SDL_FillRect(Surf, nil, BOX_COLOUR);
     { Stage 1's first message, first page, where the box puts it when low. }
-    Page := SplitPage(Tr('tk001:0', ''), Rest, Prompt);
+    Page := SplitPage(ExpandKeys(Tr('tk001:0')), Rest, Prompt);
     { Raw PO text: its line breaks are real ones already. }
     Lines.Text := Page;
     for I := 0 to Lines.Count - 1 do
@@ -233,14 +254,14 @@ begin
         BOX_TEXT_OUTLINE, BOX_TEXT_FILL, OUTLINED_FONT_SIZE, Target);
     Game_DrawTextOutlined(MB_PROMPT_TEXT_X, 64, PromptText,
       MB_PROMPT_OUTLINE, MB_PROMPT_FILL, OUTLINED_FONT_SIZE, Target);
-    Page := StringReplace(Tr('powerup.found', POWERUP_FOUND), '%s',
+    Page := StringReplace(Tr('powerup.found'), '%s',
                           PowerUpName(4), []);
     Game_DrawTextOutlined((PANEL_W - TextColumns(Page) * PANEL_CHAR_W) div 2,
       100, Page, PANEL_TEXT_OUTLINE, PANEL_TEXT_FILL, OUTLINED_FONT_SIZE,
       Target);
-    Game_DrawTextOutlined(BOX_TEXT_X - 4, 140, Tr('opening:0', ''),
+    Game_DrawTextOutlined(BOX_TEXT_X - 4, 140, Tr('opening:0'),
       BOX_TEXT_OUTLINE, BOX_TEXT_FILL, OUTLINED_FONT_SIZE, Target);
-    Game_DrawTextOutlined(BOX_TEXT_X - 4, 156, Tr('opening:1', ''),
+    Game_DrawTextOutlined(BOX_TEXT_X - 4, 156, Tr('opening:1'),
       BOX_TEXT_OUTLINE, BOX_TEXT_FILL, OUTLINED_FONT_SIZE, Target);
 
     { FNV-1a over the pixels, alpha ignored. }
@@ -269,6 +290,7 @@ end;
 function SelfTestLang(Log: TStrings): Integer;
 var
   Bad: Integer;
+  Names: TKeyNames;
 
   procedure Want(Cond: Boolean; const Msg: string);
   begin
@@ -290,61 +312,6 @@ var
     Want(Length(RevealUnitsOf('éa')) = 1, 'an accented letter pairs like any');
     Want(TextColumns('【ア】x') = 7, 'columns: three wide and one narrow');
     Want(TextColumns('Fire') = 4, 'columns: ASCII');
-  end;
-
-  { --- 2. the unit rule against the original's, on every English record }
-  procedure CheckAgainstBytePairs;
-  var
-    Found: TSearchRec;
-    Lines, Pages: TStringList;
-    Records, PageCount, Mismatch, L, P: Integer;
-    First: string;
-  begin
-    Records := 0;
-    PageCount := 0;
-    Mismatch := 0;
-    First := '';
-    Lines := TStringList.Create;
-    try
-      if FindFirst(GameDirArg + 'data' + PathDelim + 'tk*.dat', faAnyFile,
-                   Found) = 0 then
-      try
-        repeat
-          Lines.LoadFromFile(GameDirArg + 'data' + PathDelim + Found.Name);
-          for L := 0 to Lines.Count - 1 do
-          begin
-            if Lines[L] = '' then
-              Continue;
-            Inc(Records);
-            Pages := PagesOf(Lines[L]);
-            try
-              for P := 0 to Pages.Count - 1 do
-              begin
-                Inc(PageCount);
-                if not SameUnits(RevealUnitsOf(Pages[P]),
-                                 BytePairs(Pages[P])) then
-                begin
-                  Inc(Mismatch);
-                  if First = '' then
-                    First := Format('%s line %d: %s', [Found.Name, L,
-                      UnitsText(RevealUnitsOf(Pages[P]))]);
-                end;
-              end;
-            finally
-              Pages.Free;
-            end;
-          end;
-        until FindNext(Found) <> 0;
-      finally
-        FindClose(Found);
-      end;
-    finally
-      Lines.Free;
-    end;
-    Log.Add(Format('reveal units: %d English records, %d pages, %d differ '
-      + 'from the two-byte rule', [Records, PageCount, Mismatch]));
-    Want(Records > 0, 'no English dialogue found');
-    Want(Mismatch = 0, 'reveal units differ from the original''s: ' + First);
   end;
 
   { --- 3. the PO reader ----------------------------------------------- }
@@ -416,7 +383,9 @@ var
     Seen: TStringList;
     Gap1, Start2, Need2: Integer;
     Sum: LongWord;
-    AsEnglish, Room: Integer;
+    AsEnglish, Room, WidestLong: Integer;
+    Placeholder: string;
+    Known: Boolean;
   begin
     Log.Add('');
     Log.Add(Format('lang/%s.po:', [Code]));
@@ -441,6 +410,7 @@ var
              'font file missing: fonts/' + LanguageFontFile);
 
       Translated := 0;
+      WidestLong := 0;
       AsEnglish := 0;
       Fuzzy := 0;
       Stale := 0;
@@ -485,9 +455,43 @@ var
           Inc(K, Len);
         end;
 
+        { Braces are only ever a key placeholder. }
+        K := Pos('{', E.Str);
+        while K > 0 do
+        begin
+          W := Pos('}', E.Str, K);
+          if W = 0 then
+            W := Length(E.Str);
+          Placeholder := Copy(E.Str, K, W - K + 1);
+          Known := False;
+          for Room := Low(KEY_PLACEHOLDERS) to High(KEY_PLACEHOLDERS) do
+            Known := Known or (Placeholder = KEY_PLACEHOLDERS[Room]);
+          Want(Known, Format('%s has "%s", which is not a key placeholder',
+            [E.Context, Placeholder]));
+          K := Pos('{', E.Str, W + 1);
+        end;
+
         if Copy(E.Context, 1, 2) = 'tk' then
         begin
-          S := PoToDialogue(E.Str);
+          Names.Long := True;
+          S := PoToDialogue(ExpandKeys(E.Str));
+          Pages := PagesOf(S);
+          BoxLines := TStringList.Create;
+          try
+            for K := 0 to Pages.Count - 1 do
+            begin
+              BoxLines.Text := StringReplace(Pages[K], '\n', #10,
+                                             [rfReplaceAll]);
+              for Line in BoxLines do
+                if OutlinedTextWidth(Line, OUTLINED_FONT_FACE) > WidestLong then
+                  WidestLong := OutlinedTextWidth(Line, OUTLINED_FONT_FACE);
+            end;
+          finally
+            BoxLines.Free;
+            Pages.Free;
+          end;
+          Names.Long := False;
+          S := PoToDialogue(ExpandKeys(E.Str));
           { The codes that steer the game, kept. }
           Want(Terminator(S) = Terminator(PoToDialogue(T.Id)),
                Format('%s ends with %s, the English with %s',
@@ -559,16 +563,49 @@ var
         Want(Sum = JA_PREVIEW, Format('the Japanese preview is %.8x, pinned '
           + '%.8x - look at it (--selftest-lang <dir> preview.bmp)',
           [Sum, JA_PREVIEW]));
-      Log.Add(Format('  %d of %d entries translated (%d identical to the '
-        + 'built-in English), %d fuzzy, %d stale; widest dialogue line %d of '
-        + '%d px', [Translated, Template.Count, AsEnglish, Fuzzy, Stale,
-        Widest, BOX_TEXT_WIDTH]));
+      Log.Add(Format('  %d of %d entries translated (%d identical to en.po), '
+        + '%d fuzzy, %d stale; widest dialogue line %d of %d px (%d with a '
+        + 'seven-glyph key name)', [Translated, Template.Count, AsEnglish,
+        Fuzzy, Stale, Widest, BOX_TEXT_WIDTH, WidestLong]));
       Want(Stale = 0, Format('%d entries the game never looks up', [Stale]));
       Want(Missing = '', 'not in the font: ' + Missing);
     finally
       Seen.Free;
       Po.Free;
       UnloadLanguage;
+    end;
+  end;
+
+  { --- en.po has every non-dialogue entry the game draws --------------- }
+  procedure CheckRequired(Template: TPoFile);
+  var
+    Need: TStringList;
+    I: Integer;
+    Missing: string;
+  begin
+    Need := TStringList.Create;
+    try
+      Need.Add('window.title');
+      Need.Add('prompt.yesno');
+      Need.Add('powerup.found');
+      for I := 0 to POWERUP_COUNT - 1 do
+        Need.Add(Format('powerup:%d', [I]));
+      { Opening line 15 is the empty second line of the "And now..." slide. }
+      for I := 0 to OPENING_LINE_COUNT - 1 do
+        if I <> 15 then
+          Need.Add(Format('opening:%d', [I]));
+      { The ending's odd slots on slides 2 to 5 are empty. }
+      for I in [0, 1, 2, 4, 6, 8, 10, 11] do
+        Need.Add(Format('ending:%d', [I]));
+      Missing := '';
+      for I := 0 to Need.Count - 1 do
+        if Template.IndexOfContext(Need[I]) < 0 then
+          Missing := Missing + ' ' + Need[I];
+      Log.Add(Format('en.po: %d entries the game draws outside the dialogue',
+        [Need.Count]));
+      Want(Missing = '', 'en.po lacks:' + Missing);
+    finally
+      Need.Free;
     end;
   end;
 
@@ -601,12 +638,14 @@ var
   Found: TSearchRec;
 begin
   Bad := 0;
+  Names := TKeyNames.Create;
+  SetKeyNameProvider(Names.Name);
   SetFontDirectory(GameDirArg);
   Log.Add('game dir: ' + GameDirArg);
   CheckUnits;
-  CheckAgainstBytePairs;
   CheckReader;
   CheckTemplate(Template);
+  CheckRequired(Template);
   try
     if FindFirst(GameDirArg + 'lang' + PathDelim + '*.po', faAnyFile,
                  Found) = 0 then
@@ -621,12 +660,14 @@ begin
     Template.Free;
   end;
   CheckMenu;
+  SetKeyNameProvider(nil);
+  Names.Free;
 
   Log.Add('');
   if Bad = 0 then
   begin
-    Log.Add('OK - English reveals as it did, the template round-trips, and '
-      + 'every language fits');
+    Log.Add('OK - the template round-trips, en.po has every entry, and every '
+      + 'language fits');
     Result := 0;
   end
   else

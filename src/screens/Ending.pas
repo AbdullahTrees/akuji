@@ -39,21 +39,15 @@ const
   { bmp\ed%.3d.bmp, or -1 for a slide that is text only. }
   ENDING_IMAGE: array[0..ENDING_SLIDES - 1] of Integer = (1, 2, 3, 3, -1, 4);
 
-  { Indexes ENDING_TEXT; the slide's second line is the entry after it. }
+  { Indexes the ending lines; the slide's second line is the entry after it. }
   ENDING_TEXT_ID: array[0..ENDING_SLIDES - 1] of Integer = (0, 2, 4, 6, 8, 10);
 
   ENDING_SECONDS: array[0..ENDING_SLIDES - 1] of Integer = (8, 8, 2, 8, 4, 8);
   ENDING_SECONDS_SCALE = $3C;   { the table is in seconds; Timer is in frames }
 
-  ENDING_TEXT: array[0..11] of string = (
-    '    Light covered Akuji as',
-    '    he broke the last seal... ',
-    ' He''s transforming back!',            '',
-    'What''s going on?!?',                  '',
-    'His horns are all that grew..!',       '',
-    '  Akuji learned a lesson. ',           '',
-    'Disgusted, he decides to  ',
-    'not cause mischief anymore. ');
+  { The slides' lines are "ending:0" to "ending:11" in the language files;
+    the odd slots of slides 2 to 5 are empty. }
+  ENDING_TEXT_COUNT = 12;
 
   { Slides 4 and 6 hold until their own music ENDS instead of counting down,
     which is why those two are started UNLOOPED. }
@@ -411,8 +405,8 @@ begin
   if (Step < 1) or (Step > ENDING_SLIDES) or (N < 0) or (N > 1) then
     Exit;
   TextIndex := ENDING_TEXT_ID[Step - 1] + N;
-  if (TextIndex >= 0) and (TextIndex <= High(ENDING_TEXT)) then
-    Result := Tr(Format('ending:%d', [TextIndex]), ENDING_TEXT[TextIndex]);
+  if (TextIndex >= 0) and (TextIndex < ENDING_TEXT_COUNT) then
+    Result := Tr(Format('ending:%d', [TextIndex]));
 end;
 
 procedure TEndingScreen.Update(var S: TGameSettings; const P: TPlayerState;

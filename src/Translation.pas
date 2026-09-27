@@ -1,29 +1,35 @@
-{ Translations: gettext PO files in assets/lang/, chosen in system.ini.
+{ The game's text: gettext PO files in assets/lang/, chosen in system.ini.
+
+  WHERE THE TEXT LIVES
+
+  Only here. Everything drawn in the outlined font - the dialogue, the
+  opening and ending narration, the power-up names and the line announcing
+  them, the Yes/No prompt, the window title - is looked up by context in
+  the loaded PO files; nothing of it is compiled into the game, and the
+  English release's data/tk*.dat are gone. en.po is the English and the
+  base: it is always loaded, and the chosen language is laid over it, so an
+  entry a translation lacks shows in English. An entry neither has shows
+  nothing and is logged. With no en.po and no chosen file the game will not
+  start. The menus and the results screen, drawn from an ASCII bitmap font,
+  are still in the code.
+
+  Each entry's msgctxt says where it is used: "tk006:1" is dialogue line 1
+  of stage 6, the line the stage's event script names as 1.
 
   WHY PO
 
   It is the format translation tools already speak - Poedit, Weblate,
   Crowdin, Lokalize, a plain text editor. Each entry keeps the English beside
-  the translation, an untranslated entry falls back to English on its own,
-  and when the English changes, msgmerge marks the old translation fuzzy
-  instead of leaving it silently wrong. assets/lang/akuji.pot is the template,
-  written by the game itself (--write-pot) from the English data, so it
-  cannot drift from what the game shows.
+  the translation, and when the English changes, msgmerge marks the old
+  translation fuzzy instead of leaving it silently wrong. The template,
+  assets/lang/akuji.pot, is written by the game from en.po (--write-pot).
 
-  WHAT A TRANSLATION CAN REPLACE
+  KEYS
 
-  Everything drawn in the outlined font: the dialogue (data/tk*.dat), the
-  opening and ending narration, the power-up names and the line that
-  announces them, the Yes/No prompt, and the window title. The menus and the
-  results screen are drawn from a bitmap font that has only ASCII, and are
-  not in the template yet.
-
-  Each entry's msgctxt says where it is used - "tk006:1" is line 1 of
-  data/tk006.dat. The English built into the game - the English release's
-  dialogue files and the strings in the code - is the template's msgid and
-  the fallback for any empty entry. en.po is English as a translation like
-  any other: it starts identical to the built-in text, and editing it
-  changes the English the game shows without touching the data or the code.
+  The placeholders in KEY_PLACEHOLDERS - JUMP, FIRE and PAUSE in braces -
+  are replaced, when a line is shown, by the name of the key bound to that
+  action, so a sign that says "the FIRE-in-braces key" names whatever key
+  the player chose. See ExpandKeys.
 
   THE DIALOGUE'S CODES
 
@@ -50,6 +56,9 @@ interface
 
 uses
   Classes, SysUtils;
+
+{ Nothing here draws or plays; GameLog is the one dependency, for the
+  missing-entry report. }
 
 type
   TPoEntry = record
@@ -95,20 +104,41 @@ function ListLanguages(const LangDir: string): TArray<TLanguageInfo>;
 { Whether the options screen's bitmap font can draw S: $20..$5F only. }
 function MenuFontCanDraw(const S: string): Boolean;
 
-{ Loads assets/lang/<Code>.po. '' or a missing file leave the built-in
-  English in place, which is not an error - the result says whether a file
-  was used. }
+{ Loads lang/en.po as the base and lang/<Code>.po over it. False when
+  neither loaded - the game has no text then, and must not start. A missing
+  chosen file with en.po present gives English. }
 function LoadLanguage(const LangDir, Code: string): Boolean;
 procedure UnloadLanguage;
 
-{ The chosen language's code, 'en' when none is loaded. }
+{ The language showing: the chosen code, 'en' when only the base loaded,
+  '' when nothing did. }
 function LanguageCode: string;
 
-{ Context lookup with English fallback. }
-function Tr(const Context, English: string): string;
+{ The text for a context: the chosen language's, else en.po's, else '' -
+  logged the first time. }
+function Tr(const Context: string): string;
 
 { The same, for dialogue: a PO line break becomes the game's \n code. }
-function TrDialogue(const Context, English: string): string;
+function TrDialogue(const Context: string): string;
+
+{ How many dialogue lines stage Stage has: one past the highest tkNNN:i in
+  the loaded files. The event scripts name lines by that number. }
+function DialogueLineCount(Stage: Integer): Integer;
+
+{ The placeholders a line may use, and the action each names. }
+const
+  KEY_PLACEHOLDERS: array[0..2] of string = ('{JUMP}', '{FIRE}', '{PAUSE}');
+
+type
+  { The name to show for the key bound to KEY_PLACEHOLDERS[Index]. }
+  TKeyNameFunc = function(Index: Integer): string of object;
+
+{ Who answers for the key names - the form, which owns the bindings. }
+procedure SetKeyNameProvider(F: TKeyNameFunc);
+
+{ S with each placeholder replaced by its key's name. Done when a message
+  opens, so a key rebound a moment ago is the one named. }
+function ExpandKeys(const S: string): string;
 
 { The font the chosen language asks for: a file name under assets/fonts/
   and a pixel size, or '' and 0 for the default. }
@@ -125,9 +155,15 @@ function PoToDialogue(const S: string): string;
 
 implementation
 
+uses
+  GameLog;
+
 var
-  Current: TPoFile = nil;
-  CurrentCode: string = 'en';
+  Base: TPoFile = nil;       { en.po }
+  Current: TPoFile = nil;    { the chosen language, when it is not English }
+  CurrentCode: string = '';
+  Reported: TStringList = nil;
+  KeyNames: TKeyNameFunc = nil;
 
 { --- reading ------------------------------------------------------------- }
 
@@ -405,25 +441,33 @@ end;
 
 function LoadLanguage(const LangDir, Code: string): Boolean;
 var
-  FileName: string;
+  Dir, Chosen: string;
 begin
   UnloadLanguage;
-  Result := False;
-  if Code = '' then
-    Exit;
-  FileName := IncludeTrailingPathDelimiter(LangDir) + LowerCase(Code) + '.po';
-  if not FileExists(FileName) then
-    Exit;
-  Current := TPoFile.Create;
-  Current.LoadFromFile(FileName);
-  CurrentCode := LowerCase(Code);
-  Result := True;
+  Dir := IncludeTrailingPathDelimiter(LangDir);
+  if FileExists(Dir + 'en.po') then
+  begin
+    Base := TPoFile.Create;
+    Base.LoadFromFile(Dir + 'en.po');
+    CurrentCode := 'en';
+  end;
+  Chosen := LowerCase(Trim(Code));
+  if (Chosen <> '') and (Chosen <> 'en') and FileExists(Dir + Chosen + '.po') then
+  begin
+    Current := TPoFile.Create;
+    Current.LoadFromFile(Dir + Chosen + '.po');
+    CurrentCode := Chosen;
+  end;
+  Result := (Base <> nil) or (Current <> nil);
 end;
 
 procedure UnloadLanguage;
 begin
   FreeAndNil(Current);
-  CurrentCode := 'en';
+  FreeAndNil(Base);
+  CurrentCode := '';
+  if Reported <> nil then
+    Reported.Clear;
 end;
 
 function LanguageCode: string;
@@ -431,40 +475,99 @@ begin
   Result := CurrentCode;
 end;
 
-function Tr(const Context, English: string): string;
+function Tr(const Context: string): string;
 begin
   Result := '';
   if Current <> nil then
     Result := Current.Lookup(Context);
-  if Result = '' then
-    Result := English;
+  if (Result = '') and (Base <> nil) then
+    Result := Base.Lookup(Context);
+  if (Result = '') and ((Base <> nil) or (Current <> nil)) then
+  begin
+    if Reported = nil then
+    begin
+      Reported := TStringList.Create;
+      Reported.Sorted := True;
+    end;
+    if Reported.IndexOf(Context) < 0 then
+    begin
+      Reported.Add(Context);
+      LogFmt(lsData, 'no text for %s in lang/%s.po or lang/en.po',
+        [Context, CurrentCode]);
+    end;
+  end;
 end;
 
-function TrDialogue(const Context, English: string): string;
-var
-  S: string;
+function TrDialogue(const Context: string): string;
 begin
-  S := '';
+  Result := PoToDialogue(Tr(Context));
+end;
+
+function DialogueLineCount(Stage: Integer): Integer;
+var
+  Prefix: string;
+
+  procedure Scan(Po: TPoFile);
+  var
+    I, N: Integer;
+    C: string;
+  begin
+    if Po = nil then
+      Exit;
+    for I := 0 to Po.Count - 1 do
+    begin
+      C := Po.Entries[I].Context;
+      if Copy(C, 1, Length(Prefix)) = Prefix then
+      begin
+        N := StrToIntDef(Copy(C, Length(Prefix) + 1, MaxInt), -1);
+        if N + 1 > Result then
+          Result := N + 1;
+      end;
+    end;
+  end;
+
+begin
+  Result := 0;
+  Prefix := Format('tk%.3d:', [Stage]);
+  Scan(Base);
+  Scan(Current);
+end;
+
+procedure SetKeyNameProvider(F: TKeyNameFunc);
+begin
+  KeyNames := F;
+end;
+
+function ExpandKeys(const S: string): string;
+var
+  I: Integer;
+begin
+  Result := S;
+  if (Pos('{', Result) = 0) or not Assigned(KeyNames) then
+    Exit;
+  for I := Low(KEY_PLACEHOLDERS) to High(KEY_PLACEHOLDERS) do
+    Result := StringReplace(Result, KEY_PLACEHOLDERS[I], KeyNames(I),
+                            [rfReplaceAll]);
+end;
+
+{ A header field from the chosen language, else from en.po. }
+function HeaderOf(const Name: string): string;
+begin
+  Result := '';
   if Current <> nil then
-    S := Current.Lookup(Context);
-  if S = '' then
-    Result := English
-  else
-    Result := PoToDialogue(S);
+    Result := Current.Header(Name);
+  if (Result = '') and (Current = nil) and (Base <> nil) then
+    Result := Base.Header(Name);
 end;
 
 function LanguageFontFile: string;
 begin
-  Result := '';
-  if Current <> nil then
-    Result := Current.Header('X-Akuji-Font');
+  Result := HeaderOf('X-Akuji-Font');
 end;
 
 function LanguageFontSize: Integer;
 begin
-  Result := 0;
-  if Current <> nil then
-    Result := StrToIntDef(Current.Header('X-Akuji-Font-Size'), 0);
+  Result := StrToIntDef(HeaderOf('X-Akuji-Font-Size'), 0);
 end;
 
 { --- writing -------------------------------------------------------------- }
@@ -525,5 +628,6 @@ end;
 
 finalization
   UnloadLanguage;
+  Reported.Free;
 
 end.

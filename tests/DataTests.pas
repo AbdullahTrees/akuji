@@ -782,15 +782,18 @@ begin
                 end;
               end;
 
-            { Sub-op 3's argument must index this stage's own dialogue file.
-              This is the check that ties the grammar to a second file. }
+            { Sub-op 3's argument names a line of this stage's dialogue,
+              and en.po must have text for it - the check that ties the
+              grammar to the language files. }
             if Cmd.SubOp = SUBOP_DIALOGUE then
             begin
               Inc(Dialogue);
-              if (Cmd.Args[0] < 0) or (Cmd.Args[0] >= S.LineCount) then
+              if (Cmd.Args[0] < 0) or (Cmd.Args[0] >= S.LineCount)
+                 or (S.Lines[Cmd.Args[0]] = '') then
               begin
-                Log.Add(Format('  stage %d event %d: dialogue %d but tk%.3d has %d lines',
-                  [I, J, Cmd.Args[0], I, S.LineCount]));
+                Log.Add(Format('  stage %d event %d: dialogue %d, but en.po '
+                  + 'has no text for tk%.3d:%d', [I, J, Cmd.Args[0], I,
+                  Cmd.Args[0]]));
                 Inc(BadDialogue);
               end;
             end;

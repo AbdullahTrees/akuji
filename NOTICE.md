@@ -21,12 +21,12 @@ an open decision, and it interacts with the next section.
 |---|---|
 | `bmp.qda` | the sprite and picture archive |
 | `map/` | 65 stage tilemaps |
-| `data/` | entity placements, event scripts and message text |
+| `data/` | entity placements and event scripts |
 | `midi/` | the music |
 | `wav/` | the sound effects |
 | `system.ini` | display and input settings |
 | `lang/ja.po` | the Japanese release's text, converted to UTF-8 |
-| `lang/en.po` | the English release's text, as a translation file |
+| `lang/en.po` | the English release's text - its dialogue files, `data/tk*.dat`, and the strings in its exe - moved into a translation file; the game reads no other copy |
 
 These came from the English-translated release of the game - `lang/ja.po`
 from the original Japanese one, `akuji ver1.01`, and is its dialogue and

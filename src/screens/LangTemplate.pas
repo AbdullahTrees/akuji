@@ -1,8 +1,8 @@
-{ The translation template, assets/lang/akuji.pot, built from what the game
-  shows in English: the dialogue files and the strings compiled in.
+{ The translation template, assets/lang/akuji.pot, built from en.po - the
+  game's English and the base every other language is laid over.
 
-  Written by the game itself (akuji --write-pot) so that it lists exactly the
-  text the game looks up, under exactly the contexts it looks it up by. See
+  Written by the game itself (akuji --write-pot): every context en.po has,
+  its English as the msgid a translator translates, and its notes. See
   Translation for the format and README.md, "Translating", for the workflow. }
 
 unit LangTemplate;
@@ -17,8 +17,8 @@ uses
 type
   TTemplateEntries = array of TPoEntry;
 
-{ Every translatable string, in the order the template lists them. Str is
-  empty; Id is the English as PO text (line breaks, not \n codes). }
+{ Every translatable string, in en.po's order. Str is empty; Id is en.po's
+  English as PO text (line breaks, not \n codes). }
 function TemplateEntries(const GameDir: string): TTemplateEntries;
 
 { The whole .pot file. }
@@ -27,95 +27,32 @@ function TemplateText(const GameDir: string): string;
 implementation
 
 uses
-  Version, Opening, Ending, PlayerState, Dialogue, GmMain;
+  Version;
 
 function TemplateEntries(const GameDir: string): TTemplateEntries;
 var
-  N: Integer;
-  Files, Lines: TStringList;
-  Found: TSearchRec;
-  DataDir: string;
-  F, L, Stage: Integer;
-
-  procedure Add(const Context, English, Comment, Reference: string);
-  begin
-    if English = '' then
-      Exit;
-    SetLength(Result, N + 1);
-    Result[N] := Default(TPoEntry);
-    Result[N].Context := Context;
-    Result[N].Id := English;
-    { The reference rides in Comment's first line, behind a marker, so the
-      writer can put it on its own #: line. }
-    if Reference <> '' then
-      Result[N].Comment := ':' + Reference;
-    if Comment <> '' then
-    begin
-      if Result[N].Comment <> '' then
-        Result[N].Comment := Result[N].Comment + #10;
-      Result[N].Comment := Result[N].Comment + Comment;
-    end;
-    Inc(N);
-  end;
-
-var
-  I: Integer;
+  En: TPoFile;
+  I, N: Integer;
 begin
-  N := 0;
   SetLength(Result, 0);
-
-  { The window title first: the first thing anyone sees. }
-  Add('window.title', WINDOW_CAPTION, 'The window''s title bar.', '');
-
-  for I := 0 to High(OPENING_LINES) do
-    Add(Format('opening:%d', [I]), OPENING_LINES[I],
-      'Opening narration, drawn in pairs under each picture: lines 0 and 1, '
-      + '2 and 3, and so on. Leading spaces move a line right.', '');
-
-  for I := 0 to High(ENDING_TEXT) do
-    Add(Format('ending:%d', [I]), ENDING_TEXT[I],
-      'Ending narration, two lines under each slide.', '');
-
-  for I := 0 to POWERUP_COUNT - 1 do
-    Add(Format('powerup:%d', [I]), POWERUP_NAMES[I],
-      'A power-up''s name, shown in the powerup.found line.', '');
-  Add('powerup.found', POWERUP_FOUND,
-    '%s is the power-up''s name. Centred in the 320-pixel panel, six pixels '
-    + 'per column, a wide character counting as two.', '');
-
-  Add('prompt.yesno', MB_PROMPT_TEXT,
-    'The save prompt''s two answers as ONE string, drawn at x=112. The hand '
-    + 'cursor covers x=96..111 for the first and x=148..163 for the second, '
-    + 'so the second word must start at least 52 pixels in. Pad with spaces; '
-    + '--selftest-lang checks it.', '');
-
-  { The dialogue, file by file, line by line. }
-  DataDir := IncludeTrailingPathDelimiter(GameDir) + 'data' + PathDelim;
-  Files := TStringList.Create;
-  Lines := TStringList.Create;
+  En := TPoFile.Create;
   try
-    if FindFirst(DataDir + 'tk*.dat', faAnyFile, Found) = 0 then
-    try
-      repeat
-        Files.Add(Found.Name);
-      until FindNext(Found) <> 0;
-    finally
-      FindClose(Found);
-    end;
-    Files.Sort;
-    for F := 0 to Files.Count - 1 do
-    begin
-      Stage := StrToIntDef(Copy(Files[F], 3, 3), -1);
-      if Stage < 0 then
-        Continue;
-      Lines.LoadFromFile(DataDir + Files[F]);
-      for L := 0 to Lines.Count - 1 do
-        Add(Format('tk%.3d:%d', [Stage, L]), DialogueToPo(Lines[L]), '',
-            Format('data/%s:%d', [Files[F], L + 1]));
-    end;
+    En.LoadFromFile(IncludeTrailingPathDelimiter(GameDir) + 'lang'
+                    + PathDelim + 'en.po');
+    N := 0;
+    SetLength(Result, En.Count);
+    for I := 0 to En.Count - 1 do
+      if En.Entries[I].Str <> '' then
+      begin
+        Result[N] := Default(TPoEntry);
+        Result[N].Context := En.Entries[I].Context;
+        Result[N].Id := En.Entries[I].Str;
+        Result[N].Comment := En.Entries[I].Comment;
+        Inc(N);
+      end;
+    SetLength(Result, N);
   finally
-    Lines.Free;
-    Files.Free;
+    En.Free;
   end;
 end;
 
@@ -141,6 +78,9 @@ begin
     Out.Add('# the English has them; add \k wherever the text needs more boxes.');
     Out.Add('# A box ending in \w holds two lines - the prompt takes the third.');
     Out.Add('#');
+    Out.Add('# {JUMP}, {FIRE} and {PAUSE} are replaced by the key the player has');
+    Out.Add('# bound to that action - "Z", "R CTRL" - when the line is shown.');
+    Out.Add('#');
     Out.Add('# An empty msgstr shows the English. To choose the language, set');
     Out.Add('# lang=<code> under [language] in system.ini. If the default font');
     Out.Add('# lacks your script, name one in assets/fonts/ below. The');
@@ -161,10 +101,7 @@ begin
       Out.Add('');
       Notes.Text := E[I].Comment;
       for K := 0 to Notes.Count - 1 do
-        if Copy(Notes[K], 1, 1) = ':' then
-          Out.Add('#: ' + Copy(Notes[K], 2, MaxInt))
-        else
-          Out.Add('#. ' + Notes[K]);
+        Out.Add('#. ' + Notes[K]);
       Out.Add(PoQuote('msgctxt', E[I].Context));
       Out.Add(PoQuote('msgid', E[I].Id));
       Out.Add('msgstr ""');

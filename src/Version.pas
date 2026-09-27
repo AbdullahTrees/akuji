@@ -16,7 +16,7 @@ interface
 
 const
   APP_NAME = 'Akuji the Demon';
-  APP_VERSION = '2.0.6';
+  APP_VERSION = '2.0.7';
 
 implementation
 

@@ -624,17 +624,19 @@ the box.
 
 **What this does instead.** One binary, one data folder, a language setting.
 
-* Text is UTF-8 throughout. English is ASCII, so its data did not change.
-* A translation is a gettext PO file, `assets/lang/<code>.po`, chosen with
-  `lang=<code>` under `[language]` in system.ini. Each entry is keyed by where
-  the game uses it (`tk006:1` is line 1 of `data/tk006.dat`), carries the
-  English beside it, and falls back to English when empty. `assets/lang/akuji.pot`,
-  the template, is written by the game itself (`akuji --write-pot`), so it
-  cannot drift from what is looked up.
-* `en.po` is English as a translation like any other, identical to the
-  built-in English it starts from - the English release's dialogue files and
-  the strings in the code, which stay the template's source and the fallback.
-  Editing it rewords the English without touching either.
+* Text is UTF-8 throughout.
+* All of it lives in gettext PO files, `assets/lang/<code>.po`; none is
+  compiled in, and the English release's `data/tk*.dat` are gone - their
+  text is in `en.po`. Each entry is keyed by where the game uses it
+  (`tk006:1` is dialogue line 1 of stage 6, the number stage 6's event script
+  names) and carries the English beside it.
+* `en.po` is the English and the base, always loaded; the language chosen
+  with `lang=<code>` under `[language]` in system.ini is laid over it, so an
+  entry a translation lacks shows in English, and one neither has shows
+  nothing and is logged. With neither file the game shows a message and does
+  not start - the one sentence it has that is not in a language file.
+  `assets/lang/akuji.pot`, the template, is written by the game from `en.po`
+  (`akuji --write-pot`).
 * `ja.po` is the Japanese release's own text, converted from Shift-JIS: all 65
   dialogue files and every visible string in its exe (narration, power-up names,
   the Yes/No prompt, the power-up line, the title).
@@ -648,9 +650,10 @@ full-width Shift-JIS character or two half-width ones - and saw "\n" only as an
 aligned pair; the English data was padded so its escapes stay aligned. In
 UTF-8 bytes say nothing about width, so the rule is now stated in characters:
 a wide character is one unit, narrow characters pair up, "\n" is a unit
-wherever it falls. Over every English page this gives exactly the old units,
-and the Japanese data has no misaligned escape, so shipped text reveals as it
-did. What changes is only what a translator may write: no padding needed. The
+wherever it falls. Over every page of the English release's data/tk*.dat
+this gave exactly the old units - checked by --selftest-lang against the
+two-byte rule, 286 pages, before those files were retired - and the Japanese
+data has no misaligned escape, so shipped text reveals as it did. What changes is only what a translator may write: no padding needed. The
 panel line is centred by display columns, which is what the byte count
 measured.
 
@@ -664,18 +667,17 @@ prompt already carries.
 *The menus and results stay English.* They are drawn from a bitmap font that
 has only ASCII, and are not in the template yet.
 
-**How it is held.** `--selftest-lang`: the unit rule against the two-byte rule
-on all 286 English pages (0 may differ); the PO reader against a sample with
+**How it is held.** `--selftest-lang`: the unit rule by hand; the PO reader against a sample with
 continuation lines, escapes and fuzzy entries; the template written, read back
 and compared with what is committed; and for each language file - no context
-the game never looks up, how many entries equal the built-in English (all of
-`en.po`'s, so choosing English changes nothing), every dialogue code that steers the game kept (the
+`en.po` lacks, `en.po` carrying every non-dialogue entry the game draws, no
+brace but a key placeholder (DIV-028), every dialogue code that steers the game kept (the
 terminator, and `\w` present exactly when the English has it), every character
 in its font, every page inside the box - three lines, two where the Yes/No
 prompt takes the third, and a translation may add boxes with `\k` - and every
-line within its width (Japanese's widest is 180 of 204
-pixels), the Yes/No words clear of the hand. The English checksums in
-`--selftest-render` are unchanged.
+line within its width with the default keys named (Japanese's widest is 180
+of 204 pixels), the Yes/No words clear of the hand. `--selftest-script`
+requires text in `en.po` for every dialogue line an event script names.
 
 **Choosing it in the game.** The options screen has a LANGUAGE row, between
 MUSIC VOLUME and GALLERY. Left and right step through the files in `lang/`,
@@ -739,6 +741,32 @@ own number with SND_OK, EXIT binds nothing and returns to CONTROLS.
 **Sites.** `OptionsScroll`, `OptionRowY`, `ControlRowY`, `ControlsConfirm`
 and the TSM_CONTROLS branches in `src/screens/Title.pas`; `TitleKeyHeld` and
 the pause check in `src/screens/GmMain.pas`.
+
+## DIV-028 - the signs name the keys the player bound
+
+**What the original does.** The signs' advice is fixed text: "repeatedly
+press the jump button", "Hold down the fire button", ジャンプボタン連打,
+ファイアボタンを押し続けて. The original could not rebind those keys, so the
+text could not be wrong.
+
+**What this does instead.** With the keys rebindable (DIV-020), a line may
+carry `{JUMP}`, `{FIRE}` or `{PAUSE}`, replaced when the message opens by the
+key bound to that action, in the short form the CONTROLS page shows - `Z`,
+`R CTRL`. The signs that name a button now read "the {JUMP} key" and
+「{JUMP}キー」: seven entries in `en.po`, twelve in `ja.po`. Directions cannot be
+rebound, and their mentions - the arrow keys, UP, DOWN, 【方向キー】 - are
+unchanged. The name is looked up as the message opens, so a key rebound a
+moment ago is the one named.
+
+**How it is held.** `--selftest-lang` rejects any brace in a translation that
+is not one of the three, and measures every dialogue line with the default
+keys named and reports it with a seven-glyph name (Japanese's widest becomes
+186 of 204 pixels; English's stays 200).
+
+**Sites.** `ExpandKeys` and `KEY_PLACEHOLDERS` in `src/Translation.pas`;
+`TDialogueBox` opening a message in `src/screens/Dialogue.pas`;
+`PlaceholderKeyName` in `src/screens/GmMain.pas`; `ShortKeyName` in
+`src/screens/Title.pas`.
 
 ---
 

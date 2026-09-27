@@ -36,28 +36,9 @@ const
   OPENING_TEXT_INDEX: array[0..OPENING_SLIDES - 1] of Integer =
     (0, 2, 4, 6, 8, 10, 12, 14, 16, 18);
 
-  { Trailing spaces are significant to the rendered line width. }
-  OPENING_LINES: array[0..19] of string = (
-    'A demon named "Akuji" once  ',
-    'terrorized this land. ',
-    'Akuji''s mischief brought  ',
-    'misfortune upon the people. ',
-    'One day, a hero came to the   ',
-    'kingdom to slay Akuji.',
-    'After an amazing battle, the  ',
-    'hero was victorious.          ',
-    'The hero was praised and wed',
-    'the princess to become the king.',
-    'But Akuji''s powers were only    ',
-    'sealed in nine stones.',
-    'The stones were hidden in a ',
-    'deep labyrinth.   ',
-    '    And now...      ',
-    '',
-    'Akuji is recovering them',
-    'to seek revenge on the hero...',
-    'In this underground labyrinth,',
-    'the nine stones lie sealed.     ');
+  { The narration's lines, two to a slide, are "opening:0" to "opening:19"
+    in the language files. }
+  OPENING_LINE_COUNT = 20;
 
   FRAMES_PER_SECOND = 60;
   OPENING_DONE = 999;       { the timer's sentinel }
@@ -122,14 +103,14 @@ type
   slide. }
 function OpeningPictureFor(ASlide: Integer): Integer;
 
-{ OPENING_LINES[I], or the chosen language's "opening:I". }
+{ Narration line I, from the language files. }
 function OpeningLine(I: Integer): string;
 
 implementation
 
 function OpeningLine(I: Integer): string;
 begin
-  Result := Tr(Format('opening:%d', [I]), OPENING_LINES[I]);
+  Result := Tr(Format('opening:%d', [I]));
 end;
 
 function OpeningPictureFor(ASlide: Integer): Integer;
@@ -228,7 +209,7 @@ begin
   Game_DrawTextOutlined(OPENING_TEXT_X, OPENING_LINE1_Y,
                         OpeningLine(TextIndex),
                         OPENING_OUTLINE, OPENING_FILL, OUTLINED_FONT_SIZE, C);
-  if TextIndex + 1 <= High(OPENING_LINES) then
+  if TextIndex + 1 < OPENING_LINE_COUNT then
     Game_DrawTextOutlined(OPENING_TEXT_X, OPENING_LINE2_Y,
                           OpeningLine(TextIndex + 1),
                           OPENING_OUTLINE, OPENING_FILL, OUTLINED_FONT_SIZE, C);

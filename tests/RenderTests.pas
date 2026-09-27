@@ -208,7 +208,7 @@ var
   Scenes: array[0..4] of TScene;
   Expected: array[0..4] of LongWord;
   Prev, Cur: TPixels;
-  I, Tileset, MapId, PromptW, PromptNeed: Integer;
+  I, Tileset, MapId: Integer;
   KeySurf: PSDL_Surface;
   KeyTarget: TSDLRenderTarget;
   KeyRef: TPixels;
@@ -395,49 +395,9 @@ begin
       Inc(Result);
     end;
 
-    { THE SAVE PROMPT HAS TO CLEAR THE HAND.
-
-      The prompt is one string drawn at x=112, with the hand cursor at a FIXED
-      x=148 and 16 pixels wide, so the word "No" has to begin at 164 or later.
-      That makes everything before it at least 52 pixels.
-
-      The original leaves seven spaces there, which at its own font is 45, so
-      the hand covers the N and the player reads "lo". MB_PROMPT_TEXT carries
-      three more - a declared divergence, see notes/divergences.md - and this
-      is what keeps it correct: change the font, the strike or the string and
-      the check says so.
-
-      Measured through the renderer rather than by counting characters, because
-      what matters is the rendered advance and a space is not a fixed width. }
-    PromptW := OutlinedTextWidth(Copy(MB_PROMPT_TEXT, 1,
-                                      Pos('No', MB_PROMPT_TEXT) - 1),
-                                 OUTLINED_FONT_FACE);
-    PromptNeed := (MB_HAND_ICON_X + MB_HAND_ICON_STEP + MB_ICON_SIZE)
-                  - MB_PROMPT_TEXT_X;
-    Log.Add(Format('save prompt: text before "No" is %d px, clearing the hand '
-      + 'needs %d - a gap of %d', [PromptW, PromptNeed, PromptW - PromptNeed]));
-    if PromptW < PromptNeed then
-    begin
-      Log.Add(Format('FAILED: the hand cursor covers the word No by %d px',
-        [PromptNeed - PromptW]));
-      Inc(Result);
-    end;
-
-    { And the cursor must not touch "Yes" either. MB_HAND_ICON_X +
-      MB_ICON_SIZE is MB_PROMPT_TEXT_X, so the icon cell finishes exactly
-      where the text begins, and the hand reaches the edge of its cell - it
-      points right, and its widest rows fill all 16 columns on one animation
-      frame and 14 of them on the other. Whatever precedes "Yes" in the
-      string is the only gap there is. }
-    PromptW := OutlinedTextWidth(Copy(MB_PROMPT_TEXT, 1,
-                                      Pos('Yes', MB_PROMPT_TEXT) - 1),
-                                 OUTLINED_FONT_FACE);
-    Log.Add(Format('save prompt: a gap of %d px before "Yes"', [PromptW]));
-    if (MB_HAND_ICON_X + MB_ICON_SIZE >= MB_PROMPT_TEXT_X) and (PromptW < 1) then
-    begin
-      Log.Add('FAILED: the hand cursor touches the word Yes');
-      Inc(Result);
-    end;
+    { The save prompt clearing the hand cursor is checked per language, en.po
+      included, by --selftest-lang: the prompt is text from a language file
+      now, not a string in the code. }
 
     { An optional picture of what was just measured. A checksum says two
       renderers disagree; the image says how, which during the SDL rewrite is

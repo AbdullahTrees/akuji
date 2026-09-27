@@ -95,8 +95,8 @@ absent. Put a copy beside the game data to enable them.
 
 ## Languages
 
-English and Japanese are built in. Choose with LANGUAGE on the options screen,
-or in `assets/system.ini`:
+English and Japanese ship with the game. Choose with LANGUAGE on the options
+screen, or in `assets/system.ini`:
 
 ```ini
 [language]
@@ -107,10 +107,11 @@ Japanese is the original Japanese release's own text, in a free pixel font
 that keeps kanji legible at the game's 320x240. The menus and the results
 screen are still English - they are drawn from an ASCII bitmap font.
 
-English is a translation file too, `assets/lang/en.po`. It starts identical to
-the English built into the game (the English release's dialogue files and the
-strings in the code), so editing it rewords the English without touching
-either. Delete it and the built-in English shows, unchanged.
+Every word the game draws in its outlined font comes from these files and
+nowhere else - no text is compiled in. `assets/lang/en.po` is the English and
+the base: it is always loaded, and the chosen language is laid over it, so
+anything a translation leaves out shows in English. With neither `en.po` nor
+the chosen file the game says so and will not start.
 
 ### Translating
 
@@ -120,8 +121,8 @@ Translations are gettext PO files in `assets/lang/`, so any PO editor works -
 1. Copy `assets/lang/akuji.pot` to `assets/lang/<code>.po` (`fr.po`, `de.po`,
    ...) and set `"Language: <code>\n"` in its header.
 2. Fill in the `msgstr` lines. Each entry shows the English, and a comment
-   saying where it is used. Anything left empty shows the English, so a
-   partial translation is playable.
+   saying where it is used. Anything left empty shows `en.po`'s English, so
+   a partial translation is playable.
 3. Set `lang=<code>` and play. `make test` checks the file: every dialogue
    line inside its box, every character in the font, the page codes kept.
 
@@ -132,13 +133,18 @@ use as many boxes as the text needs: a question too long for one box becomes
 `...\kWould you like to save? \w`. A box that ends in `\w` holds two lines,
 because the prompt takes the third.
 
+`{JUMP}`, `{FIRE}` and `{PAUSE}` are replaced, when the line is shown, by the
+key the player has bound to that action - `Z`, `R CTRL` - so a sign never
+names the wrong key: `Hold down the {FIRE} key`, `{FIRE}キーを押し続けて`.
+Directions cannot be rebound and are written out.
+
 The default font covers ASCII. A script it lacks needs a font: put a TTF in
 `assets/fonts/` and name it in the header, as `ja.po` does -
 `X-Akuji-Font: PixelMplus12-Regular.ttf` and `X-Akuji-Font-Size: 12`.
 PixelMplus12 also covers Latin-1, so most European languages can simply use it.
 
-When the English changes, `bin/akuji --write-pot assets` rewrites the
-template and `msgmerge -U <code>.po akuji.pot` brings a translation up to date,
+When `en.po` changes, `bin/akuji --write-pot assets` rewrites the template
+from it and `msgmerge -U <code>.po akuji.pot` brings a translation up to date,
 marking changed entries fuzzy.
 
 ## Layout

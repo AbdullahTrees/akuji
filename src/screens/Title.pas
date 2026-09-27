@@ -302,6 +302,10 @@ procedure SetPauseSound(E: TSoundEvent);
   ones - and cut at seven if still too long. }
 function MenuKeyName(const SdlName: string): string;
 
+{ The same name without the KEY after a single letter - "Z", "R CTRL" - for
+  a sign's key placeholders (Translation.KEY_PLACEHOLDERS). }
+function ShortKeyName(const SdlName: string): string;
+
 { The first row to show so that Cursor is on screen, given where the view
   was: it moves only as far as it must, so the cursor walks to the edge of
   the view before the list moves under it. Rows is the scrolling rows' count
@@ -323,6 +327,13 @@ const
     ('`', 'GRAVE'));
 
 function MenuKeyName(const SdlName: string): string;
+begin
+  Result := ShortKeyName(SdlName);
+  if Length(Result) = 1 then
+    Result := Result + KEY_SUFFIX;
+end;
+
+function ShortKeyName(const SdlName: string): string;
 var
   Prefix, Rest: string;
   I: Integer;
@@ -334,7 +345,7 @@ begin
   begin
     if Rest = '`' then
       Exit('GRAVE');
-    Exit(Rest + KEY_SUFFIX);
+    Exit(Rest);
   end;
   Prefix := '';
   if Copy(Rest, 1, 5) = 'LEFT ' then

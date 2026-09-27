@@ -21,11 +21,6 @@ uses
   Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender,
   Translation;
 
-const
-  { What GmMain.lfm used to carry as the form's caption. A translation
-    replaces it through "window.title". }
-  WINDOW_CAPTION = 'Akuji the Demon';
-
 type
   TFrm_main = class;
 
@@ -186,6 +181,7 @@ type
     function  TitleBindKey(Row: Integer): Boolean;
     procedure TitleLanguage(const Code: string);
     function  TitleKeyHeld: Boolean;
+    function  PlaceholderKeyName(Index: Integer): string;
     procedure TitleResetState;
     procedure TitleResetOpening;
     procedure TitleGallery(Slot: Integer);
@@ -281,22 +277,28 @@ begin
         Trim(Ini.ReadString('music', 'soundfont', SOUNDFONT_GM));
       KbgmPlayer1.Effects :=
         SameText(Trim(Ini.ReadString('music', 'effects', 'off')), 'on');
-      { Ours too: the language, a PO file in lang/. English needs none. }
+      { Ours too: the language, a PO file in lang/ over lang/en.po. }
       Language := Trim(Ini.ReadString('language', 'lang', 'en'));
     finally
       Ini.Free;
     end;
-    if LoadLanguage(DataDir + 'lang', Language) then
-      LogFmt(lsData, 'language %s (lang%s%s.po)',
-        [LanguageCode, PathDelim, LanguageCode])
-    else
+    { Every word the game shows is in those files; without them there is
+      nothing to show, so it stops here - in English, the one message that
+      cannot come from a language file. }
+    if not LoadLanguage(DataDir + 'lang', Language) then
     begin
-      if not SameText(Language, 'en') then
-        LogFmt(lsData, 'no lang%s%s.po - English', [PathDelim, Language]);
+      SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, 'Akuji the Demon',
+        PAnsiChar(AnsiString('No language files: assets/lang/ needs en.po '
+          + 'or the language chosen in system.ini.')), FWindow);
+      raise Exception.Create('no language files in ' + DataDir + 'lang');
     end;
+    if not SameText(LanguageCode, Language) then
+      LogFmt(lsData, 'no lang%s%s.po - %s', [PathDelim, Language, LanguageCode])
+    else
+      LogFmt(lsData, 'language %s', [LanguageCode]);
+    SetKeyNameProvider(PlaceholderKeyName);
     if FWindow <> nil then
-      SDL_SetWindowTitle(FWindow, PAnsiChar(AnsiString(
-        Tr('window.title', WINDOW_CAPTION))));
+      SDL_SetWindowTitle(FWindow, PAnsiChar(AnsiString(Tr('window.title'))));
     { Zeroed after the read, so the gallery cursor never persists. }
     Settings.GallerySel := 0;
     SettingsToGlobals;
@@ -1068,6 +1070,14 @@ begin
   Result := Joy.KeyNameOf(Joy.Bindings[AKUJI_MAPPED[Row]].Primary);
 end;
 
+{ A line's key placeholders (Translation.KEY_PLACEHOLDERS): the key bound
+  to that action, by the short name the CONTROLS page shows. The
+  placeholders are in the same order as the page's rows. }
+function TFrm_main.PlaceholderKeyName(Index: Integer): string;
+begin
+  Result := ShortKeyName(TitleKeyName(Index));
+end;
+
 function TFrm_main.TitleBindKey(Row: Integer): Boolean;
 var
   Key: TSDL_KeyCode;
@@ -1093,13 +1103,12 @@ var
 begin
   if FDataDir = '' then
     Exit;
-  if LoadLanguage(FDataDir + 'lang', Code) then
-    LogFmt(lsSettings, 'language %s', [LanguageCode])
-  else
-    LogFmt(lsSettings, 'language %s: no lang file - English', [Code]);
+  { The row lists only files that exist, and en.po stays the base, so this
+    cannot leave the game with no text. }
+  LoadLanguage(FDataDir + 'lang', Code);
+  LogFmt(lsSettings, 'language %s', [LanguageCode]);
   if FWindow <> nil then
-    SDL_SetWindowTitle(FWindow, PAnsiChar(AnsiString(
-      Tr('window.title', WINDOW_CAPTION))));
+    SDL_SetWindowTitle(FWindow, PAnsiChar(AnsiString(Tr('window.title'))));
   Ini := TIniFile.Create(FDataDir + 'system.ini');
   try
     Ini.WriteString('language', 'lang', Code);
@@ -1492,7 +1501,8 @@ begin
     [SdlVersion.major, SdlVersion.minor, SdlVersion.patch,
      SDL_GetCurrentVideoDriver]);
 
-  FWindow := SDL_CreateWindow(WINDOW_CAPTION,
+  { Titled once the language files are read, in DDDD1Init. }
+  FWindow := SDL_CreateWindow('',
                               SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                               SCREEN_W, SCREEN_H, SDL_WINDOW_SHOWN);
   if FWindow = nil then
