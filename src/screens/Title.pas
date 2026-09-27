@@ -8,7 +8,7 @@ interface
 
 uses
   Classes, SysUtils, Types, GameColors, GameState, GameFont, SoundTable,
-  RenderTarget;
+  RenderTarget, Translation;
 
 const
   { Title-screen sub-modes. }
@@ -64,9 +64,9 @@ const
 
     SCALING and MUSIC VOLUME take the two rows WAIT and SOFTWARE VSYNC had.
     Neither of those could do anything here - see notes/divergences.md,
-    DIV-018 and DIV-023. It is ten rows again, the original's count, so
-    GALLERY and EXIT are back where the original drew them. }
-  OPT_LABELS: array[0..9] of string = (
+    DIV-018 and DIV-023. LANGUAGE is ours too (DIV-026), and makes eleven,
+    which is more than fit - the list scrolls. }
+  OPT_LABELS: array[0..10] of string = (
     'GAME LEVEL',
     'FULL SCREEN',
     'JUMP  BUTTON ASSIGN',
@@ -75,6 +75,7 @@ const
     'SCALING',
     'SE VOLUME',
     'MUSIC VOLUME',
+    'LANGUAGE',
     'GALLERY',
     'EXIT');
 
@@ -112,7 +113,7 @@ const
 type
   { Option rows in cursor order. Rows 2..4 are the key bindings. }
   TOptionRow = (orLevel, orToggle1, orKey0, orKey1, orKey2,
-                orScale, orVolume, orMusic, orOmake, orExit);
+                orScale, orVolume, orMusic, orLanguage, orOmake, orExit);
 
 const
   { EXIT is always the last row. }
@@ -134,6 +135,9 @@ type
     what may be bound, and the trade when another action holds it, belong to
     the input component. }
   TBindKeyEvent = function(Row: Integer): Boolean of object;
+  { The LANGUAGE row chose this code; loading and remembering it are the
+    form's. }
+  TLanguageEvent = procedure(const Code: string) of object;
 
   TTitleScreen = class
   private
@@ -148,6 +152,9 @@ type
     FOnKeyName: TKeyNameEvent;
     FOnBindKey: TBindKeyEvent;
     FScroll: Integer;           { the first options row on screen }
+    FOnLanguage: TLanguageEvent;
+    FLanguages: TArray<TLanguageInfo>;
+    FLanguageIndex: Integer;
     procedure PlaySound(Index: Integer);
     procedure MenuConfirm;
     procedure OptionsConfirm;
@@ -194,6 +201,11 @@ type
     property OnKeyName: TKeyNameEvent read FOnKeyName write FOnKeyName;
     { Offered the held key while the cursor sits on one of those rows. }
     property OnBindKey: TBindKeyEvent read FOnBindKey write FOnBindKey;
+    { The languages LANGUAGE steps through, and which one is showing. }
+    procedure SetLanguages(const List: TArray<TLanguageInfo>;
+                           const Current: string);
+    property LanguageIndex: Integer read FLanguageIndex;
+    property OnLanguage: TLanguageEvent read FOnLanguage write FOnLanguage;
   end;
 
   { External operations used by the game-over screen. }
@@ -436,6 +448,18 @@ begin
   FScroll := 0;
 end;
 
+procedure TTitleScreen.SetLanguages(const List: TArray<TLanguageInfo>;
+                                    const Current: string);
+var
+  I: Integer;
+begin
+  FLanguages := List;
+  FLanguageIndex := 0;
+  for I := 0 to High(FLanguages) do
+    if SameText(FLanguages[I].Code, Current) then
+      FLanguageIndex := I;
+end;
+
 function TTitleScreen.OptionRowY(Row: Integer): Integer;
 begin
   if Row = OPT_ROW_EXIT then
@@ -549,6 +573,10 @@ begin
   Val(Ord(orScale), Format('%dX', [WindowScale]));
   Val(Ord(orVolume), Format('%3d%%', [Settings.Volume * 10]));
   Val(Ord(orMusic), Format('%3d%%', [MusicVolume * 10]));
+  if Length(FLanguages) > 0 then
+    Val(Ord(orLanguage), FLanguages[FLanguageIndex].MenuName)
+  else
+    Val(Ord(orLanguage), 'ENGLISH');
   if (Settings.GallerySel >= OMAKE_MIN) and (Settings.GallerySel <= OMAKE_MAX) then
   begin
     Val(Ord(orOmake), OMAKE_NAMES[Settings.GallerySel], 2);
@@ -617,6 +645,18 @@ begin
         if Assigned(FOnMusicVolume) then
           FOnMusicVolume;
       end;
+    orLanguage:
+      { Bounded and silent at the ends, like the rows around it, and applied
+        on the spot: the window title changes at once, and the next text
+        drawn in the outlined font is in the new language. }
+      if (FLanguageIndex + Delta >= 0) and
+         (FLanguageIndex + Delta <= High(FLanguages)) then
+      begin
+        PlaySound(SND_OK);
+        Inc(FLanguageIndex, Delta);
+        if Assigned(FOnLanguage) then
+          FOnLanguage(FLanguages[FLanguageIndex].Code);
+      end;
     orOmake:
       if (Settings.GallerySel + Delta >= OMAKE_MIN) and
          (Settings.GallerySel + Delta <= OMAKE_MAX) then
@@ -678,9 +718,9 @@ begin
                                    OPT_VISIBLE_ROWS);
         end;
         if Confirm then
-          { Same again: rows 0..7 are silent on confirm, row 8 plays SND_OK
-            or SND_NG depending on whether that gallery slot is unlocked, and
-            row 9 plays SND_OK. }
+          { Same again: the value rows are silent on confirm, GALLERY plays
+            SND_OK or SND_NG depending on whether that slot is unlocked, and
+            EXIT plays SND_OK. }
           OptionsConfirm;
       end;
 

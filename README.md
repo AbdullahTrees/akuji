@@ -95,7 +95,8 @@ absent. Put a copy beside the game data to enable them.
 
 ## Languages
 
-English and Japanese are built in. Choose in `assets/system.ini`:
+English and Japanese are built in. Choose with LANGUAGE on the options screen,
+or in `assets/system.ini`:
 
 ```ini
 [language]

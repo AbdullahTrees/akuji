@@ -677,8 +677,15 @@ line within its width (Japanese's widest is 180 of 204
 pixels), the Yes/No words clear of the hand. The English checksums in
 `--selftest-render` are unchanged.
 
-**Still to come.** A LANGUAGE row in the options screen, which needs the menu
-font to draw the language's own name.
+**Choosing it in the game.** The options screen has a LANGUAGE row, between
+MUSIC VOLUME and GALLERY. Left and right step through the files in `lang/`,
+English first; the change applies at once and is written back to
+`[language]` in system.ini. The row shows each file's `X-Akuji-Menu-Name` -
+ENGLISH, JAPANESE - because the menu font has only capitals, digits and
+punctuation. With it the screen has eleven rows, two more than fit, so the
+list scrolls: the view follows the cursor, EXIT stays where the original drew
+it, and a red ^ or V marks rows above or below. `--selftest-input` drives the
+row and the scroll; `--selftest-lang` checks every menu name is drawable.
 
 **Sites.** `src/TextUnits.pas`, `src/Translation.pas`,
 `src/screens/LangTemplate.pas`, `tests/LangTests.pas`; the lookups in

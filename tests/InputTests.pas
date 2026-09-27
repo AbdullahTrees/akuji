@@ -24,7 +24,7 @@ function SelfTestInput(Log: TStrings): Integer;
 implementation
 
 uses
-  Math, SDL2, DDIDComponent, GameState, SoundTable, Title;
+  Math, SDL2, DDIDComponent, GameState, SoundTable, Title, Translation;
 
 type
   { One row of the table DDIDComponent had before bindings existed, recovered
@@ -85,7 +85,10 @@ type
     Sounds: Integer;
     LastSound: Integer;
     Accept: Boolean;
+    Language: string;
+    Languages: Integer;
     constructor Create;
+    procedure ChooseLanguage(const Code: string);
     function BindKey(Row: Integer): Boolean;
     function KeyName(Row: Integer): string;
     procedure Sound(Index: Integer);
@@ -108,6 +111,12 @@ end;
 function TFakeHost.KeyName(Row: Integer): string;
 begin
   Result := Format('R%d', [Row]);
+end;
+
+procedure TFakeHost.ChooseLanguage(const Code: string);
+begin
+  Inc(Languages);
+  Language := Code;
 end;
 
 procedure TFakeHost.Sound(Index: Integer);
@@ -199,6 +208,7 @@ var
   Frames: Integer;
   Host: TFakeHost;
   Rows, Scroll, Cursor, Bad0: Integer;
+  Langs: TArray<TLanguageInfo>;
   Screen: TTitleScreen;
   Pads, Found: Integer;
   B: TAkujiButton;
@@ -504,6 +514,32 @@ begin
     Screen.Update(0, 0, False);
     Want(Host.Offers = 1, 'a refused row was not offered the key');
     Want(Host.Sounds = 0, 'a refused bind still played a sound');
+
+    { LANGUAGE: left and right step through what is installed, sounding
+      and telling the form, and are silent and still at either end. }
+    SetLength(Langs, 2);
+    Langs[0].Code := 'en';  Langs[0].MenuName := 'ENGLISH';
+    Langs[1].Code := 'ja';  Langs[1].MenuName := 'JAPANESE';
+    Screen.OnLanguage := Host.ChooseLanguage;
+    Screen.SetLanguages(Langs, 'en');
+    MenuIndex := Ord(orLanguage);
+    Host.Languages := 0;
+    Host.Sounds := 0;
+    Screen.Update(0, -1, False);
+    Want((Host.Languages = 0) and (Host.Sounds = 0),
+      'LANGUAGE moved or sounded past its first entry');
+    Screen.Update(0, 1, False);
+    Want((Host.Languages = 1) and (Host.Language = 'ja')
+         and (Screen.LanguageIndex = 1) and (Host.LastSound = SND_OK),
+      'LANGUAGE right did not choose ja with SND_OK');
+    Screen.Update(0, 1, False);
+    Want(Host.Languages = 1, 'LANGUAGE moved past its last entry');
+    Screen.Update(0, -1, False);
+    Want((Host.Languages = 2) and (Host.Language = 'en'),
+      'LANGUAGE left did not come back to en');
+    Screen.SetLanguages(Langs, 'JA');
+    Want(Screen.LanguageIndex = 1, 'SetLanguages did not find the current one');
+    Log.Add('  LANGUAGE steps en <-> ja, silent and still at the ends');
 
     { Where the rows are drawn. Nothing scrolled, a row sits where the
       original's (index*2 + 7) * 8 put it, and EXIT where row 9 was. }

@@ -572,6 +572,30 @@ var
     end;
   end;
 
+  { --- 6. what the options screen lists ------------------------------- }
+  procedure CheckMenu;
+  var
+    List: TArray<TLanguageInfo>;
+    I: Integer;
+    Names: string;
+  begin
+    List := ListLanguages(GameDirArg + 'lang');
+    Names := '';
+    for I := 0 to High(List) do
+    begin
+      Names := Names + ' ' + List[I].Code + '=' + List[I].MenuName;
+      Want(MenuFontCanDraw(List[I].MenuName),
+        List[I].Code + '''s menu name is not drawable by the menu font');
+      { The value column starts at x=232; eleven glyphs reach the edge. }
+      Want(Length(List[I].MenuName) <= 11,
+        List[I].Code + '''s menu name runs off the screen');
+    end;
+    Log.Add('');
+    Log.Add('options screen lists:' + Names);
+    Want((Length(List) > 0) and (List[0].Code = 'en'),
+      'English is not listed first');
+  end;
+
 var
   Template: TPoFile;
   Found: TSearchRec;
@@ -596,6 +620,7 @@ begin
   finally
     Template.Free;
   end;
+  CheckMenu;
 
   Log.Add('');
   if Bad = 0 then

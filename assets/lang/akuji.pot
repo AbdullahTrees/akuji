@@ -12,7 +12,9 @@
 #
 # An empty msgstr shows the English. To choose the language, set
 # lang=<code> under [language] in system.ini. If the default font
-# lacks your script, name one in assets/fonts/ below.
+# lacks your script, name one in assets/fonts/ below. The
+# options screen shows X-Akuji-Menu-Name, in capitals A-Z: its
+# font has nothing else.
 msgid ""
 msgstr ""
 "Project-Id-Version: Akuji the Demon 2.0.3\n"
@@ -22,6 +24,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Akuji-Font: \n"
 "X-Akuji-Font-Size: \n"
+"X-Akuji-Menu-Name: \n"
 
 #. The window's title bar.
 msgctxt "window.title"

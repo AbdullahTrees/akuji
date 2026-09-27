@@ -38,6 +38,7 @@
 
     X-Akuji-Font: PixelMplus12-Regular.ttf    a file in assets/fonts/
     X-Akuji-Font-Size: 12                      in pixels
+    X-Akuji-Menu-Name: JAPANESE                what the options screen shows
 
   A language whose script the default font lacks names its own. }
 
@@ -79,6 +80,20 @@ type
     property Count: Integer read GetCount;
     property Entries[I: Integer]: TPoEntry read GetEntry;
   end;
+
+type
+  TLanguageInfo = record
+    Code: string;       { the file's name: ja for lang/ja.po }
+    MenuName: string;   { in capitals the menu font can draw }
+  end;
+
+{ The languages in lang/, English first and the rest by code. The menu name
+  is the file's X-Akuji-Menu-Name if the options screen's font can draw it -
+  capitals, digits and punctuation - and the code in capitals otherwise. }
+function ListLanguages(const LangDir: string): TArray<TLanguageInfo>;
+
+{ Whether the options screen's bitmap font can draw S: $20..$5F only. }
+function MenuFontCanDraw(const S: string): Boolean;
 
 { Loads assets/lang/<Code>.po. '' or a missing file leave the built-in
   English in place, which is not an error - the result says whether a file
@@ -337,6 +352,56 @@ begin
 end;
 
 { --- the chosen language -------------------------------------------------- }
+
+function MenuFontCanDraw(const S: string): Boolean;
+var
+  I: Integer;
+begin
+  Result := S <> '';
+  for I := 1 to Length(S) do
+    if not (S[I] in [#$20..#$5F]) then
+      Exit(False);
+end;
+
+function ListLanguages(const LangDir: string): TArray<TLanguageInfo>;
+var
+  Found: TSearchRec;
+  Codes: TStringList;
+  Po: TPoFile;
+  Dir: string;
+  I: Integer;
+begin
+  SetLength(Result, 0);
+  Dir := IncludeTrailingPathDelimiter(LangDir);
+  Codes := TStringList.Create;
+  Po := TPoFile.Create;
+  try
+    if FindFirst(Dir + '*.po', faAnyFile, Found) = 0 then
+    try
+      repeat
+        Codes.Add(LowerCase(ChangeFileExt(Found.Name, '')));
+      until FindNext(Found) <> 0;
+    finally
+      FindClose(Found);
+    end;
+    Codes.Sort;
+    I := Codes.IndexOf('en');
+    if I > 0 then
+      Codes.Move(I, 0);
+    SetLength(Result, Codes.Count);
+    for I := 0 to Codes.Count - 1 do
+    begin
+      Result[I].Code := Codes[I];
+      Po.LoadFromFile(Dir + Codes[I] + '.po');
+      Result[I].MenuName := UpperCase(Trim(Po.Header('X-Akuji-Menu-Name')));
+      if not MenuFontCanDraw(Result[I].MenuName) then
+        Result[I].MenuName := UpperCase(Codes[I]);
+    end;
+  finally
+    Po.Free;
+    Codes.Free;
+  end;
+end;
 
 function LoadLanguage(const LangDir, Code: string): Boolean;
 var

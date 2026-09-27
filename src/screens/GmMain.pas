@@ -184,6 +184,7 @@ type
     procedure TitleMusicVolume;
     function  TitleKeyName(Row: Integer): string;
     function  TitleBindKey(Row: Integer): Boolean;
+    procedure TitleLanguage(const Code: string);
     procedure TitleResetState;
     procedure TitleResetOpening;
     procedure TitleGallery(Slot: Integer);
@@ -404,6 +405,9 @@ begin
   FTitleScreen.OnFullScreen := ApplyFullScreen;
   FTitleScreen.OnKeyName := TitleKeyName;
   FTitleScreen.OnBindKey := TitleBindKey;
+  FTitleScreen.OnLanguage := TitleLanguage;
+  if FDataDir <> '' then
+    FTitleScreen.SetLanguages(ListLanguages(FDataDir + 'lang'), LanguageCode);
   FSession.OnStartFade := StageBeginFade;
   FSession.OnResetHost := SessionResetHost;
   { Raise the multimedia timer period before the first frame: without it
@@ -1067,6 +1071,30 @@ begin
   { Which keys may be bound, and what happens to whatever held one, is the
     component's business - see TDDIDEX.BindAction. }
   Result := Joy.AnyKeyDown(Key) and Joy.BindAction(AKUJI_MAPPED[Row], Key);
+end;
+
+{ The LANGUAGE row. Loaded now, and written back to system.ini - where it is
+  read at startup and where a player may set it by hand - so it holds for
+  the next run. }
+procedure TFrm_main.TitleLanguage(const Code: string);
+var
+  Ini: TIniFile;
+begin
+  if FDataDir = '' then
+    Exit;
+  if LoadLanguage(FDataDir + 'lang', Code) then
+    LogFmt(lsSettings, 'language %s', [LanguageCode])
+  else
+    LogFmt(lsSettings, 'language %s: no lang file - English', [Code]);
+  if FWindow <> nil then
+    SDL_SetWindowTitle(FWindow, PAnsiChar(AnsiString(
+      Tr('window.title', WINDOW_CAPTION))));
+  Ini := TIniFile.Create(FDataDir + 'system.ini');
+  try
+    Ini.WriteString('language', 'lang', Code);
+  finally
+    Ini.Free;
+  end;
 end;
 
 procedure TFrm_main.TitleResetState;

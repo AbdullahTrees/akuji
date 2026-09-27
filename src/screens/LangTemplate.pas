@@ -143,7 +143,9 @@ begin
     Out.Add('#');
     Out.Add('# An empty msgstr shows the English. To choose the language, set');
     Out.Add('# lang=<code> under [language] in system.ini. If the default font');
-    Out.Add('# lacks your script, name one in assets/fonts/ below.');
+    Out.Add('# lacks your script, name one in assets/fonts/ below. The');
+    Out.Add('# options screen shows X-Akuji-Menu-Name, in capitals A-Z: its');
+    Out.Add('# font has nothing else.');
     Out.Add('msgid ""');
     Out.Add('msgstr ""');
     Out.Add('"Project-Id-Version: ' + APP_NAME + ' ' + APP_VERSION + '\n"');
@@ -153,6 +155,7 @@ begin
     Out.Add('"Content-Transfer-Encoding: 8bit\n"');
     Out.Add('"X-Akuji-Font: \n"');
     Out.Add('"X-Akuji-Font-Size: \n"');
+    Out.Add('"X-Akuji-Menu-Name: \n"');
     for I := 0 to High(E) do
     begin
       Out.Add('');
