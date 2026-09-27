@@ -19,7 +19,7 @@ uses
   DDDDComponent, DDIDComponent, DDSDComponent, KbgmPlayer, GameState,
   IniFiles, QdaArchive, Title, Ending, Opening, GameFont, Surfaces, Sprites, Stages, TileMaps, PlayerState,
   Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender,
-  Translation;
+  Translation, KeyIcons;
 
 type
   TFrm_main = class;
@@ -1078,10 +1078,18 @@ const
     yet; naming them the same way means the signs need nothing when they can. }
   ACTIONS: array[0..6] of TAkujiButton =
     (abJump, abFire, abPause, abUp, abDown, abLeft, abRight);
+var
+  Key: TSDL_KeyCode;
 begin
   if (Index < Low(ACTIONS)) or (Index > High(ACTIONS)) then
     Exit('');
-  Result := ShortKeyName(Joy.KeyNameOf(Joy.Bindings[ACTIONS[Index]].Primary));
+  Key := Joy.Bindings[ACTIONS[Index]].Primary;
+  { A keycap when the sheet has one; the name, as the CONTROLS page shows
+    it, when it does not. }
+  if KeyIconIndex(Key) >= 0 then
+    Result := KeyIconChar(KeyIconIndex(Key))
+  else
+    Result := ShortKeyName(Joy.KeyNameOf(Key));
 end;
 
 function TFrm_main.TitleBindKey(Row: Integer): Boolean;

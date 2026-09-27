@@ -21,7 +21,7 @@
 # FR, at most seven capitals: its font has nothing else.
 msgid ""
 msgstr ""
-"Project-Id-Version: Akuji the Demon 2.0.8\n"
+"Project-Id-Version: Akuji the Demon 2.0.9\n"
 "Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"

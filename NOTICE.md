@@ -85,6 +85,12 @@ LICENSE, which grants unlimited permission to use, copy and distribute it,
 modified or not; the licence travels beside it as
 `assets/fonts/PixelMplus-LICENSE.txt`. No open question here.
 
+`assets/fonts/input-prompts.bmp` draws the keycaps a sign names. It is
+Kenney's "Input Prompts Pixel" 1.0 (www.kenney.nl), CC0 - public domain -
+converted from its packed PNG to an 8-bit BMP with the transparent colour
+made magenta, and otherwise unchanged; the licence is beside it as
+`assets/fonts/input-prompts-LICENSE.txt`. No open question here either.
+
 ## The music
 
 The tracks in `midi/` are MIDI, which holds notes and no sound. The sound comes

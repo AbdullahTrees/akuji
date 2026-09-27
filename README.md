@@ -134,8 +134,9 @@ use as many boxes as the text needs: a question too long for one box becomes
 because the prompt takes the third.
 
 `{JUMP}`, `{FIRE}`, `{PAUSE}`, `{UP}`, `{DOWN}`, `{LEFT}` and `{RIGHT}` are
-replaced, when the line is shown, by the key bound to that action - `Z`,
-`R CTRL`, `LEFT` - so a sign never names the wrong key:
+replaced, when the line is shown, by the key bound to that action - drawn
+as a keycap icon, or as its name (`R CTRL`) for a key the keycap sheet has
+none for - so a sign never names the wrong key:
 `Hold down the {FIRE} key`, `{FIRE}キーを押し続けて`,
 `Press {LEFT} or {RIGHT} twice`. The directions cannot be rebound yet; the
 signs name them the same way so they need nothing when they can. Leave room:

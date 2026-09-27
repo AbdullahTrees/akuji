@@ -35,7 +35,8 @@ implementation
 
 uses
   SDL2, TextUnits, Translation, LangTemplate, Dialogue, TextRender,
-  RenderTarget, SDLTarget, GameFont, GameColors, PlayerState, Opening;
+  RenderTarget, SDLTarget, GameFont, GameColors, PlayerState, Opening,
+  KeyIcons;
 
 const
   { The box's text starts at BOX_TEXT_X; its inner border is one tile in
@@ -80,9 +81,10 @@ const
     'msgstr ""'#10;
 
 type
-  { The default bindings' names, and the longest a name can be, for the
+  { The default bindings' keycaps, and the longest a name can be, for the
     width checks: a line is measured as the player would first see it, and
-    reported as it would be with a seven-glyph key. }
+    reported as it would be with a seven-glyph key name - a key the keycap
+    sheet has no icon for. }
   TKeyNames = class
     Long: Boolean;
     function Name(Index: Integer): string;
@@ -90,13 +92,14 @@ type
 
 function TKeyNames.Name(Index: Integer): string;
 const
-  DEFAULTS: array[0..6] of string =
-    ('Z', 'X', 'C', 'UP', 'DOWN', 'LEFT', 'RIGHT');
+  { The default bindings, drawn as the game draws them: as keycaps. }
+  DEFAULTS: array[0..6] of TSDL_KeyCode =
+    (SDLK_z, SDLK_x, SDLK_c, SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT);
 begin
   if Long then
     Result := 'L SHIFT'
   else
-    Result := DEFAULTS[Index];
+    Result := KeyIconChar(KeyIconIndex(DEFAULTS[Index]));
 end;
 
 function GameDirArg: string;
@@ -616,6 +619,41 @@ var
     end;
   end;
 
+  { --- a keycap reaches the screen ------------------------------------ }
+  { The sheet is an 8-bit keyed BMP copied onto the text's ARGB sheet - the
+    kind of blit SDL 2.0.10 once turned into nothing for the glyphs. So the
+    Z keycap, alone and in a line, has to leave its pixels behind. }
+  procedure CheckKeycap;
+  var
+    Sheet: PSDL_Surface;
+    Pad, X, Y, Opaque: Integer;
+    P: PLongWord;
+    S: string;
+  begin
+    for S in [KeyIconChar(KeyIconIndex(SDLK_z)),
+              'Hold ' + KeyIconChar(KeyIconIndex(SDLK_z)) + ' down'] do
+    begin
+      Sheet := OutlinedTextSurface(S, clBlack, clWhite, OUTLINED_FONT_FACE, Pad);
+      Opaque := 0;
+      if Sheet <> nil then
+        for Y := 0 to Sheet^.h - 1 do
+        begin
+          P := PLongWord(PByte(Sheet^.pixels) + Y * Sheet^.pitch);
+          for X := 0 to Sheet^.w - 1 do
+          begin
+            if (P^ shr 24) <> 0 then
+              Inc(Opaque);
+            Inc(P);
+          end;
+        end;
+      Log.Add(Format('keycap: "%s" composes %d opaque pixels, pad %d',
+        [StringReplace(S, KeyIconChar(KeyIconIndex(SDLK_z)), '[Z]', []),
+         Opaque, Pad]));
+      { A keycap alone is 13x14 with a few clear corners. }
+      Want(Opaque >= 150, 'the Z keycap drew nothing, or almost nothing');
+    end;
+  end;
+
   { --- 6. what the options screen lists ------------------------------- }
   procedure CheckMenu;
   var
@@ -653,6 +691,7 @@ begin
   CheckReader;
   CheckTemplate(Template);
   CheckRequired(Template);
+  CheckKeycap;
   try
     if FindFirst(GameDirArg + 'lang' + PathDelim + '*.po', faAnyFile,
                  Found) = 0 then

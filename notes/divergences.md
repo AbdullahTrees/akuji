@@ -751,9 +751,19 @@ text could not be wrong.
 
 **What this does instead.** With the keys rebindable (DIV-020), a line may
 carry `{JUMP}`, `{FIRE}`, `{PAUSE}`, `{UP}`, `{DOWN}`, `{LEFT}` or `{RIGHT}`,
-replaced when the message opens by the key bound to that action, in the short
-form the CONTROLS page shows - `Z`, `R CTRL`, `LEFT`. The name is looked up as
-the message opens, so a key rebound a moment ago is the one named.
+replaced when the message opens by the key bound to that action. The key is
+looked up as the message opens, so a key rebound a moment ago is the one
+named.
+
+It is drawn as a keycap: Kenney's "Input Prompts Pixel" (CC0), light keys,
+13-14 pixels tall on the dialogue's 16-pixel line, inline with the text. 84
+keys have one - letters, digits, F1-F12, the arrows, punctuation, and the
+wide ESC, TAB, SHIFT, CTRL, ALT, HOME, PAGE and the like. A key without one
+(the keypad, media keys) is written by the short name the CONTROLS page
+shows, `R CTRL`. The keycap travels in the line as one private-use
+character, so it reveals as one step and the box width counts its pixels;
+a line with no keycap is drawn exactly as before. The same sheet holds the
+Xbox, PlayStation, Switch and Steam Deck buttons for when a pad is named.
 
 The signs that name a button now read "the {JUMP} key" and 「{JUMP}キー」, and
 the ones that name a direction use the direction's placeholder: "the arrow
@@ -768,11 +778,13 @@ carry a placeholder.
 
 **How it is held.** `--selftest-lang` rejects any brace in a translation that
 is not one of the three, and measures every dialogue line with the default
-keys named, and names every line that would outgrow its box with a
-seven-glyph key name - none today (Japanese's widest is 192 of 204 pixels
-either way, English's 200).
+keys drawn as keycaps, and names every line that would outgrow its box if
+a key had no keycap and a seven-glyph name - none today (Japanese's widest is
+192 of 204 pixels either way, English's 200).
 
 **Sites.** `ExpandKeys` and `KEY_PLACEHOLDERS` in `src/Translation.pas`;
+`src/render/KeyIcons.pas` and `ComposeWithIcons` in
+`src/render/TextRender.pas`;
 `TDialogueBox` opening a message in `src/screens/Dialogue.pas`;
 `PlaceholderKeyName` in `src/screens/GmMain.pas`; `ShortKeyName` in
 `src/screens/Title.pas`.

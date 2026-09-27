@@ -188,20 +188,22 @@ procedure TSDLRenderTarget.DrawOutlinedText(X, Y: Integer; const S: string;
 var
   Sheet: PSDL_Surface;
   DstR: TSDL_Rect;
+  TopPad: Integer;
 begin
   if (FSurface = nil) or (S = '') then
     Exit;
 
   { Size is ignored for the same reason as in the LCL target: it is 10 POINTS
     and a bitmap face is picked by strike - see OUTLINED_FONT_FACE. }
-  Sheet := OutlinedTextSurface(S, Outline, Fill, OUTLINED_FONT_FACE);
+  Sheet := OutlinedTextSurface(S, Outline, Fill, OUTLINED_FONT_FACE, TopPad);
   if Sheet = nil then
     Exit;
 
   { One pixel up and left, because the composed sheet carries its outline
-    around the text rather than starting where the text does. }
+    around the text rather than starting where the text does - and higher by
+    any pad a keycap taller than the text needed. }
   DstR.x := X - 1;
-  DstR.y := Y - 1;
+  DstR.y := Y - 1 - TopPad;
   DstR.w := Sheet^.w;
   DstR.h := Sheet^.h;
   SDL_BlitSurface(Sheet, nil, FSurface, @DstR);

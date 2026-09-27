@@ -26,6 +26,8 @@
   WIDTH
 
   Columns, as a terminal counts them: 2 for a wide character, 1 otherwise.
+  A keycap icon (a private-use character) counts as wide: it reveals in one
+  step and is about two columns across.
   That is what the Shift-JIS byte length measured, which is how the item panel
   centres its line. }
 
@@ -104,6 +106,7 @@ begin
     $FE30..$FE4F,          { CJK compatibility forms }
     $FF00..$FF60,          { full-width forms }
     $FFE0..$FFE6,          { full-width signs }
+    $E000..$F8FF,          { private use: the keycap icons, see KeyIcons }
     $20000..$3FFFD:        { CJK extensions B onwards }
       Result := True;
   else
