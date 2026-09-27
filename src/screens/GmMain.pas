@@ -1071,11 +1071,17 @@ begin
 end;
 
 { A line's key placeholders (Translation.KEY_PLACEHOLDERS): the key bound
-  to that action, by the short name the CONTROLS page shows. The
-  placeholders are in the same order as the page's rows. }
+  to that action, by the short name the CONTROLS page shows. }
 function TFrm_main.PlaceholderKeyName(Index: Integer): string;
+const
+  { KEY_PLACEHOLDERS' actions, in its order. The directions cannot be rebound
+    yet; naming them the same way means the signs need nothing when they can. }
+  ACTIONS: array[0..6] of TAkujiButton =
+    (abJump, abFire, abPause, abUp, abDown, abLeft, abRight);
 begin
-  Result := ShortKeyName(TitleKeyName(Index));
+  if (Index < Low(ACTIONS)) or (Index > High(ACTIONS)) then
+    Exit('');
+  Result := ShortKeyName(Joy.KeyNameOf(Joy.Bindings[ACTIONS[Index]].Primary));
 end;
 
 function TFrm_main.TitleBindKey(Row: Integer): Boolean;

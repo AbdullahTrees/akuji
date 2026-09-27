@@ -78,8 +78,9 @@ begin
     Out.Add('# the English has them; add \k wherever the text needs more boxes.');
     Out.Add('# A box ending in \w holds two lines - the prompt takes the third.');
     Out.Add('#');
-    Out.Add('# {JUMP}, {FIRE} and {PAUSE} are replaced by the key the player has');
-    Out.Add('# bound to that action - "Z", "R CTRL" - when the line is shown.');
+    Out.Add('# {JUMP}, {FIRE}, {PAUSE}, {UP}, {DOWN}, {LEFT} and {RIGHT} are');
+    Out.Add('# replaced by the key the player has bound to that action - "Z",');
+    Out.Add('# "R CTRL", "LEFT" - when the line is shown.');
     Out.Add('#');
     Out.Add('# An empty msgstr shows the English. To choose the language, set');
     Out.Add('# lang=<code> under [language] in system.ini. If the default font');

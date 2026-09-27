@@ -26,8 +26,8 @@
 
   KEYS
 
-  The placeholders in KEY_PLACEHOLDERS - JUMP, FIRE and PAUSE in braces -
-  are replaced, when a line is shown, by the name of the key bound to that
+  The placeholders in KEY_PLACEHOLDERS - JUMP, FIRE, PAUSE, UP, DOWN, LEFT
+  and RIGHT in braces - are replaced, when a line is shown, by the name of the key bound to that
   action, so a sign that says "the FIRE-in-braces key" names whatever key
   the player chose. See ExpandKeys.
 
@@ -127,7 +127,8 @@ function DialogueLineCount(Stage: Integer): Integer;
 
 { The placeholders a line may use, and the action each names. }
 const
-  KEY_PLACEHOLDERS: array[0..2] of string = ('{JUMP}', '{FIRE}', '{PAUSE}');
+  KEY_PLACEHOLDERS: array[0..6] of string = ('{JUMP}', '{FIRE}', '{PAUSE}',
+    '{UP}', '{DOWN}', '{LEFT}', '{RIGHT}');
 
 type
   { The name to show for the key bound to KEY_PLACEHOLDERS[Index]. }

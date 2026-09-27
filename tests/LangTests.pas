@@ -15,7 +15,7 @@
       dialogue an event script names is --selftest-script's.
     * Each lang/*.po: no entry en.po lacks (a stale context is a
       translation that silently never shows), no key placeholder but JUMP,
-      FIRE and PAUSE in braces, the dialogue codes that steer the game kept,
+      FIRE, PAUSE, UP, DOWN, LEFT and RIGHT in braces, the dialogue codes that steer the game kept,
       every character in its font, every line inside the box with the
       default keys named, and the Yes/No words clear of the hand cursor. }
 
@@ -90,7 +90,8 @@ type
 
 function TKeyNames.Name(Index: Integer): string;
 const
-  DEFAULTS: array[0..2] of string = ('Z', 'X', 'C');
+  DEFAULTS: array[0..6] of string =
+    ('Z', 'X', 'C', 'UP', 'DOWN', 'LEFT', 'RIGHT');
 begin
   if Long then
     Result := 'L SHIFT'
@@ -483,8 +484,14 @@ var
               BoxLines.Text := StringReplace(Pages[K], '\n', #10,
                                              [rfReplaceAll]);
               for Line in BoxLines do
-                if OutlinedTextWidth(Line, OUTLINED_FONT_FACE) > WidestLong then
-                  WidestLong := OutlinedTextWidth(Line, OUTLINED_FONT_FACE);
+              begin
+                W := OutlinedTextWidth(Line, OUTLINED_FONT_FACE);
+                if W > WidestLong then
+                  WidestLong := W;
+                if W > BOX_TEXT_WIDTH then
+                  Log.Add(Format('  note: %s "%s" would be %d px with a '
+                    + 'seven-glyph key', [E.Context, Line, W]));
+              end;
             end;
           finally
             BoxLines.Free;

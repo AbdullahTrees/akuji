@@ -750,18 +750,27 @@ press the jump button", "Hold down the fire button", ジャンプボタン連打
 text could not be wrong.
 
 **What this does instead.** With the keys rebindable (DIV-020), a line may
-carry `{JUMP}`, `{FIRE}` or `{PAUSE}`, replaced when the message opens by the
-key bound to that action, in the short form the CONTROLS page shows - `Z`,
-`R CTRL`. The signs that name a button now read "the {JUMP} key" and
-「{JUMP}キー」: seven entries in `en.po`, twelve in `ja.po`. Directions cannot be
-rebound, and their mentions - the arrow keys, UP, DOWN, 【方向キー】 - are
-unchanged. The name is looked up as the message opens, so a key rebound a
-moment ago is the one named.
+carry `{JUMP}`, `{FIRE}`, `{PAUSE}`, `{UP}`, `{DOWN}`, `{LEFT}` or `{RIGHT}`,
+replaced when the message opens by the key bound to that action, in the short
+form the CONTROLS page shows - `Z`, `R CTRL`, `LEFT`. The name is looked up as
+the message opens, so a key rebound a moment ago is the one named.
+
+The signs that name a button now read "the {JUMP} key" and 「{JUMP}キー」, and
+the ones that name a direction use the direction's placeholder: "the arrow
+key", "the cursor key" and "a direction" (for the dash and the bounce, both
+horizontal) became "{LEFT} or {RIGHT}", 【方向キー】 and 【左右キー】 became
+【{LEFT}か{RIGHT}キー】, and UP, DOWN, 【上キー】 and 【下キー】 their own. The
+directions cannot be rebound yet, so today these read as before in substance
+(LEFT, RIGHT, UP, DOWN); they need nothing more when they can. "LOOK UP!" is
+advice, not a key, and stays. Six Japanese lines were rewrapped so that even a
+seven-letter key name fits. In all, 17 entries in `en.po` and 19 in `ja.po`
+carry a placeholder.
 
 **How it is held.** `--selftest-lang` rejects any brace in a translation that
 is not one of the three, and measures every dialogue line with the default
-keys named and reports it with a seven-glyph name (Japanese's widest becomes
-186 of 204 pixels; English's stays 200).
+keys named, and names every line that would outgrow its box with a
+seven-glyph key name - none today (Japanese's widest is 192 of 204 pixels
+either way, English's 200).
 
 **Sites.** `ExpandKeys` and `KEY_PLACEHOLDERS` in `src/Translation.pas`;
 `TDialogueBox` opening a message in `src/screens/Dialogue.pas`;

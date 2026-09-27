@@ -133,10 +133,14 @@ use as many boxes as the text needs: a question too long for one box becomes
 `...\kWould you like to save? \w`. A box that ends in `\w` holds two lines,
 because the prompt takes the third.
 
-`{JUMP}`, `{FIRE}` and `{PAUSE}` are replaced, when the line is shown, by the
-key the player has bound to that action - `Z`, `R CTRL` - so a sign never
-names the wrong key: `Hold down the {FIRE} key`, `{FIRE}キーを押し続けて`.
-Directions cannot be rebound and are written out.
+`{JUMP}`, `{FIRE}`, `{PAUSE}`, `{UP}`, `{DOWN}`, `{LEFT}` and `{RIGHT}` are
+replaced, when the line is shown, by the key bound to that action - `Z`,
+`R CTRL`, `LEFT` - so a sign never names the wrong key:
+`Hold down the {FIRE} key`, `{FIRE}キーを押し続けて`,
+`Press {LEFT} or {RIGHT} twice`. The directions cannot be rebound yet; the
+signs name them the same way so they need nothing when they can. Leave room:
+`make test` reports any line that would outgrow its box with a seven-letter
+key name.
 
 The default font covers ASCII. A script it lacks needs a font: put a TTF in
 `assets/fonts/` and name it in the header, as `ja.po` does -
