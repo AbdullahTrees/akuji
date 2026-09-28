@@ -1141,12 +1141,14 @@ begin
   FOpening.Reset;
 end;
 
-{ Loads the selected gallery image. }
+{ Loads the selected gallery image. The pictures are numbered from one:
+  Title_MainMenu increments the slot before formatting the name (inc ebx at
+  0x462C2B), so slot 0 is omake01.bmp. }
 procedure TFrm_main.TitleGallery(Slot: Integer);
 begin
   FreeAndNil(FEndingBmp);
   if FArchive <> nil then
-    FEndingBmp := FArchive.LoadImageByName(Format('omake%.2d.bmp', [Slot]));
+    FEndingBmp := FArchive.LoadImageByName(Format('omake%.2d.bmp', [Slot + 1]));
 end;
 
 { Form adapters used by the game-over screen. }
