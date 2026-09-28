@@ -825,6 +825,23 @@ the box.
 `BOX_PROMPT_LINES`, `BoxTextWidth` and the message opening in
 `src/screens/Dialogue.pas`.
 
+## DIV-030 - the title screen credits the port, not the translation
+
+**What the original does.** The English 1.1 release's `title.bmp` carries
+"TRANSLATION BY D" painted into the art at y 228, under the code-drawn
+"CREATED BY E.HASHIMOTO". The Japanese release's title art is the same
+picture without it.
+
+**What this does instead.** The painted line is gone: the 874 pixels it
+covered (x 95..224, y 228..235, with a margin) are copied from the Japanese
+`title.bmp`, which matches the English one exactly everywhere else in that
+strip, so the art is restored as drawn, not retouched. The code draws
+"SOURCE PORT BY ABDULLAHTREES" there instead, centred, in the same font and
+colour as the line above it. The translator stays credited, in `NOTICE.md`.
+
+**Sites.** `PORT_CREDIT_TEXT` and `PORT_CREDIT_Y` in
+`src/screens/Title.pas`; `title.bmp` in `assets/bmp.qda`.
+
 ---
 
 ## Numbers 001 to 015

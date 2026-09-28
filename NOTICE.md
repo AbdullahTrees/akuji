@@ -28,6 +28,10 @@ an open decision, and it interacts with the next section.
 | `lang/ja.po` | the Japanese release's text, converted to UTF-8 |
 | `lang/en.po` | the English release's text - its dialogue files, `data/tk*.dat`, and the strings in its exe - moved into a translation file; the game reads no other copy |
 
+The English translation is D's, from the English 1.1 release; the credit it
+painted into the title picture has been taken out and the port's own credit
+is drawn there instead (DIV-030), so it is recorded here.
+
 These came from the English-translated release of the game - `lang/ja.po`
 from the original Japanese one, `akuji ver1.01`, and is its dialogue and
 on-screen strings re-encoded, not a new translation. `lang/akuji.pot` is

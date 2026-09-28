@@ -38,6 +38,12 @@ const
     their eight characters instead. }
   CREDIT_TEXT = 'CREATED BY E.HASHIMOTO';
   CREDIT_Y = $D8;
+  { Ours: the line under it, where the English release had painted
+    "TRANSLATION BY D" into the title art (restored from the Japanese art;
+    the translator is credited in NOTICE.md). See notes/divergences.md,
+    DIV-030. }
+  PORT_CREDIT_TEXT = 'SOURCE PORT BY ABDULLAHTREES';
+  PORT_CREDIT_Y = $E4;
   TITLE_SCREEN_W = $140;
 
   { Options rows. Labels x=0x28, values x=0xE8,
@@ -911,6 +917,7 @@ begin
                     MENU_ITEMS[ItemIndex], 2);
         F.TextOut(C, MENU_CURSOR_X, (MenuIndex * 2 + $11) * 8, MENU_CURSOR, 1);
         F.TextOutCentered(C, CREDIT_Y, CREDIT_TEXT, TITLE_SCREEN_W, 0);
+        F.TextOutCentered(C, PORT_CREDIT_Y, PORT_CREDIT_TEXT, TITLE_SCREEN_W, 0);
       end;
 
     TSM_OPTIONS:
