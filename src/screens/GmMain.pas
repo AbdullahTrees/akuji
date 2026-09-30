@@ -68,6 +68,7 @@ type
     { Reads the [log] switch and opens the log - first, before anything that
       could fail, so a start that goes wrong still leaves a trail. }
     procedure StartLogging;
+    procedure KeepAlive;
     procedure PumpEvents;
     { One frame, when the clock says it is time for one. }
     procedure Frame;
@@ -254,6 +255,7 @@ begin
       LogLine(lsSettings, 'system.dat loaded')
     else
       LogLine(lsSettings, 'no usable system.dat - starting from defaults');
+    KeepAlive;
 
     { system.ini overrides fullscreen and input-device settings. Compatibility
       requires two parsing details:
@@ -311,6 +313,7 @@ begin
       copy in a global, which this port never read. }
     Joy.LoadKeyMap(Settings.KeyMap);
 
+    KeepAlive;
     FArchive := TQdaArchive.Create(DataDir + 'bmp.qda');
     LogFmt(lsData, 'bmp.qda: %d pictures', [FArchive.Count]);
     { p_UseArchive, set by DDDD1Init the same way. }
@@ -326,6 +329,7 @@ begin
     FStages := TStageTable.Create;
     FStages.Load(DataDir);
     LogLine(lsData, 'stage table loaded');
+    KeepAlive;
     FMap := TTileMap.Create;
     FStageLoaded := -1;
 
@@ -350,8 +354,10 @@ begin
     { Effects are loaded up front. Audio initialization failures remain
       non-fatal so the game can run without a sound device. }
     DDSD1.Open(DataDir);
+    KeepAlive;
     DDSD1.Volume := Settings.Volume;
     KbgmPlayer1.Open(DataDir);
+    KeepAlive;
     KbgmPlayer1.Volume := MusicVolume;
   end;
 
@@ -1501,6 +1507,7 @@ const
     'midi\end03'#10'midi\end04'#10'midi\end05';
 var
   SdlVersion: TSDL_Version;
+  WindowSurface: PSDL_Surface;
 begin
   inherited Create(AOwner);
   StartLogging;
@@ -1527,6 +1534,14 @@ begin
     raise Exception.CreateFmt('no window: %s', [SDL_GetError]);
   end;
   LogFmt(lsVideo, 'window created, %dx%d', [SCREEN_W, SCREEN_H]);
+  { Black from the start, rather than whatever the system paints a new window
+    with until the first frame is presented. }
+  WindowSurface := SDL_GetWindowSurface(FWindow);
+  if WindowSurface <> nil then
+  begin
+    SDL_FillRect(WindowSurface, nil, SDL_MapRGB(WindowSurface^.format, 0, 0, 0));
+    SDL_UpdateWindowSurface(FWindow);
+  end;
 
   DDDD1 := TDDDD.Create(Self);
   DDDD1.InitialScreenWidth := SCREEN_W;
@@ -1548,6 +1563,15 @@ begin
     They are in, so this is the same moment. }
   DDDD1.Initialize;
   LogLine(lsInit, 'startup complete');
+end;
+
+{ Start-up loads for a while before the frame loop runs; on a cold start,
+  long enough for Windows to mark a window that has not answered for five
+  seconds "(Not Responding)". Taking its messages between the steps keeps it
+  answering. Only messages are taken - input is left queued for the game. }
+procedure TFrm_main.KeepAlive;
+begin
+  SDL_PumpEvents;
 end;
 
 procedure TFrm_main.StartLogging;
@@ -1587,6 +1611,9 @@ begin
   LogFmt(lsInit, '%s %s, started %s',
     [APP_NAME, APP_VERSION, FormatDateTime('yyyy-mm-dd hh:nn:ss', Now)]);
   LogFmt(lsInit, 'executable %s', [ParamStr(0)]);
+  if ProcessAgeSeconds >= 0 then
+    LogFmt(lsInit, 'process started %.3f s before this line (loading the '
+      + 'program and its libraries)', [ProcessAgeSeconds]);
   if Unknown <> '' then
     LogFmt(lsInit, 'system.ini [log] names subsystems that do not exist: %s',
       [Unknown]);

@@ -17,7 +17,7 @@ unit FluidSynth;
 interface
 
 uses
-  ctypes;
+  ctypes, GameLog;
 
 type
   PFluidSettings = Pointer;
@@ -117,7 +117,12 @@ begin
     LibName := FLUIDSYNTH_LIBS[I];
     Lib := LoadLibrary(LibName);
     if Lib <> NilHandle then
+    begin
+      { Its own line, so a slow start shows whether the library or the
+        instrument bank read after it took the time. }
+      LogFmt(lsMusic, 'loaded %s', [LibName]);
       Break;
+    end;
   end;
   if Lib = NilHandle then
   begin

@@ -43,6 +43,12 @@ const
 procedure StartLog(const Dir: string; Subsystems: TLogSubsystems);
 procedure StopLog;
 
+{ Seconds since the operating system started this process, or -1 where that
+  cannot be read. What it spent before the game's first line - loading the
+  executable and the libraries it links, and on a cold start reading them
+  from disk and having them scanned - is invisible to the log otherwise. }
+function ProcessAgeSeconds: Double;
+
 function LogOn(Subsystem: TLogSubsystem): Boolean;
 procedure LogLine(Subsystem: TLogSubsystem; const Msg: string);
 procedure LogFmt(Subsystem: TLogSubsystem; const Fmt: string;
@@ -121,6 +127,59 @@ begin
     Parts.Free;
   end;
 end;
+
+{$IFDEF WINDOWS}
+function GetProcessTimes(Process: THandle; out Creation, ExitT, Kernel,
+  User: Int64): LongBool; stdcall; external 'kernel32.dll';
+function GetCurrentProcess: THandle; stdcall; external 'kernel32.dll';
+procedure GetSystemTimeAsFileTime(out T: Int64); stdcall;
+  external 'kernel32.dll';
+
+function ProcessAgeSeconds: Double;
+var
+  Creation, ExitT, Kernel, User, Now_: Int64;
+begin
+  Result := -1;
+  if not GetProcessTimes(GetCurrentProcess, Creation, ExitT, Kernel, User) then
+    Exit;
+  GetSystemTimeAsFileTime(Now_);
+  { Both in 100-nanosecond steps. }
+  Result := (Now_ - Creation) / 1e7;
+end;
+{$ELSE}
+{ /proc/self/stat's 22nd field is the start in clock ticks since boot, and
+  /proc/uptime the seconds since boot; /proc reports ticks at 100 a second. }
+function ProcessAgeSeconds: Double;
+var
+  F: TextFile;
+  Line: string;
+  Uptime: Double;
+  Parts: TStringArray;
+  P: Integer;
+begin
+  Result := -1;
+  try
+    AssignFile(F, '/proc/uptime');
+    Reset(F);
+    ReadLn(F, Line);
+    CloseFile(F);
+    Uptime := StrToFloatDef(Copy(Line, 1, Pos(' ', Line) - 1), -1,
+                            DefaultFormatSettings);
+    AssignFile(F, '/proc/self/stat');
+    Reset(F);
+    ReadLn(F, Line);
+    CloseFile(F);
+    { The command name is in parentheses and may hold spaces: count the
+      fields from after it. Field 3 onwards; the start time is field 22. }
+    P := LastDelimiter(')', Line);
+    Parts := Copy(Line, P + 2, MaxInt).Split([' ']);
+    if (Uptime >= 0) and (Length(Parts) > 19) then
+      Result := Uptime - StrToInt64Def(Parts[19], 0) / 100;
+  except
+    Result := -1;
+  end;
+end;
+{$ENDIF}
 
 procedure StartLog(const Dir: string; Subsystems: TLogSubsystems);
 var
