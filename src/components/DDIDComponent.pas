@@ -35,6 +35,7 @@
 unit DDIDComponent;
 
 {$MODE DELPHI}{$H+}
+{$I akuji.inc}
 
 interface
 
@@ -104,6 +105,9 @@ type
     FDown: TAkujiButtons;
     FKeysDown: TAkujiButtons;       { from the keyboard }
     FPadDown: TAkujiButtons;        { from the gamepad }
+    {$IFDEF AKUJI_TOUCH}
+    FTouchDown: TAkujiButtons;      { from the on-screen controls }
+    {$ENDIF}
     FBindings: array[TAkujiButton] of TAkujiBinding;
     FPad: PSDL_GameController;
     FPadStarted: Boolean;
@@ -183,6 +187,10 @@ type
     property Bindings[Button: TAkujiButton]: TAkujiBinding
       read GetBinding write SetBinding;
     property Down: TAkujiButtons read FDown;
+    {$IFDEF AKUJI_TOUCH}
+    { What the touch controls press, set once a frame before Update. }
+    property TouchDown: TAkujiButtons read FTouchDown write FTouchDown;
+    {$ENDIF}
     { A controller is connected right now - not merely that SDL could look. }
     property HasPad: Boolean read GetHasPad;
   published
@@ -567,6 +575,9 @@ begin
   { The keyboard half is maintained by KeyDown and KeyUp as the events arrive;
     the pad half is a snapshot. What the game sees is either. }
   FDown := FKeysDown + FPadDown;
+  {$IFDEF AKUJI_TOUCH}
+  FDown := FDown + FTouchDown;
+  {$ENDIF}
 end;
 
 function TDDIDEX.IsDown(Button: TAkujiButton): Boolean;

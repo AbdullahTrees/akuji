@@ -11,6 +11,7 @@
 unit GmMain;
 
 {$MODE DELPHI}{$H+}
+{$I akuji.inc}
 
 interface
 
@@ -19,7 +20,7 @@ uses
   DDDDComponent, DDIDComponent, DDSDComponent, KbgmPlayer, GameState,
   IniFiles, QdaArchive, Title, Ending, Opening, GameFont, Surfaces, Sprites, Stages, TileMaps, PlayerState,
   Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender,
-  Translation, KeyIcons;
+  Translation, KeyIcons{$IFDEF AKUJI_TOUCH}, TouchControls{$ENDIF};
 
 type
   TFrm_main = class;
@@ -70,6 +71,11 @@ type
     procedure StartLogging;
     procedure KeepAlive;
     procedure PumpEvents;
+    {$IFDEF AKUJI_TOUCH}
+    procedure TouchFinger(const F: TSDL_TouchFingerEvent);
+    procedure TouchFrame;
+    procedure DrawTouch(Surface: PSDL_Surface);
+    {$ENDIF}
     { One frame, when the clock says it is time for one. }
     procedure Frame;
     { True when only Ctrl is held - not Ctrl with Shift or Alt. }
@@ -117,6 +123,10 @@ type
     FMoveY: Integer;
     FMoveX: Integer;
     FConfirm: Boolean;
+    {$IFDEF AKUJI_TOUCH}
+    FTouch: TTouchControls;
+    FTouchPrev: TAkujiButtons;
+    {$ENDIF}
     { HUD life-icon animation, the three ints at PTR_DAT_0046D320. }
     FLifeAnimX: Integer;
     FLifeAnimIndex: Integer;
@@ -458,6 +468,9 @@ begin
   end;
   FLastFrame := Now_;
 
+  {$IFDEF AKUJI_TOUCH}
+  TouchFrame;
+  {$ENDIF}
   PollInput;              { step 2-3 }
   DDDD1.Clear;
   { The animated background tiles, once a frame and OUTSIDE the state
@@ -1512,6 +1525,15 @@ begin
   inherited Create(AOwner);
   StartLogging;
 
+  {$IFDEF AKUJI_TOUCH}
+  {$IFNDEF ANDROID}
+  { A desktop build with the touch controls is for trying them: the mouse
+    plays a finger. }
+  SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, '1');
+  {$ENDIF}
+  FTouch := TTouchControls.Create;
+  {$ENDIF}
+
   { The video subsystem, which the renderer never needed - it draws into
     surfaces - but a window does. }
   if SDL_InitSubSystem(SDL_INIT_VIDEO) <> 0 then
@@ -1550,6 +1572,9 @@ begin
   DDDD1.DisableScreenSaver := True;
   DDDD1.Window := FWindow;
   DDDD1.OnInit := DDDD1Init;
+  {$IFDEF AKUJI_TOUCH}
+  DDDD1.OnOverlay := DrawTouch;
+  {$ENDIF}
 
   Joy := TDDIDEX.Create(Self);
 
@@ -1629,10 +1654,58 @@ begin
   { The components go with the inherited destructor, which frees everything
     this owns; the window outlives them because Present reads it. }
   inherited Destroy;
+  {$IFDEF AKUJI_TOUCH}
+  FTouch.Free;
+  {$ENDIF}
   if FWindow <> nil then
     SDL_DestroyWindow(FWindow);
   SDL_QuitSubSystem(SDL_INIT_VIDEO);
 end;
+
+{$IFDEF AKUJI_TOUCH}
+{ A finger's position comes as a fraction of the window; the controls work
+  in the window's pixels, the same ones they are drawn in. }
+procedure TFrm_main.TouchFinger(const F: TSDL_TouchFingerEvent);
+var
+  W, H: Integer;
+begin
+  if (FTouch = nil) or (FWindow = nil) then
+    Exit;
+  SDL_GetWindowSize(FWindow, @W, @H);
+  case F.type_ of
+    SDL_FINGERDOWN: FTouch.FingerDown(F.fingerId, F.x * W, F.y * H);
+    SDL_FINGERMOTION: FTouch.FingerMove(F.fingerId, F.x * W, F.y * H);
+    SDL_FINGERUP: FTouch.FingerUp(F.fingerId);
+  end;
+end;
+
+{ Once a frame, before the input is read. What the fingers press joins the
+  keys and the pad. The title screen's menus listen to key presses rather
+  than to the buttons (DIV-002), so a press that has just begun on the d-pad
+  or on A is also handed to them as the key press it stands for. }
+procedure TFrm_main.TouchFrame;
+var
+  Down, Began: TAkujiButtons;
+begin
+  if FTouch = nil then
+    Exit;
+  Down := FTouch.Pressed;
+  Joy.TouchDown := Down;
+  Began := Down - FTouchPrev;
+  FTouchPrev := Down;
+  if abUp in Began then FMoveY := -1;
+  if abDown in Began then FMoveY := 1;
+  if abLeft in Began then FMoveX := -1;
+  if abRight in Began then FMoveX := 1;
+  if abJump in Began then FConfirm := True;
+end;
+
+procedure TFrm_main.DrawTouch(Surface: PSDL_Surface);
+begin
+  if FTouch <> nil then
+    FTouch.Draw(Surface);
+end;
+{$ENDIF}
 
 procedure TFrm_main.PumpEvents;
 var
@@ -1648,6 +1721,10 @@ begin
         FormKeyDown(E.key.keysym.sym, E.key.keysym.mod_);
       SDL_KEYUP:
         FormKeyUp(E.key.keysym.sym);
+      {$IFDEF AKUJI_TOUCH}
+      SDL_FINGERDOWN, SDL_FINGERMOTION, SDL_FINGERUP:
+        TouchFinger(E.tfinger);
+      {$ENDIF}
       SDL_WINDOWEVENT:
         case E.window.event of
           SDL_WINDOWEVENT_EXPOSED,

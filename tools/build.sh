@@ -3,6 +3,9 @@
 #
 #     tools/build.sh                 build, fetching Free Pascal first if needed
 #     RELEASE=1 tools/build.sh       optimised, no debug info, stripped
+#     TOUCH=1 tools/build.sh         with the on-screen touch controls, to
+#                                    try them with a mouse (Android has them
+#                                    always - see src/akuji.inc)
 #     AKUJI_EXE=bin/other.exe tools/build.sh
 #     FPC=/path/to/fpc tools/build.sh
 #
@@ -47,6 +50,12 @@ fi
 CPU="$("$FPC_BIN" -iTP)"
 OS="$("$FPC_BIN" -iTO)"
 LIB="$REPO/lib/$CPU-$OS"
+# A switch on the command line does not make Free Pascal recompile a unit it
+# already has, so a build with different switches keeps its own units -
+# otherwise TOUCH=1 would quietly link the units built without it.
+if [ "${TOUCH:-0}" != "0" ]; then
+    LIB="$LIB-touch"
+fi
 
 if [ -n "${AKUJI_EXE:-}" ]; then
     EXE="$REPO/$AKUJI_EXE"
@@ -61,7 +70,7 @@ mkdir -p "$LIB" "$(dirname "$EXE")"
 # DELPHI} for itself), C operators, goto, ansistrings, inline, -O1, and debug
 # info with line numbers - which is what puts a file and line in a crash.
 ARGS=(-MObjFPC -Scghi -O1 -g -gl -l -vewnhibq
-      "-Fi$(native "$LIB")" "-FU$(native "$LIB")"
+      "-Fi$(native "$LIB")" "-Fi$(native "$REPO/src")" "-FU$(native "$LIB")"
       "-FE$(native "$(dirname "$EXE")")" "-o$(native "$EXE")")
 for dir in . src src/components src/events src/gameplay src/media src/render \
            src/screens tests third_party/sdl2-for-pascal; do
@@ -85,6 +94,9 @@ fi
 # stripped. That is 3 MB rather than 30 MB, and almost all of the difference is
 # debug info rather than code: -g- does more here than -Xs. The default build
 # keeps the symbols, because they are what makes a crash report useful.
+if [ "${TOUCH:-0}" != "0" ]; then
+    ARGS+=(-dAKUJI_TOUCH)
+fi
 if [ "${RELEASE:-0}" != "0" ]; then
     ARGS+=(-O3 -g- -Xs -CX -XX)
 fi

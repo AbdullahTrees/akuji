@@ -53,6 +53,16 @@ sudo apt-get install libsdl2-dev libsdl2-ttf-dev
 `.so.2`); without it the game builds and runs, silently. On Windows it is
 vendored too.
 
+### Touch controls
+
+Android builds have on-screen controls: a d-pad, A (jump), B (fire) and
+pause, drawn in the bars beside the picture. Desktop builds leave them out.
+To try them with a mouse:
+
+```sh
+TOUCH=1 AKUJI_EXE=bin/akuji-touch.exe tools/build.sh
+```
+
 ### Release build
 
 ```sh

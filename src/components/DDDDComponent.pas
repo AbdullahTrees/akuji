@@ -25,6 +25,8 @@ const
   FADE_TICKS = FADE_FULL div FADE_STEP + 1;
 
 type
+  TOverlayEvent = procedure(Surface: PSDL_Surface) of object;
+
   TDDDDDebugOptionItem = (ddoHaltOnError);
   TDDDDDebugOption = set of TDDDDDebugOptionItem;
 
@@ -46,6 +48,7 @@ type
     FBack: PSDL_Surface;
     FTarget: TSDLRenderTarget;
     FWindow: PSDL_Window;
+    FOnOverlay: TOverlayEvent;
     { Fade state offsets retained for layout verification. }
     FFadeLevel: Integer;      { +0x08 }
     FFadeStep: Integer;       { +0x10, written by the caller before a fade }
@@ -106,6 +109,10 @@ type
     property D3DOptions: TD3DOptions read FD3DOptions write FD3DOptions;
     property VsyncAtWindowed: Boolean read FVsyncAtWindowed write FVsyncAtWindowed;
     property OnInit: TNotifyEvent read FOnInit write FOnInit;
+    { Called with the window's surface once the frame is on it and before it
+      is shown - for anything drawn at the window's own resolution, such as
+      the touch controls in the bars beside the picture. }
+    property OnOverlay: TOverlayEvent read FOnOverlay write FOnOverlay;
   end;
 
 implementation
@@ -323,6 +330,8 @@ begin
   if Surf = nil then
     Exit;
   PresentTo(FBack, Surf);
+  if Assigned(FOnOverlay) then
+    FOnOverlay(Surf);
   SDL_UpdateWindowSurface(FWindow);
 end;
 

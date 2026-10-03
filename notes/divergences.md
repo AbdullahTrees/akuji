@@ -842,6 +842,37 @@ colour as the line above it. The translator stays credited, in `NOTICE.md`.
 **Sites.** `PORT_CREDIT_TEXT` and `PORT_CREDIT_Y` in
 `src/screens/Title.pas`; `title.bmp` in `assets/bmp.qda`.
 
+## DIV-031 - on-screen touch controls, in touch builds only
+
+**What the original does.** Keyboard or joystick; nothing else.
+
+**What this does instead.** A build with `AKUJI_TOUCH` - every Android
+build, and a desktop build made with `TOUCH=1` to try them - draws a d-pad,
+A (jump), B (fire) and a pause button in the black bars either side of the
+4:3 picture, so they never cover the game, and reads fingers on them. The
+left half of the screen is the d-pad's, its direction the finger's bearing
+from the d-pad's centre in eight 45-degree sectors, so a thumb slides round
+it and onto the diagonals without lifting; the right half is the face
+buttons', a finger pressing whichever it is over. What the fingers press
+joins the keyboard's and the pad's buttons in the input component, so the
+game cannot tell a touch from a key; a press just begun on the d-pad or A is
+also handed to the title screen's menus as the key it stands for, since they
+listen to keys (DIV-002).
+
+The controls are drawn, not loaded: shapes with signed distance functions,
+at the screen's own size, in Kenney's input-prompt colours. Pressed, a
+control darkens evenly inside its outline; a diagonal darkens both arms and
+the centre between them.
+
+Every other build has none of this: the units are not compiled in, and the
+plain executable carries no trace of them.
+
+**Sites.** `src/akuji.inc`; `src/components/TouchControls.pas`;
+`src/render/TouchArt.pas`; the `AKUJI_TOUCH` blocks in
+`src/components/DDIDComponent.pas` and `src/screens/GmMain.pas`; the
+overlay hook in `src/components/DDDDComponent.pas`; `TOUCH` in
+`tools/build.sh`.
+
 ---
 
 ## Numbers 001 to 015
