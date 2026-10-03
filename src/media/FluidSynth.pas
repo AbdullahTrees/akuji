@@ -46,10 +46,12 @@ const
     package, which is FluidSynth 2.4 or later as .so.3 and anything from 2.0
     as .so.2 - Ubuntu 20.04, the PortMaster build image, ships 2.1. Every call
     bound below is in both. }
-  FLUIDSYNTH_LIBS: array[0..{$IFDEF WINDOWS}0{$ELSE}1{$ENDIF}] of string =
+  { An Android app's libraries are unversioned, beside its own. }
+  FLUIDSYNTH_LIBS: array[0..{$IF DEFINED(WINDOWS) OR DEFINED(ANDROID)}0{$ELSE}1{$ENDIF}] of string =
     {$IFDEF WINDOWS}('libfluidsynth-3.dll')
+    {$ELSE}{$IFDEF ANDROID}('libfluidsynth.so')
     {$ELSE}{$IFDEF DARWIN}('libfluidsynth.3.dylib', 'libfluidsynth.dylib')
-    {$ELSE}('libfluidsynth.so.3', 'libfluidsynth.so.2'){$ENDIF}{$ENDIF};
+    {$ELSE}('libfluidsynth.so.3', 'libfluidsynth.so.2'){$ENDIF}{$ENDIF}{$ENDIF};
 
 var
   new_fluid_settings: function: PFluidSettings; cdecl;

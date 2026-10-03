@@ -109,6 +109,11 @@ type
 
 implementation
 
+{$IFDEF ANDROID}
+uses
+  AudioOut;
+{$ENDIF}
+
 { FluidSynth's own warnings and errors, which otherwise go to a stderr that
   a windowed game does not have. One of them is expected on every start with
   gm.dls - it tries the file as a SoundFont before trying it as DLS - and
@@ -414,6 +419,14 @@ begin
   Result := FDevice <> 0;
   if Result then
     Exit;
+  {$IFDEF ANDROID}
+  { One device per app there: the effects' carries the music - see
+    AudioOut. FDevice is only a flag here, never an SDL device. }
+  Result := AttachMusic(Render, FLastError);
+  if Result then
+    FDevice := High(TSDL_AudioDeviceID);
+  Exit;
+  {$ENDIF}
   if SDL_InitSubSystem(SDL_INIT_AUDIO) <> 0 then
   begin
     FLastError := 'SDL audio will not start: ' + SDL_GetError;
@@ -443,6 +456,11 @@ procedure TMusicSynth.StopDevice;
 begin
   if FDevice = 0 then
     Exit;
+  {$IFDEF ANDROID}
+  DetachMusic;
+  FDevice := 0;
+  Exit;
+  {$ENDIF}
   { Closing waits for the callback to return, so nothing renders after this. }
   SDL_CloseAudioDevice(FDevice);
   FDevice := 0;

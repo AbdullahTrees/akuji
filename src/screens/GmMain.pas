@@ -22,6 +22,13 @@ uses
   Entities, GameSession, SpritePool, Dialogue, RenderTarget, TextRender,
   Translation, KeyIcons{$IFDEF AKUJI_TOUCH}, TouchControls{$ENDIF};
 
+var
+  { Where the game data is, when the platform says rather than the search
+    beside the executable finding it: an Android app has no executable
+    folder, and unpacks its data where the system lets it write. The log
+    goes there too. Empty everywhere else. }
+  GameDataOverride: string = '';
+
 type
   TFrm_main = class;
 
@@ -224,6 +231,8 @@ var
   BaseDirectory, CandidatePath: string;
   CandidateIndex: Integer;
 begin
+  if GameDataOverride <> '' then
+    Exit(IncludeTrailingPathDelimiter(GameDataOverride));
   BaseDirectory := ExtractFilePath(ParamStr(0));
   for CandidateIndex := Low(Candidates) to High(Candidates) do
   begin
@@ -702,6 +711,11 @@ end;
   off, so there is nothing to restore and no archive flag to get wrong. }
 procedure TFrm_main.SetFullScreen(Enable: Boolean);
 begin
+  {$IFDEF ANDROID}
+  { A phone's window is the screen. Sizing it to the picture, as a window
+    would be, shrinks what is drawn to a 320x240 corner of it. }
+  Enable := True;
+  {$ENDIF}
   FullScreenOn := Enable;
   if FWindow = nil then
     Exit;
@@ -1439,6 +1453,12 @@ end;
 
 procedure TFrm_main.FormKeyDown(Key: TSDL_KeyCode; Modifiers: Word);
 begin
+  {$IFDEF ANDROID}
+  { The system Back button: what Escape does - pause, and from the pause
+    menu, leave. }
+  if Key = SDLK_AC_BACK then
+    Key := SDLK_ESCAPE;
+  {$ENDIF}
   if Key = SDLK_ESCAPE then
   begin
     if GameStateValue = GS_PAUSE then
@@ -1629,10 +1649,18 @@ begin
       Want := True;
       Parts := LOG_ALL;
     end;
+  {$IFDEF ANDROID}
+  { Always, on a phone: the lines also go to logcat, which is the only way
+    to see what a phone app is doing. }
+  Want := True;
+  {$ENDIF}
   if not Want then
     Exit;
 
-  StartLog(ExtractFilePath(ParamStr(0)), Parts);
+  if GameDataOverride <> '' then
+    StartLog(IncludeTrailingPathDelimiter(GameDataOverride), Parts)
+  else
+    StartLog(ExtractFilePath(ParamStr(0)), Parts);
   LogFmt(lsInit, '%s %s, started %s',
     [APP_NAME, APP_VERSION, FormatDateTime('yyyy-mm-dd hh:nn:ss', Now)]);
   LogFmt(lsInit, 'executable %s', [ParamStr(0)]);

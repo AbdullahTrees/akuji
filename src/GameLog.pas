@@ -66,6 +66,13 @@ implementation
 uses
   SyncObjs;
 
+{$IFDEF ANDROID}
+{ Android's own log, which logcat shows: the one place a phone app's
+  messages can be read without a file browser. }
+function __android_log_write(Priority: LongInt; Tag, Text: PAnsiChar): LongInt;
+  cdecl; external 'liblog.so';
+{$ENDIF}
+
 const
   SUBSYSTEM_NAMES: array[TLogSubsystem] of string =
     ('init', 'video', 'audio', 'music', 'input', 'data', 'settings');
@@ -236,6 +243,10 @@ procedure LogLine(Subsystem: TLogSubsystem; const Msg: string);
 begin
   if not LogOn(Subsystem) then
     Exit;
+  {$IFDEF ANDROID}
+  __android_log_write(4 { ANDROID_LOG_INFO }, 'akuji',
+    PAnsiChar(AnsiString(SUBSYSTEM_NAMES[Subsystem] + '  ' + Msg)));
+  {$ENDIF}
   Lock.Acquire;
   try
     if not LogOpen then
