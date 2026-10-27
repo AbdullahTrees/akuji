@@ -297,24 +297,21 @@ begin
             and not NoStart(B) and not NoEnd(A);
 end;
 
-{ One line, broken into as many as it needs. }
-procedure WrapLine(const Line: string; MaxWidth: Integer;
-                   Measure: TMeasureFunc; Lines: TStrings);
+{ C from Start, broken greedily at Width: each line takes as much as fits
+  and breaks at the last allowed place. False if some word had no break
+  that fit and had to be cut. }
+function GreedyWrap(const C: TArray<TChar>; Width: Integer;
+                    Measure: TMeasureFunc; Lines: TStrings): Boolean;
 var
-  C: TArray<TChar>;
-  Start, I, Best, Cut, Last: Integer;
+  Start, I, Best, Cut: Integer;
 begin
-  if (Line = '') or (Measure(TrimRight(Line)) <= MaxWidth) then
-  begin
-    Lines.Add(Line);
-    Exit;
-  end;
-  C := CharsOf(Line);
+  Result := True;
+  Lines.Clear;
   Start := 0;
   while Start <= High(C) do
   begin
     { The rest fits: done. }
-    if Measure(TrimRight(Joined(C, Start, High(C)))) <= MaxWidth then
+    if Measure(TrimRight(Joined(C, Start, High(C)))) <= Width then
     begin
       Lines.Add(Joined(C, Start, High(C)));
       Break;
@@ -323,7 +320,7 @@ begin
     Best := -1;
     for I := Start + 1 to High(C) do
     begin
-      if Measure(TrimRight(Joined(C, Start, I - 1))) > MaxWidth then
+      if Measure(TrimRight(Joined(C, Start, I - 1))) > Width then
         Break;
       if CanBreakBefore(C, I) then
         Best := I;
@@ -331,18 +328,40 @@ begin
     if Best < 0 then
     begin
       { No break fits: cut after the last character that does, at least one. }
+      Result := False;
       Cut := Start + 1;
-      while (Cut <= High(C))
-            and (Measure(Joined(C, Start, Cut)) <= MaxWidth) do
+      while (Cut <= High(C)) and (Measure(Joined(C, Start, Cut)) <= Width) do
         Inc(Cut);
       Best := Cut;
     end;
-    Last := Best - 1;
-    Lines.Add(TrimRight(Joined(C, Start, Last)));
+    Lines.Add(TrimRight(Joined(C, Start, Best - 1)));
     { The space the line broke at is not carried to the next. }
     Start := Best;
     while (Start <= High(C)) and (C[Start].Code = Ord(' ')) do
       Inc(Start);
+  end;
+end;
+
+{ One line, broken into as many as it needs, each filled as far as it goes.
+  Where the lines of a message should fall is the language file's to say -
+  a writer places \n - so this only steps in for a line that does not fit,
+  and makes no choice beyond that. }
+procedure WrapLine(const Line: string; MaxWidth: Integer;
+                   Measure: TMeasureFunc; Lines: TStrings);
+var
+  Parts: TStringList;
+begin
+  if (Line = '') or (Measure(TrimRight(Line)) <= MaxWidth) then
+  begin
+    Lines.Add(Line);
+    Exit;
+  end;
+  Parts := TStringList.Create;
+  try
+    GreedyWrap(CharsOf(Line), MaxWidth, Measure, Parts);
+    Lines.AddStrings(Parts);
+  finally
+    Parts.Free;
   end;
 end;
 

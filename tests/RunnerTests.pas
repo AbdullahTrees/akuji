@@ -232,7 +232,9 @@ begin
       Result := 1;
       Exit;
     end;
-    Want(S.Lines[0] = 'Will you save the game? \w',
+    { The save point's message is the Yes/No prompt: it ends in \w. Its
+      wording is en.po's and may change; that it asks is what this needs. }
+    Want(Copy(TrimRight(S.Lines[0]), Length(TrimRight(S.Lines[0])) - 1, 2) = '\w',
          'line 0 of tk002 is not the save prompt: ' + S.Lines[0]);
 
     { --- the answer is NO --------------------------------------------- }

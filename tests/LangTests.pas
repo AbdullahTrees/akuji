@@ -324,6 +324,9 @@ var
          'text that fits changed');
     Want(WrapMessage('aaa bbb ccc\e', 30, 3, 2, FakeWidth) = 'aaa\nbbb\nccc\e',
          'a Latin line does not break at its spaces');
+    { Filled, not balanced: where lines fall is the language file's call. }
+    Want(WrapMessage('one two three four five\e', 60, 3, 2, FakeWidth)
+         = 'one two\nthree four\nfive\e', 'a wrapped line is not filled');
     Want(WrapMessage('abcdefgh\e', 30, 3, 2, FakeWidth) = 'abcde\nfgh\e',
          'a word longer than the line is not cut');
     Want(WrapMessage('a b c d\e', 6, 3, 2, FakeWidth) = 'a\nb\nc\kd\e',
