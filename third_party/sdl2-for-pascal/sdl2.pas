@@ -75,13 +75,15 @@ interface
     uses
       {$IFDEF FPC}
       ctypes,
-      UnixType,
-      {$ENDIF}
+      UnixType
+      {$IFDEF DARWIN}, CocoaAll{$ENDIF};
+      {$ELSE}
       {$IFDEF DARWIN}
       CocoaAll;
       {$ELSE}
       X,
       XLib;
+      {$ENDIF}
       {$ENDIF}
   {$ENDIF}
 
@@ -158,6 +160,17 @@ const
 {$I sdlhidapi.inc}               // 2.0.18
 {$I sdltouch.inc}                // 2.24.0
 {$I sdlgesture.inc}              // 2.26.2
+
+  {$IF DEFINED(UNIX) AND NOT DEFINED(ANDROID) AND NOT DEFINED(DARWIN) AND DEFINED(FPC)}
+  { The X11 types SDL_SysWMinfo names. Declaring them here, rather than using
+    FPC's X/XLib units, keeps their import table - and so libX11 - out of
+    every Linux binary. Nothing in this unit or the game reads the values. }
+  type
+    TXEvent  = Pointer;
+    PDisplay = Pointer;
+    TWindow  = PtrUInt;
+  {$ENDIF}
+
 {$I sdlsyswm.inc}                // 2.26.5
 {$I sdlevents.inc}               // 2.24.0
 {$I sdllocale.inc}               // 2.0.14

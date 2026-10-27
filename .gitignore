@@ -38,3 +38,11 @@ android/
 # also needs: git update-index --skip-worktree assets/data/save.dat assets/data/system.dat
 assets/data/save.dat
 assets/data/system.dat
+
+# Not shipped: Microsoft's GS sound set. A player who owns a licensed copy may
+# drop it here; the game's "gm" option then finds it.
+assets/soundfonts/gm.dls
+
+# Release output (the PortMaster package and testing zip), built by
+# tools/package-portmaster.sh
+dist/

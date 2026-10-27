@@ -41,47 +41,32 @@ redistributed here so that a clone is playable without hunting for a copy of a
 redistributing them is not something the reconstruction's authors can license,
 because the copyright is not theirs.
 
-**This is the open question to settle before publishing.** The options, roughly:
-
-- **Ship the data, as now.** A clone just works. It redistributes someone
-  else's copyrighted work, which they have not agreed to.
-- **Ship no data.** The repository holds only the reconstruction, and the
-  player supplies their own copy of the game. Legally clean; a worse experience,
-  and it makes the build untestable for anyone without the release.
-- **Ship the data and seek permission.** The best outcome if the author or the
-  translation's publisher can be reached and agrees.
-
-Nothing here decides that. It is recorded so the decision is made deliberately
-rather than by default when the repository is pushed.
+**Decided: the port ships the data.** That is a deliberate preservation choice
+- the original is freeware whose official distribution ended years ago - and it
+is recorded here because the copyright is not the reconstruction's to license.
+Permission from the original author, or from the translation's publisher, has
+not been confirmed. If that changes, the alternative is to ship no data and
+have each player supply their own copy; the build and tests accept a data
+directory either way.
 
 ## The font
 
-`assets/fonts/sserife.fon` is the raster MS Sans Serif, copied from a Windows
-installation.
+`assets/fonts/sserife.fon` is Wine's free replacement for Microsoft's raster
+MS Sans Serif, under the LGPL-2.1. Wine generates it from
+`fonts/ms_sans_serif.sfd` in its source tree; the licence travels beside it as
+`assets/fonts/LICENSE-wine-fonts.txt`.
 
-It is here because it is the font the game actually draws with. Raw GDI - which
-is what the game renders through - reports TrueType=False for "MS Sans Serif"
-and selects this bitmap face. GDI+ substitutes the TrueType Microsoft Sans
-Serif for the same name, which is a different typeface with visibly different
-letterforms, and an earlier version of this file wrongly named that one. A port
-to Linux or macOS has neither, so a local copy travels with the game.
+It is here because it is the font the game actually draws with. Raw GDI
+reports TrueType=False for "MS Sans Serif" and selects a hand-tuned bitmap
+face; GDI+ substitutes the TrueType Microsoft Sans Serif, which is a different
+typeface with visibly different letterforms. Wine's file carries the same
+strikes, advances and letterforms as the raster font, and the game only uses
+the 16px strike, so the text looks and measures exactly as the original. A
+port to Linux or macOS has neither Windows font, so a local copy travels with
+the game.
 
-**Its licence does not permit redistribution.** Microsoft's font EULA allows use
-on a licensed Windows machine, not shipping the file inside someone else's
-project. This is the same open question as the game data above and it is
-recorded for the same reason - so it is settled deliberately rather than by
-default when the repository is pushed. The options:
-
-- **Ship it, as now.** Every platform renders identically to Windows, and
-  identically is meant literally: the text is pixel for pixel what GDI draws.
-- **Ship nothing and look the font up by name.** Legally clean, and the text
-  looks different on any machine that is not Windows - which is every machine
-  the port exists for.
-- **Ship a different bitmap font.** Legally clean if it is freely licensed, and
-  visibly not the same game.
-- **Extract only the glyphs the game uses into a sheet**, the way it already
-  stores its own bitmap font. Smaller, no font program redistributed, and the
-  glyph shapes are still Microsoft's design.
+An earlier revision shipped Microsoft's `sserife.fon`; it is not in the
+current tree or in the published history.
 
 `assets/fonts/PixelMplus12-Regular.ttf` draws the Japanese text. It is
 PixelMplus 1.0.0 by the M+ FONTS PROJECT, unmodified, under the M+ FONT
@@ -98,38 +83,39 @@ made magenta, and otherwise unchanged; the licence is beside it as
 ## The music
 
 The tracks in `midi/` are MIDI, which holds notes and no sound. The sound comes
-from an instrument bank, and two are shipped in `assets/soundfonts/`:
+from an instrument bank. One bank ships:
 
 | | |
 |---|---|
-| `gm.dls` | the Windows GS sound set - the default |
-| `GeneralUser-GS.sf2` | GeneralUser GS 2.0.3, the alternative and the fallback |
+| `GeneralUser-GS.sf2` | GeneralUser GS 2.0.3, the default |
 
-`system.ini` chooses between them (`[music] soundfont=gm` or `gs`).
+`system.ini` chooses the bank (`[music] soundfont=gs` or `gm`). The game still
+understands `gm`, but **`gm.dls` is not included**: it is copied from a Windows
+installation, and it is the Roland GS sound set that Roland licensed to
+Microsoft for use in Windows. It is what the original played through - the
+original handed its MIDI to the Windows synthesiser, and that synthesiser plays
+this file - but its licence does not permit redistribution. A player who has a
+licensed copy can drop it into `assets/soundfonts/` and select `gm` in the
+options screen; nothing else needs to change. Every Windows machine has it at
+`C:\Windows\System32\drivers\gm.dls`.
 
-**`gm.dls` is copied from a Windows installation**, and it is the Roland GS
-sound set that Roland licensed to Microsoft for use in Windows. It is here
-because it is what the game has always played through: the original handed its
-MIDI to the Windows synthesiser, and that synthesiser plays this file. A
-different bank plays the same notes on audibly different instruments. **Its
-licence does not permit redistribution** - the same open question as the font
-above, decided the same way for the same reason, and recorded so that it stays
-a decision. The options are the font's: ship it, as now; or ship only the free
-bank and let a player on Windows point the game at their own copy, which every
-Windows machine has at `C:\Windows\System32\drivers\gm.dls`.
+An earlier revision shipped `gm.dls`; it is not in the current tree or in the
+published history.
 
 **GeneralUser GS** is S. Christian Collins' free bank, modelled on the same
 Roland GS set. Its licence, shipped beside it as `GeneralUser-GS-LICENSE.txt`,
 invites use in software projects and repackaging. It also says, honestly, that
 the origin of every sample cannot be guaranteed.
 
-The banks are played by **FluidSynth** (`libfluidsynth-3.dll`) and the
-**libsndfile** it depends on (`sndfile.dll`), both LGPL-2.1, both vendored
-unmodified from FluidSynth's v2.6.1 Windows release in `third_party/fluidsynth/`
-with their licence texts. They are loaded at run time rather than linked, so
-they can be replaced - which is what the LGPL asks of a program using a library
-whose source it does not include. Elsewhere than Windows the system's own
-package provides them.
+The banks are played by **FluidSynth**, loaded at run time rather than linked,
+so it can be replaced - which is what the LGPL asks of a program using a
+library whose source it does not include. On Windows the vendored
+`libfluidsynth-3.dll` and the `sndfile.dll` it depends on (both LGPL-2.1, both
+unmodified from FluidSynth's v2.6.1 Windows release in
+`third_party/fluidsynth/`, with their licence texts) sit beside the executable.
+On Linux the game looks for `libfluidsynth.so.3` or `.so.2`; the PortMaster
+package supplies its own minimal build in `libs.aarch64/`, and any other system
+with the package installed uses that.
 
 ## What is deliberately absent
 
@@ -140,9 +126,9 @@ the reverse-engineering project, not to this one.
 `d3drm.dll` and `kbgm32.dll` shipped with the original release and are **not**
 needed either: this build reimplements the display and music components on
 SDL and FluidSynth, and loads neither. What it does load beside the executable
-is SDL (zlib licence), FluidSynth and libsndfile (LGPL-2.1) - see above. Two
-files are Microsoft's: the font and `gm.dls`, both recorded above as open
-questions.
+is SDL (zlib licence), FluidSynth and libsndfile (LGPL-2.1) - see above. No
+Microsoft file is required: the font is Wine's LGPL replacement, and `gm.dls`
+is optional and not shipped.
 
 ## The shipped save file
 

@@ -55,26 +55,25 @@ const
   { The same font as a file, under the game's data directory, so a port does
     not depend on the host having it installed.
 
-    It is the RASTER font, not a TrueType lookalike. Raw GDI - which is what
-    the game draws through - reports TrueType=False for "MS Sans Serif" and
-    selects sserife.fon, a hand-tuned bitmap face. GDI+ substitutes the
-    TrueType Microsoft Sans Serif for the same name and that is what misled an
-    earlier version of this comment; the letterforms differ visibly, most
-    obviously in 'a' and 'j'.
-
-    FreeType reads Windows FNT, so SDL_ttf opens this file directly.
+    The file is Wine's sserife.fon, its LGPL replacement for Microsoft's
+    raster "MS Sans Serif". Raw GDI reports TrueType=False for that name and
+    selects a hand-tuned bitmap face; GDI+ substitutes the TrueType Microsoft
+    Sans Serif, whose letterforms differ visibly, most obviously in 'a' and
+    'j'. Wine's file carries the same strikes, advances and letterforms as the
+    raster font, and FreeType reads Windows FNT, so SDL_ttf opens it directly.
+    The licence travels beside it.
 
     THE SIZE IS A FACE INDEX, NOT A POINT SIZE. A bitmap font carries fixed
     strikes rather than a scalable outline, and TTF_OpenFont ignores its ptsize
     argument for one - it always returns face 0. TTF_OpenFontIndex picks the
-    strike. This file holds six:
+    strike. This file holds three:
 
         face 0   13px cell    'Yes       ' = 39px
         face 1   16px cell    'Yes       ' = 45px    <- the original's strike
         face 2   20px cell    'Yes       ' = 56px
-        face 3   24px cell    'Yes       ' = 67px
-        face 4   29px cell    'Yes       ' = 84px
-        face 5   37px cell    'Yes       ' = 118px
+
+    The Microsoft file held six; the game only ever used face 1, and Wine's
+    replacement reproduces that 16px strike and its advances exactly.
 
     Face 1 is the one the ORIGINAL BINARY renders with, measured off
     screenshots of it rather than assumed. Two strings pin it independently:

@@ -129,8 +129,11 @@ const
   { The SYSTEM font path - the opening narration, the ending lines and the
     dialogue box. Pinned separately because it is drawn by the platform
     rather than blitted from a sheet, so it is the one scene an SDL target
-    reproduces with a different rasteriser entirely. }
-  BASELINE_OUTLINED = $47FFC7E9;
+    reproduces with a different rasteriser entirely.
+    Re-pinned when sserife.fon became Wine's replacement: the advances are
+    identical, but the bitmap glyphs are not the ones the old pin was taken
+    with, and the draw changes 12 fewer pixels (1135). }
+  BASELINE_OUTLINED = $382857A3;
 
 { Compare one measured checksum against its pinned value. A zero pin means
   the thing has not been pinned yet: it reports what it measured and does not

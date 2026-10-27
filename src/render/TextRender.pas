@@ -25,9 +25,10 @@
 
   A bitmap font has fixed strikes rather than a scalable outline, so the size
   is a FACE INDEX. TTF_OpenFont ignores its ptsize for such a face and always
-  hands back face 0; TTF_OpenFontIndex picks. The file holds six, and the game
-  renders with the first, so that is the one used here - the text looks exactly
-  as it does today rather than merely similar.
+  hands back face 0; TTF_OpenFontIndex picks. The shipped file is Wine's
+  replacement and holds three strikes; the game renders with face 1, so that
+  is the one used here - the text looks exactly as it does today rather than
+  merely similar.
 
   The save prompt's overlap travels with that choice, which is why the render
   test reports the prompt width rather than asserting it.

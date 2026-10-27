@@ -15,7 +15,13 @@ Pascal header translations for SDL2 and its satellite libraries.
 | licence | MPL-2.0 or zlib, at your option - both texts are in the directory |
 
 Only the header translations are used: `sdl2.pas` and `sdl2_mixer.pas`, with
-the `.inc` files they include. Nothing here is modified.
+the `.inc` files they include.
+
+One change is applied here: `sdl2.pas`'s Unix `uses` clause names `X` and
+`XLib` although nothing in the unit uses them, and Free Pascal links a used
+unit's whole import table, so every Linux binary carried a hard
+`NEEDED libX11.so.6`. The two units are now named only on the non-FPC path, so
+FPC builds (the port's) do not link X11. Nothing else is modified.
 
 ## sdl2
 
