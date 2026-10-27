@@ -105,7 +105,7 @@ end;
 
 function SelfTestMusic(Log: TStrings): Integer;
 var
-  GameDir, BankGM, BankGS, Midi: string;
+  GameDir, BankGM, BankGS, Bank, BankName, Midi: string;
   Bad: Integer;
 
   procedure Want(Cond: Boolean; const Msg: string);
@@ -122,7 +122,7 @@ var
     oscillators carry on - so every comparison below starts from here. }
   procedure Fresh(Synth: TMusicSynth; Effects: Boolean = False);
   begin
-    Want(Synth.Open(BankGM, Effects), 'gm.dls did not load: ' + Synth.LastError);
+    Want(Synth.Open(Bank, Effects), BankName + ' did not load: ' + Synth.LastError);
     Synth.SetGain(1.0);
   end;
 
@@ -147,6 +147,19 @@ begin
   Midi := GameDir + 'midi' + PathDelim;
   BankGM := GameDir + SOUNDFONT_DIR + PathDelim + SOUNDFONT_GM_FILE;
   BankGS := GameDir + SOUNDFONT_DIR + PathDelim + SOUNDFONT_GS_FILE;
+  { The release ships GeneralUser GS; gm.dls is optional and not in the repo.
+    Render with whichever bank is present, and test the DLS path only when
+    the player has supplied gm.dls. }
+  if FileExists(BankGS) then
+  begin
+    Bank := BankGS;
+    BankName := 'GeneralUser GS';
+  end
+  else
+  begin
+    Bank := BankGM;
+    BankName := 'gm.dls';
+  end;
   Log.Add(Format('game dir: %s', [GameDir]));
 
   if not LoadFluidSynth then
@@ -161,10 +174,13 @@ begin
 
   Synth := TMusicSynth.Create;
   try
-    { 1. Both banks load. }
-    Want(Synth.Open(BankGS, False), 'GeneralUser GS did not load: ' + Synth.LastError);
-    Want(Synth.Open(BankGM, False), 'gm.dls did not load: ' + Synth.LastError);
-    Log.Add('both instrument banks load');
+    { 1. The shipped bank loads; the optional DLS bank does too when present. }
+    Want(Synth.Open(Bank, False), BankName + ' did not load: ' + Synth.LastError);
+    Log.Add(BankName + ' loads');
+    if FileExists(BankGM) then
+      Want(Synth.Open(BankGM, False), 'gm.dls did not load: ' + Synth.LastError)
+    else
+      Log.Add('gm.dls not present - the DLS check is skipped');
 
     { 2. A track makes sound, without clipping. }
     Want(Synth.Play(Main01, True), 'main01 would not play');
@@ -271,7 +287,7 @@ begin
 
     { 9. Every track in the playlist plays and makes sound - except init,
          which is a setup sequence with no notes. }
-    Want(Synth.Open(BankGM, False), 'gm.dls did not reload');
+    Want(Synth.Open(Bank, False), BankName + ' did not reload');
     Names := TStringList.Create;
     try
       FindAllMidi(Midi, Names);

@@ -1,0 +1,26 @@
+Akuji the Demon - origin and attribution
+
+The game: "Akuji the Demon" (魔王のアクジ), a freeware action-platformer by
+Buster (E. Hashimoto), first released in December 2001. The original official
+distribution ended in 2015. The game data in assets/ is Buster's work.
+
+The English translation: D's translation of the game (also credited as the
+"Do-jin Nyuu" translation), released in 2003 and used for the English text
+converted into assets/lang/en.po. The English text is D's work.
+
+The port: the source reconstruction and the SDL2 port by abdullahtrees. The
+reconstruction is a clean-room reimplementation from the original binary's
+observed behaviour; no original source was available.
+
+The port ships the original game data as a preservation measure. Permission
+from the original author, or from the translation's publisher, has not been
+confirmed. If you hold the rights to this work and want the data removed from
+this distribution, contact the porter.
+
+Not included: gm.dls, Microsoft's Windows GS sound bank. The game still
+supports it as an optional "gm" bank; a player who owns a licensed copy may
+place it in assets/soundfonts/.
+
+The shipped font is Wine's sserife.fon, under the LGPL-2.1; its licence is in
+LICENSE-wine-fonts.txt. The shipped music bank is GeneralUser GS, whose licence
+is in LICENSE-GeneralUser-GS.txt.

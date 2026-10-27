@@ -1,0 +1,34 @@
+{
+  "version": 4,
+  "name": "akuji.zip",
+  "items": [
+    "Akuji.sh",
+    "akuji"
+  ],
+  "items_opt": [],
+  "attr": {
+    "title": "Akuji the Demon",
+    "porter": [
+      "abdullahtrees"
+    ],
+    "desc": "A source port of Buster's 2001 freeware action-platformer. Stripped of his powers by a hero, the demon Akuji fights through one large castle to win them back from its bosses.",
+    "desc_md": null,
+    "inst": "Ready to run. No additional files needed. The original Windows gm.dls bank is optional; copy your own into assets/soundfonts/ if you want it.",
+    "inst_md": null,
+    "genres": [
+      "action",
+      "platformer"
+    ],
+    "image": null,
+    "rtr": true,
+    "exp": false,
+    "runtime": [],
+    "store": [],
+    "availability": "full",
+    "reqs": [],
+    "arch": [
+      "aarch64"
+    ],
+    "min_glibc": ""
+  }
+}

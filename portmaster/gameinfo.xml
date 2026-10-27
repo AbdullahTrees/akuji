@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gameList>
+  <game>
+    <path>./Akuji.sh</path>
+    <name>Akuji the Demon</name>
+    <desc>Akuji the Demon is a 2001 freeware action-platformer by Buster. A hero strips the demon Akuji of his powers; he fights through a single large castle, winning each ability back from its boss.</desc>
+    <releasedate>20011225T000000</releasedate>
+    <developer>Buster</developer>
+    <publisher>Buster</publisher>
+    <genre>Action</genre>
+    <image>./akuji/screenshot.png</image>
+  </game>
+</gameList>
