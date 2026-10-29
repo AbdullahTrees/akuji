@@ -26,12 +26,19 @@ cd "$REPO"
 }
 
 # Copies a library's NEEDED closure into libs.aarch64/, each under the exact
-# SONAME the loader asks for. libc and the dynamic linker are the CFW's.
+# SONAME the loader asks for. The CFW baseline is left to the device: glibc,
+# the C++ runtime, zlib, SDL2, and the GPU/display stack are built and patched
+# per device, and a bundled copy shadows them - which is how ports get
+# device-only input, display and segfault bugs. What remains is the port's own
+# dependency chain (FluidSynth, its DLS/soundfile libraries, and their glib),
+# none of which the baseline promises.
 copy_closure() {
     local src="$1" soname dep
     for soname in $(readelf -d "$src" | sed -n 's/.*Shared library: \[\(.*\)\]/\1/p'); do
         case "$soname" in
-            libc.so.6|libm.so.6|libpthread.so.0|libdl.so.2|librt.so.1|ld-linux-aarch64.so.1)
+            libc.so.6|libm.so.6|libpthread.so.0|libdl.so.2|librt.so.1|ld-linux-aarch64.so.1|\
+            libstdc++.so.6|libgcc_s.so.1|libz.so.1|\
+            libSDL2*|libGL.so*|libGLX*|libEGL*|libGLES*|libdrm.so*|libgbm.so*|libwayland*|libmali*)
                 continue ;;
         esac
         [ -e "$GAME/libs.aarch64/$soname" ] && continue
@@ -138,6 +145,10 @@ file "$GAME/akuji.aarch64" | grep -q "ARM aarch64" \
     || { echo "FAILED: libX11 is still NEEDED" >&2; fail=1; }
 [ -z "$(find "$GAME/libs.aarch64" -name 'libSDL2*')" ] \
     || { echo "FAILED: SDL2 is bundled" >&2; fail=1; }
+[ -z "$(find "$GAME/libs.aarch64" \( -name 'libstdc++*' -o -name 'libgcc_s*' -o -name 'libz.so*' \
+    -o -name 'libGL*' -o -name 'libEGL*' -o -name 'libGLES*' -o -name 'libdrm*' -o -name 'libgbm*' \
+    -o -name 'libwayland*' \) )" ] \
+    || { echo "FAILED: a core system library is bundled" >&2; fail=1; }
 [ -z "$(find "$DIST" -type l)" ] \
     || { echo "FAILED: package contains symlinks" >&2; fail=1; }
 ! tar -tzf "$GAME/gamedata.tar.gz" | grep -qE 'save\.dat|system\.dat|gm\.dls' \
