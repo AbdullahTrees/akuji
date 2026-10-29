@@ -46,6 +46,19 @@ The general targets work on either desktop platform:
 
 ### What the build needs
 
+What the repository carries, and what the machine has to provide:
+
+| target | from the repository | from the machine |
+|---|---|---|
+| Windows | the SDL2, SDL2_ttf and FluidSynth DLLs and import libraries, and the build scripts | Free Pascal 3.2, from a [Lazarus](https://www.lazarus-ide.org/) install or `FPC=` |
+| Linux | the build scripts, and Free Pascal 3.2.2 fetched and checksum-verified on the first build | the SDL2 and SDL2_ttf development packages |
+| PortMaster | the Ubuntu 20.04 build container, its FluidSynth build and the package layout | Docker; network access to build the image |
+
+The compiler is needed to build, never to run: the program links Free Pascal's
+runtime statically, and needs no Free Pascal installation. On Windows the only
+libraries it loads are the system's own and the SDL2, SDL2_ttf and FluidSynth
+DLLs sitting beside the executable.
+
 **Free Pascal 3.2.** On Linux there is nothing to install: if no 3.2 compiler
 is on PATH, the first `make` downloads the official 3.2.2 release for the
 machine's architecture (about 100 MB, once), checks it against a pinned
