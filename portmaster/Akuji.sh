@@ -45,6 +45,9 @@ $GPTOKEYB2 "akuji" -c "$GAMEDIR/akuji.ini" > /dev/null 2>&1 &
 
 pm_platform_helper "$GAMEDIR/$BINARY"
 
+# Zip extraction may drop the executable bit; put it back.
+$ESUDO chmod +x "$GAMEDIR/$BINARY"
+
 ./"$BINARY"
 
 pm_finish
