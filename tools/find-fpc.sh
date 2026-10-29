@@ -43,6 +43,11 @@ for fetched in "$REPO"/.toolchain/fpc-3.2.*-*/bin/fpc; do
     [ -x "$fetched" ] || continue
     cfg="$(dirname "$(dirname "$fetched")")/etc"
     if version_ok "$fetched" "$cfg"; then
+        # The configuration names the checkout path it was unpacked under, and
+        # a compiler with a stale one cannot find its own run time. fetch-fpc.sh
+        # rewrites it when that path has changed - a moved checkout, a new
+        # clone, or the PortMaster container mounting the repo somewhere else.
+        "$REPO/tools/fetch-fpc.sh" >/dev/null
         emit "$fetched" "$cfg"
     fi
 done
