@@ -7,6 +7,8 @@ Pascal, together with the data the game loads.
 
 It builds with Free Pascal, draws and plays sound through SDL2, and
 plays the real game — the same stages, entities, scripts, music and endings.
+Testing builds for PortMaster are published separately in
+[akuji-builds](https://github.com/AbdullahTrees/akuji-builds).
 
 ## Build and run
 
@@ -18,6 +20,20 @@ bin/akuji               # plays
 On Windows run `make` from Git Bash; `tools/build.sh` does the same without
 make. Built and tested with Free Pascal 3.2.2 on 64-bit Windows and on
 aarch64 Linux (the PortMaster build image, Ubuntu 20.04).
+
+The game has three release targets, one per platform it ships to:
+
+| target | where it builds | what it produces |
+|---|---|---|
+| `make windows` | Windows, Git Bash | `bin/akuji.exe`, optimised and stripped, with the vendored SDL2 and FluidSynth DLLs beside it |
+| `make linux` | Linux | `bin/akuji`, optimised and stripped |
+| `make portmaster` | any host with Docker | `dist/akuji.zip`, the PortMaster testing zip, and `dist/Akuji`, the folder the PortMaster PR expects |
+
+Free Pascal compiles for the machine it runs on, so the Windows and Linux
+releases are built on their own systems, not cross-compiled; naming the other
+platform says which target to run instead.
+
+The general targets work on either desktop platform:
 
 | target | what it does |
 |---|---|
@@ -72,6 +88,16 @@ make release
 3 MB rather than 30 MB. Almost all of the difference is debug information, not
 code: the default build keeps symbols because they are what makes a crash
 report worth having. The release build passes the same tests.
+
+### PortMaster package
+
+`make portmaster` builds the shipped package: the aarch64 release inside an
+Ubuntu 20.04 container (PortMaster's glibc floor), a minimal FluidSynth beside
+it, and the game data in `gamedata.tar.gz`, arranged the way PortMaster
+installs a port. It needs Docker; on an x86_64 host the arm64 container runs
+under emulation, slower but the same result. The launch script, metadata and
+licences are in `portmaster/`; `portmaster/build.sh` is the whole package
+build, and `tools/package-portmaster.sh` only runs it in the container.
 
 ### Building by hand
 

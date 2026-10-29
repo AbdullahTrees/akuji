@@ -8,6 +8,8 @@
 *.sh text eol=lf
 # Make likewise: a CRLF recipe line hands the shell "tools/build.sh".
 Makefile text eol=lf
+# The docker client parses this one out of the working tree.
+Dockerfile text eol=lf
 # Translation files, for the gettext tools that read them.
 *.po text eol=lf
 *.pot text eol=lf

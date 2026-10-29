@@ -15,4 +15,4 @@ The music plays through the GeneralUser GS bank. The original Windows `gm.dls` b
 
 ## Compile
 
-The source is not published yet. The build uses Free Pascal 3.2 and the SDL2 and SDL2_ttf development packages; on an aarch64 Linux, such as the PortMaster build image, `make release` produces the shipped `bin/akuji`.
+The source is at https://github.com/AbdullahTrees/akuji. From a clone, `make portmaster` builds this package in an Ubuntu 20.04 aarch64 container: the release binary, the FluidSynth it uses, the game data, and the testing zip in `dist/akuji.zip`. `make windows` and `make linux` build the desktop releases on their own systems.

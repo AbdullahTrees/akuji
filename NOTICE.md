@@ -1,7 +1,7 @@
 # Notice on origin and redistribution
 
 Two different things live in this repository and they do not have the same
-status. Read this before making the repository public.
+status. Read this before publishing or redistributing this repository.
 
 ## The code
 
@@ -65,8 +65,9 @@ the 16px strike, so the text looks and measures exactly as the original. A
 port to Linux or macOS has neither Windows font, so a local copy travels with
 the game.
 
-An earlier revision shipped Microsoft's `sserife.fon`; it is not in the
-current tree or in the published history.
+An earlier revision shipped Microsoft's `sserife.fon`, and before that
+Microsoft Sans Serif (`micross.ttf`); neither is in the current tree or in
+the published history.
 
 `assets/fonts/PixelMplus12-Regular.ttf` draws the Japanese text. It is
 PixelMplus 1.0.0 by the M+ FONTS PROJECT, unmodified, under the M+ FONT
