@@ -7,8 +7,8 @@ Pascal, together with the data the game loads.
 
 It builds with Free Pascal, draws and plays sound through SDL2, and
 plays the real game — the same stages, entities, scripts, music and endings.
-Testing builds for PortMaster are published separately in
-[akuji-builds](https://github.com/AbdullahTrees/akuji-builds).
+Windows and PortMaster builds are attached to this repository's
+[releases](https://github.com/AbdullahTrees/akuji/releases).
 
 ## Build and run
 
