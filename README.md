@@ -252,6 +252,12 @@ That separation is deliberate. The two have different goals: `akuji-re` answers
 "what did the original binary do", and this one answers "does the game run
 correctly here". Where those ever disagree, this repository follows the game.
 
+## Licence
+
+The source reconstruction and port are MIT licensed. [LICENSE](LICENSE) holds
+the licence text, the third-party components' licences, and Buster's original
+copyright notice from the game's own documentation.
+
 ## NOTICE
 
 The code is a reconstruction. The contents of `assets/` are not — they are the

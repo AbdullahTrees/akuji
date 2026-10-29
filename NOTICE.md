@@ -9,9 +9,10 @@ status. Read this before publishing or redistributing this repository.
 written by reading the original binary's behaviour and reimplementing it in
 Object Pascal; no original source was available, because it was never released.
 
-**No licence has been chosen yet.** Until one is, the usual default applies and
-nobody has been granted permission to copy or modify this. Picking a licence is
-an open decision, and it interacts with the next section.
+**Licence: MIT.** [LICENSE](LICENSE) holds it, together with Buster's own
+copyright notice and the third-party components' licences. It covers this
+project's code only: it grants no rights over the game data below, which
+remains Buster's.
 
 ## The data
 
